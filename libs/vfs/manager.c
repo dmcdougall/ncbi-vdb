@@ -3483,20 +3483,20 @@ LIB_EXPORT rc_t CC VFSManagerSetCacheRoot( const VFSManager * self, struct VPath
 }
 
 
-static rc_t inspect_file( KDirectory * dir, KTime_t date, const char * path )
+static rc_t inspect_file( KDirectory * dir, KTime_t trim_date, const char * path )
 {
     KTime_t file_date;
     rc_t rc = KDirectoryDate ( dir, &file_date, "%s", path );
     if ( rc == 0 )
     {
-        if ( file_date < date )
+        if ( file_date < trim_date )
             KDirectoryRemove ( dir, false, "%s", path );
     }
     return rc;
 } 
 
 
-static rc_t inspect_dir( KDirectory * dir, KTime_t date, const char * path )
+static rc_t inspect_dir( KDirectory * dir, KTime_t trim_date, const char * path )
 {
     KNamelist * itemlist;
     rc_t rc = KDirectoryList( dir, &itemlist, NULL, NULL, "%s", path );
@@ -3517,8 +3517,8 @@ static rc_t inspect_dir( KDirectory * dir, KTime_t date, const char * path )
                     uint32_t pathtype = KDirectoryPathType( dir, "%s", item_path );
                     switch( pathtype )
                     {
-                        case kptFile : rc = inspect_file( dir, date, item_path ); break;
-                        case kptDir  : rc = inspect_dir( dir, date, item_path ); break; /* recursion! */
+                        case kptFile : rc = inspect_file( dir, trim_date, item_path ); break;
+                        case kptDir  : rc = inspect_dir( dir, trim_date, item_path ); break; /* recursion! */
                         default : break;
                     }
                 }
@@ -3540,36 +3540,45 @@ LIB_EXPORT rc_t CC VFSManagerDeleteCacheOlderThan ( const VFSManager * self,
         rc = RC ( rcVFS, rcMgr, rcSelecting, rcItem, rcNull );
     else
     {
-        /* loop through the user-repositories to get the root property */
-        const KRepositoryMgr * repo_mgr;
-        rc = KConfigMakeRepositoryMgrRead ( self -> cfg, &repo_mgr );
+        /* if we do not have at least one user-repo, create it! */
+        rc = check_for_user_repo( self );
         if ( rc == 0 )
         {
-            KRepositoryVector user_repos;
-            rc = KRepositoryMgrUserRepositories ( repo_mgr, &user_repos );
+            /* loop through the user-repositories to get the root property */
+            const KRepositoryMgr * repo_mgr;
+            rc = KConfigMakeRepositoryMgrRead( self -> cfg, &repo_mgr );
             if ( rc == 0 )
             {
-                uint32_t start = VectorStart( &user_repos );
-                uint32_t count = VectorLength( &user_repos );
-                uint32_t idx;
-                for ( idx = 0; rc == 0 && idx < count; ++idx )
+                KRepositoryVector user_repos;
+                rc = KRepositoryMgrUserRepositories( repo_mgr, &user_repos );
+                if ( rc == 0 )
                 {
-                    KRepository * repo = VectorGet ( &user_repos, idx + start );
-                    if ( repo != NULL )
+                    uint32_t start = VectorStart( &user_repos );
+                    uint32_t count = VectorLength( &user_repos );
+                    uint32_t idx;
+                    for ( idx = 0; rc == 0 && idx < count; ++idx )
                     {
-                        char path[ 4096 ];
-                        size_t root_size;
-                        rc = KRepositoryRoot ( repo, path, sizeof path, &root_size );
-                        if ( rc == 0 )
+                        KRepository * repo = VectorGet( &user_repos, idx + start );
+                        if ( repo != NULL )
                         {
-                            KTime_t date = KTimeStamp() - ( days * 60 * 60 * 24 );
-                            rc = inspect_dir( self->cwd, date, path );
+                            char path[ 4096 ];
+                            size_t root_size;
+                            rc = KRepositoryRoot( repo, path, sizeof path, &root_size );
+                            if ( rc == 0 && root_size > 0 )
+                            {
+                                /* this is the case of an artificially set user-repo... */
+                                if ( path[ 0 ] != '$' || path[ 1 ] != '(' )
+                                {
+                                    KTime_t trim_date = KTimeStamp() - ( days * 60 * 60 * 24 );
+                                    rc = inspect_dir( self->cwd, trim_date, path );
+                                }
+                            }
                         }
                     }
+                    KRepositoryVectorWhack( &user_repos );
                 }
-                KRepositoryVectorWhack ( &user_repos );
+                KRepositoryMgrRelease( repo_mgr );
             }
-            KRepositoryMgrRelease ( repo_mgr );
         }
     }
     return rc;

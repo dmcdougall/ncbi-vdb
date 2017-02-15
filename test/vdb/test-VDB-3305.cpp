@@ -73,7 +73,7 @@ const char other_path[] = "/some/other/path";
     test VDBManagerSetCacheRoot() with invalid and valid parameters
     set the value to "/home/user/somepath"
 */
-TEST_CASE( SetCacheRoot_1 )
+TEST_CASE( SetCacheRoot )
 {
     VPath * vpath;
     rc_t rc = VFSManagerMakePath( vfs_mgr, &vpath, other_path );
@@ -86,6 +86,12 @@ TEST_CASE( SetCacheRoot_1 )
 
     if ( vpath != NULL )
         VPathRelease( vpath );
+}
+
+
+TEST_CASE( DeleteCacheOlderThan )
+{
+    REQUIRE_RC( VDBManagerDeleteCacheOlderThan ( vdb_mgr, 0 ) );
 }
 
 
