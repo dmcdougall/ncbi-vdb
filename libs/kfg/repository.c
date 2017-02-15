@@ -1057,6 +1057,7 @@ LIB_EXPORT rc_t CC KConfigMakeRepositoryMgrRead ( const KConfig *self, const KRe
     return rc;
 }
 
+
 LIB_EXPORT rc_t CC KConfigMakeRepositoryMgrUpdate ( KConfig *self, KRepositoryMgr **mgrp )
 {
     rc_t rc;

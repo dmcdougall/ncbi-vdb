@@ -3341,6 +3341,52 @@ LIB_EXPORT rc_t CC VFSManagerGetCacheRoot ( const VFSManager * self,
     return rc;
 }
 
+static rc_t set_dflt_config_value( KConfig * cfg, const char * path, const char * value )
+{
+    String * S;
+    rc_t rc = KConfigReadString( cfg, path, &S );
+    if ( rc != 0 )
+        rc = KConfigWriteString( cfg, path, value );
+    return rc;
+}
+
+static rc_t check_for_user_repo( const VFSManager * self )
+{
+    rc_t rc = set_dflt_config_value( self->cfg, "/repository/user/main/public/apps/file/volumes/flat", "files" );
+    if ( rc == 0 )
+        rc = set_dflt_config_value( self->cfg, "/repository/user/main/public/apps/nakmer/volumes/nakmerFlat", "nannot" );
+    if ( rc == 0 )
+        rc = set_dflt_config_value( self->cfg, "/repository/user/main/public/apps/nannot/volumes/nannotFlat", "nannot" );
+    if ( rc == 0 )
+        rc = set_dflt_config_value( self->cfg, "/repository/user/main/public/apps/refseq/volumes/refseq", "refseq" );
+    if ( rc == 0 )
+        rc = set_dflt_config_value( self->cfg, "/repository/user/main/public/apps/sra/volumes/sraFlat", "sra" );
+    if ( rc == 0 )
+        rc = set_dflt_config_value( self->cfg, "/repository/user/main/public/apps/wgs/volumes/wgsFlat", "wgs" );
+    if ( rc == 0 )
+        rc = set_dflt_config_value( self->cfg, "/repository/user/main/public/cache-enabled", "true" );
+    if ( rc == 0 )
+        rc = set_dflt_config_value( self->cfg, "/repository/user/cache-disabled", "false" );
+    if ( rc == 0 )
+    {
+        String * S;
+        rc = KConfigReadString( self->cfg, "/repository/user/main/public/root", &S );
+        if ( rc != 0 )
+        {
+            char home[ 4096 ];
+            size_t num_read, remaining;
+            rc = KConfigRead( self->cfg, "HOME", 0, home, sizeof home, &num_read, &remaining );
+            if ( rc == 0 )
+            {
+                char new_root[ 4096 ];
+                rc = string_printf( new_root, sizeof new_root, &remaining, "%s/.ncbi", home );
+                if ( rc == 0 )
+                    rc = KConfigWriteString( self->cfg, "/repository/user/main/public/root", new_root );        
+            }
+        }
+    }
+    return rc;
+}
 
 /*
     repo-path for instance '/repository/user/main/public'
@@ -3349,8 +3395,44 @@ LIB_EXPORT rc_t CC VFSManagerGetCacheRoot ( const VFSManager * self,
 */
 static const char * indirect_root = "$(repository/user/default-path)/%s";
 
-LIB_EXPORT rc_t CC VFSManagerSetCacheRoot ( const VFSManager * self,
-    struct VPath const * path )
+static rc_t append_current_root_to_history_and_set_root_relative_to_dflt_path( KRepository * repo )
+{
+    rc_t rc = KRepositoryAppendToRootHistory( repo, NULL );
+    if ( rc == 0 )
+    {
+        char repo_name[ 512 ];
+        size_t repo_name_len;
+        rc = KRepositoryName( repo, repo_name, sizeof repo_name, &repo_name_len );
+        if ( rc == 0 )
+        {
+            char new_root[ 4096 ];
+            size_t num_writ;
+            repo_name[ repo_name_len ] = 0;
+            rc = string_printf( new_root, sizeof new_root, &num_writ, indirect_root, repo_name );
+            if ( rc == 0 )
+                rc = KRepositorySetRoot( repo, new_root, string_size( new_root ) );
+        }
+    }
+    return rc;
+}
+
+static rc_t append_current_root_to_history_and_set_root_relative_to_dflt_path_fo_all( KRepositoryVector * user_repos )
+{
+    rc_t rc = 0;
+    uint32_t start = VectorStart( user_repos );
+    uint32_t count = VectorLength( user_repos );
+    uint32_t idx;
+    for ( idx = 0; rc == 0 && idx < count; ++idx )
+    {
+        KRepository * repo = VectorGet( user_repos, idx + start );
+        if ( repo != NULL )
+            rc = append_current_root_to_history_and_set_root_relative_to_dflt_path( repo );
+    }
+    KRepositoryVectorWhack ( user_repos );
+    return rc;
+}
+
+LIB_EXPORT rc_t CC VFSManagerSetCacheRoot( const VFSManager * self, struct VPath const * path )
 {
     rc_t rc;
     if ( path == NULL )
@@ -3361,63 +3443,39 @@ LIB_EXPORT rc_t CC VFSManagerSetCacheRoot ( const VFSManager * self,
         rc = RC ( rcVFS, rcMgr, rcSelecting, rcItem, rcNull );
     else
     {
-        /* loop through the user-repositories to set the root property to the indirect path */
-        KRepositoryMgr * repo_mgr;
-        rc = KConfigMakeRepositoryMgrUpdate ( self -> cfg, &repo_mgr );
+        /* if we do not have at least one user-repo, create it! */
+        rc = check_for_user_repo( self );
         if ( rc == 0 )
         {
-            KRepositoryVector user_repos;
-            rc = KRepositoryMgrUserRepositories ( repo_mgr, &user_repos );
+            /* loop through the user-repositories to set the root property to the indirect path */
+            KRepositoryMgr * repo_mgr;
+            rc = KConfigMakeRepositoryMgrUpdate( self -> cfg, &repo_mgr );
             if ( rc == 0 )
             {
-                uint32_t start = VectorStart( &user_repos );
-                uint32_t count = VectorLength( &user_repos );
-                uint32_t idx;
-                for ( idx = 0; rc == 0 && idx < count; ++idx )
-                {
-                    KRepository * repo = VectorGet ( &user_repos, idx + start );
-                    if ( repo != NULL )
-                    {
-                        /* ask the repository to add it's current root to the root-history */
-                        rc = KRepositoryAppendToRootHistory( repo, NULL );
-                        if ( rc == 0 )
-                        {
-                            char repo_name[ 512 ];
-                            size_t repo_name_len;
-                            rc = KRepositoryName( repo, repo_name, sizeof repo_name, &repo_name_len );
-                            if ( rc == 0 )
-                            {
-                                char new_root[ 4096 ];
-                                size_t num_writ;
-                                repo_name[ repo_name_len ] = 0;
-                                rc = string_printf( new_root, sizeof new_root, &num_writ, indirect_root, repo_name );
-                                if ( rc == 0 )
-                                    rc = KRepositorySetRoot( repo, new_root, string_size( new_root ) );
-                            }
-                        }
-                    }
-                }
-                KRepositoryVectorWhack ( &user_repos );
-            }
-            KRepositoryMgrRelease ( repo_mgr );
-        }
-
-        /* write the new indirect path */
-        if ( rc == 0 )
-        {
-            String const * spath = NULL;
-            rc = VPathMakeString ( path, &spath );
-            if ( rc == 0 )
-            {
-                rc = KConfigWriteSString( self -> cfg, default_path_key, spath );
-                StringWhack( spath );
-                /*
-                    we do not commit, because ticket VDB-3060: 
-                    GBench wants to change the cache-root, but to automatically revert to previous value
-                    when GBench exits, this is achieved by not commiting here.
+                KRepositoryVector user_repos;
+                rc = KRepositoryMgrUserRepositories( repo_mgr, &user_repos );
                 if ( rc == 0 )
-                    rc = KConfigCommit ( self -> cfg );
-                */
+                    rc = append_current_root_to_history_and_set_root_relative_to_dflt_path_fo_all( &user_repos );
+                KRepositoryMgrRelease( repo_mgr );
+            }
+
+            /* write the new indirect path */
+            if ( rc == 0 )
+            {
+                String const * spath = NULL;
+                rc = VPathMakeString( path, &spath );
+                if ( rc == 0 )
+                {
+                    rc = KConfigWriteSString( self -> cfg, default_path_key, spath );
+                    StringWhack( spath );
+                    /*
+                        we do not commit, because ticket VDB-3060: 
+                        GBench wants to change the cache-root, but to automatically revert to previous value
+                        when GBench exits, this is achieved by not commiting here.
+                    if ( rc == 0 )
+                        rc = KConfigCommit ( self -> cfg );
+                    */
+                }
             }
         }
     }
