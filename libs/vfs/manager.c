@@ -3526,6 +3526,11 @@ static rc_t inspect_dir( KDirectory * dir, KTime_t trim_date, const char * path 
         }
         KNamelistRelease( itemlist );
     }
+    else
+    {
+        /* if we cannot list, then just return */
+        rc = 0;
+    }
     return rc;
 }
 
