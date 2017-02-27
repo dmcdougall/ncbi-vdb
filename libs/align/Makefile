@@ -32,7 +32,8 @@ INT_LIBS = \
 	libncbi-bam \
 	libalign-writer \
 	libalign-access \
-	libalign-reader
+	libalign-reader \
+	libsam-extract
 
 ALL_LIBS = \
 	$(INT_LIBS)
@@ -41,7 +42,8 @@ OBJFILES =              \
 	$(BAM_OBJ)          \
 	$(ALIGN_ACCESS_OBJ) \
 	$(ALIGN_READER_OBJ) \
-	$(ALIGN_WRITER_OBJ)
+	$(ALIGN_WRITER_OBJ) \
+	$(SAM_EXTRACT_OBJ)
 
 include $(TOP)/build/Makefile.env
 
@@ -161,3 +163,30 @@ $(ILIBDIR)/libalign-writer.$(LIBX): $(ALIGN_WRITER_OBJ)
 compile: stdcompile
 
 $(TARGDIR)/compile: $(OBJFILES)
+
+
+#-------------------------------------------------------------------------------
+# samextract
+#
+$(ILIBDIR)/libsam-extract: $(addprefix $(ILIBDIR)/libsam-extract.,$(LIBX))
+
+SAM_EXTRACT_SRC = \
+     samextract-grammar \
+     samextract-lex \
+     samextract-lib
+
+SAM_EXTRACT_OBJ = \
+	$(addsuffix .$(LOBX),$(SAM_EXTRACT_SRC))
+
+SAM_EXTRACT_LIB = 
+
+$(ILIBDIR)/libsam-extract.$(LIBX): $(SAM_EXTRACT_OBJ)
+	$(LD) --slib -o $@ $^ $(SAM_EXTRACT_LIB)
+
+compile: stdcompile
+
+$(TARGDIR)/compile: $(OBJFILES)
+
+
+
+
