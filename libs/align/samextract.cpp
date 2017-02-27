@@ -45,7 +45,7 @@
 #include <regex.h>
 #include <stdint.h>
 #include <unistd.h>
-#include "samextract-lib.h"
+#include <align/samextract-lib.h>
 
 
 rc_t CC UsageSummary(char const *name)

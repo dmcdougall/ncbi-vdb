@@ -31,7 +31,7 @@
 #include <klib/vector.h>
 #include <zlib.h>
 #include <sys/types.h>
-#include "samextract-lib.h"
+#include <align/samextract-lib.h>
 
 typedef enum chunk_state { empty, compressed, uncompressed } chunk_state;
 

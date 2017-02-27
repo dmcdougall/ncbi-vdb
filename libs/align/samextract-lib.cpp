@@ -46,7 +46,7 @@
 #include <stdint.h>
 #include <unistd.h>
 #include "samextract.h"
-#include "samextract-lib.h"
+#include <align/samextract-lib.h>
 
 
 extern "C" {

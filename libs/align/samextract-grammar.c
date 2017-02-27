@@ -86,7 +86,7 @@
     #include <stdint.h>
 
     #include "samextract.h"
-    #include "samextract-lib.h"
+    #include <align/samextract-lib.h>
     #include "samextract-tokens.h"
 
     #define YYDEBUG 1
