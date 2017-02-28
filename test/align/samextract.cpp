@@ -48,9 +48,14 @@
 #include <align/samextract-lib.h>
 
 
+ver_t CC KAppVersion ( void )
+{
+    return 0x1000000;
+}
+
 rc_t CC UsageSummary(char const *name)
 {
-    fprintf(stderr, "Usage: %s file.{sb}am [file...]", name);
+    fprintf(stderr, "Usage: %s file.{sb}am [file...]\n", name);
     return 0;
 }
 
@@ -71,21 +76,21 @@ rc_t CC KMain(int argc, char *argv[])
         printf("Made extractor\n");
 
         Vector headers;
-        rc=ExtractorGetHeaders(&extractor, &headers);
+        rc=ExtractorGetHeaders(extractor, &headers);
         for (uint32_t i=0; i!=VectorLength(&headers); ++i)
         {
             Header * hdr=(Header *)VectorGet(&headers,i);
             printf("\tHeader%d: %s %s %s\n", i, hdr->headercode, hdr->tag, hdr->value);
         // Do stuff with headers
         }
-        ExtractorInvalidateHeaders(&extractor);
+        ExtractorInvalidateHeaders(extractor);
 
 
         uint32_t vlen;
         do
         {
             Vector alignments;
-            rc=ExtractorGetAlignments(&extractor, &alignments);
+            rc=ExtractorGetAlignments(extractor, &alignments);
             vlen=VectorLength(&alignments);
             printf("Returned %d alignments\n",vlen);
             for (uint32_t i=0; i!=vlen; ++i)
@@ -95,10 +100,10 @@ rc_t CC KMain(int argc, char *argv[])
             // Do stuff with headers
             }
             printf("\n");
-            ExtractorInvalidateAlignments(&extractor);
+            ExtractorInvalidateAlignments(extractor);
         } while (vlen);
 
-        ReleaseExtractor(&extractor);
+        ReleaseExtractor(extractor);
         printf("Done with file\n");
     }
     printf("KMain done\n");

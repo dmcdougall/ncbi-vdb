@@ -69,13 +69,13 @@ typedef struct Alignment
 } Alignment;
 
 rc_t MakeExtractor(Extractor **state, const char * fname, uint32_t num_threads);
-rc_t ReleaseExtractor(Extractor **state); // dtor
+rc_t ReleaseExtractor(Extractor *state); // dtor
 
-rc_t ExtractorGetHeaders(Extractor **state, Vector *headers);
-rc_t ExtractorInvalidateHeaders(Extractor **state);
+rc_t ExtractorGetHeaders(Extractor *state, Vector *headers);
+rc_t ExtractorInvalidateHeaders(Extractor *state);
 
-rc_t ExtractorGetAlignments(Extractor **state, Vector *alignments);
-rc_t ExtractorInvalidateAlignments(Extractor **state);
+rc_t ExtractorGetAlignments(Extractor *state, Vector *alignments);
+rc_t ExtractorInvalidateAlignments(Extractor *state);
 
 #ifdef __cplusplus
 }

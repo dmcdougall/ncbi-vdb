@@ -795,11 +795,10 @@ rc_t MakeExtractor(Extractor **state, const char * fname, uint32_t num_threads=-
     return 0;
 }
 
-rc_t ReleaseExtractor(Extractor **state)
+rc_t ReleaseExtractor(Extractor *s)
 {
     DBG("release_Extractor");
     // TODO: invalidate
-    Extractor *s=*state;
     SAM_parseend(s);
 
     munmap(s->mmapbuf,s->mmapbuf_sz);
@@ -822,9 +821,8 @@ rc_t ReleaseExtractor(Extractor **state)
     return 0;
 }
 
-rc_t ExtractorGetHeaders(Extractor **state, Vector *headers)
+rc_t ExtractorGetHeaders(Extractor *s, Vector *headers)
 {
-    Extractor * s=*state;
     DBG("get_headers");
     VectorInit(headers,0,0);
     for (u32 i=0; i!=VectorLength(&s->headers); ++i)
@@ -835,9 +833,8 @@ rc_t ExtractorGetHeaders(Extractor **state, Vector *headers)
     return 0;
 }
 
-rc_t ExtractorInvalidateHeaders(Extractor **state)
+rc_t ExtractorInvalidateHeaders(Extractor *s)
 {
-    Extractor * s=*state;
     DBG("invalidate_headers");
     for (u32 i=0; i!=VectorLength(&s->headers); ++i)
     {
@@ -854,9 +851,8 @@ rc_t ExtractorInvalidateHeaders(Extractor **state)
     return 0;
 }
 
-rc_t ExtractorGetAlignments(Extractor **state, Vector *alignments)
+rc_t ExtractorGetAlignments(Extractor *s, Vector *alignments)
 {
-    Extractor * s=*state;
     DBG("get_alignments");
     VectorInit(alignments,0,0);
     VectorInit(&s->alignments,0,0);
@@ -898,10 +894,9 @@ rc_t ExtractorGetAlignments(Extractor **state, Vector *alignments)
     return 0;
 }
 
-rc_t ExtractorInvalidateAlignments(Extractor **state)
+rc_t ExtractorInvalidateAlignments(Extractor *s)
 {
     DBG("invalidate_alignments");
-    Extractor * s=*state;
     for (uint32_t i=0; i!=VectorLength(&s->alignments); ++i)
     {
         Alignment * align=(Alignment *)VectorGet(&s->alignments,i);
