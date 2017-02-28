@@ -73,14 +73,22 @@ rc_t CC KMain(int argc, char *argv[])
     while (--argc) {
         Extractor * extractor;
         rc_t rc=MakeExtractor(&extractor, *(++argv), -1);
-        printf("Made extractor\n");
+        fprintf(stderr,"Made extractor\n");
 
         Vector headers;
         rc=ExtractorGetHeaders(extractor, &headers);
+        fprintf(stderr,"\n\nGot %d headers\n", VectorLength(&headers));
         for (uint32_t i=0; i!=VectorLength(&headers); ++i)
         {
             Header * hdr=(Header *)VectorGet(&headers,i);
-            printf("\tHeader%d: %s %s %s\n", i, hdr->headercode, hdr->tag, hdr->value);
+            Vector * tvs=&hdr->tagvalues;
+            fprintf(stderr,"\tHeader%d: %s\n", i, hdr->headercode);
+            for (uint32_t j=0; j!=VectorLength(tvs); ++j)
+            {
+                TagValue * tv=(TagValue *)VectorGet(tvs,j);
+
+                fprintf(stderr,"\t\t%d\t%s %s\n", j, tv->tag, tv->value);
+            }
         // Do stuff with headers
         }
         ExtractorInvalidateHeaders(extractor);
@@ -92,21 +100,21 @@ rc_t CC KMain(int argc, char *argv[])
             Vector alignments;
             rc=ExtractorGetAlignments(extractor, &alignments);
             vlen=VectorLength(&alignments);
-            printf("Returned %d alignments\n",vlen);
+            fprintf(stderr,"\n\nReturned %d alignments\n",vlen);
             for (uint32_t i=0; i!=vlen; ++i)
             {
                 Alignment * align=(Alignment *)VectorGet(&alignments,i);
-                printf("\tAlignment%d: %s\n", i, align->read);
+                fprintf(stderr,"\tAlignment%d: %s\n", i, align->read);
             // Do stuff with headers
             }
-            printf("\n");
+            fprintf(stderr,"\n");
             ExtractorInvalidateAlignments(extractor);
         } while (vlen);
 
         ReleaseExtractor(extractor);
-        printf("Done with file\n");
+        fprintf(stderr,"Done with file\n");
     }
-    printf("KMain done\n");
+    fprintf(stderr,"KMain done\n");
     return 0;
 }
 

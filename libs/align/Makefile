@@ -84,7 +84,7 @@ BAM_SRC = \
 BAM_OBJ = \
 	$(addsuffix .$(LOBX),$(BAM_SRC))
 
-BAM_LIB = 
+BAM_LIB =
 
 $(ILIBDIR)/libncbi-bam.$(LIBX): $(BAM_OBJ)
 	$(LD) --slib -o $@ $^ $(BAM_LIB)
@@ -101,7 +101,7 @@ ALIGN_ACCESS_SRC = \
 ALIGN_ACCESS_OBJ = \
 	$(addsuffix .$(LOBX),$(ALIGN_ACCESS_SRC))
 
-ALIGN_ACCESS_LIB = 
+ALIGN_ACCESS_LIB =
 
 $(ILIBDIR)/libalign-access.$(LIBX): $(ALIGN_ACCESS_OBJ)
 	$(LD) --slib -o $@ $^ $(ALIGN_ACCESS_LIB)
@@ -128,7 +128,7 @@ ALIGN_READER_SRC = \
 ALIGN_READER_OBJ = \
 	$(addsuffix .$(LOBX),$(ALIGN_READER_SRC))
 
-ALIGN_READER_LIB = 
+ALIGN_READER_LIB =
 
 $(ILIBDIR)/libalign-reader.$(LIBX): $(ALIGN_READER_OBJ)
 	$(LD) --slib -o $@ $^ $(ALIGN_READER_LIB)
@@ -155,7 +155,7 @@ ALIGN_WRITER_SRC = \
 ALIGN_WRITER_OBJ = \
 	$(addsuffix .$(LOBX),$(ALIGN_WRITER_SRC))
 
-ALIGN_WRITER_LIB = 
+ALIGN_WRITER_LIB =
 
 $(ILIBDIR)/libalign-writer.$(LIBX): $(ALIGN_WRITER_OBJ)
 	$(LD) --slib -o $@ $^ $(ALIGN_WRITER_LIB)
@@ -178,7 +178,22 @@ SAM_EXTRACT_SRC = \
 SAM_EXTRACT_OBJ = \
 	$(addsuffix .$(LOBX),$(SAM_EXTRACT_SRC))
 
-SAM_EXTRACT_LIB = 
+SAM_EXTRACT_LIB =
+
+samextract-grammar: samextract-grammar.c
+
+samextract-grammar.c: samextract-grammar.y
+	bison --warnings=error -o samextract-grammar.c --defines=$(SRCDIR)/samextract-tokens.h -v -Wall $(SRCDIR)/samextract-grammar.y
+#	bison --warnings=error -o $(SRCDIR)/samextract-grammar.c --defines=$(SRCDIR)/samextract-tokens.h -v -Wall $(SRCDIR)/samextract-grammar.y
+
+ifeq (dbg,$(BUILD))
+  FLEX_DEBUG=-d
+endif
+
+samextract-lex: samextract-lex.l
+
+samextract-lex.c: samextract-lex.l
+	flex --fast $(FLEX_DEBUG) -o $(SRCDIR)/samextract-lex.c $(SRCDIR)/samextract-lex.l
 
 $(ILIBDIR)/libsam-extract.$(LIBX): $(SAM_EXTRACT_OBJ)
 	$(LD) --slib -o $@ $^ $(SAM_EXTRACT_LIB)
@@ -186,7 +201,4 @@ $(ILIBDIR)/libsam-extract.$(LIBX): $(SAM_EXTRACT_OBJ)
 compile: stdcompile
 
 $(TARGDIR)/compile: $(OBJFILES)
-
-
-
 

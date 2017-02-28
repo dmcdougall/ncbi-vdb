@@ -1,14 +1,14 @@
 /* A Bison parser, made by GNU Bison 2.5.  */
 
 /* Bison interface for Yacc-like parsers in C
-
+   
       Copyright (C) 1984, 1989-1990, 2000-2011 Free Software Foundation, Inc.
-  
+   
    This program is free software: you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
    the Free Software Foundation, either version 3 of the License, or
    (at your option) any later version.
-  
+   
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -61,7 +61,7 @@ typedef union YYSTYPE
 {
 
 /* Line 2068 of yacc.c  */
-#line 434 "/home/vartanianmh/devel/sra-tools/tools/bam-loader/samextract-grammar.y"
+#line 437 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y"
 
  int intval;
  char * strval;
@@ -70,7 +70,7 @@ typedef union YYSTYPE
 
 
 /* Line 2068 of yacc.c  */
-#line 74 "/home/vartanianmh/devel/sra-tools/tools/bam-loader/samextract-tokens.h"
+#line 74 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-tokens.h"
 } YYSTYPE;
 # define YYSTYPE_IS_TRIVIAL 1
 # define yystype YYSTYPE /* obsolescent; will be withdrawn */

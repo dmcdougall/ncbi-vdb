@@ -42,6 +42,8 @@ typedef struct Extractor
 
     Vector headers;
     Vector alignments;
+    // temp
+    Vector tagvalues;
 
     char * read;
     char * cigar;
@@ -53,11 +55,16 @@ typedef struct Extractor
     char * ids;
 } Extractor;
 
+typedef struct tagvalue
+{
+    const char * tag; // VN, SN, LN, ID, ...
+    const char * value;
+} TagValue;
+
 typedef struct Header
 {
     const char * headercode; // HD, SQ, RG, PG, CO
-    const char * tag; // VN, SN, LN, ID, ...
-    const char * value;
+    Vector tagvalues;
 } Header;
 
 typedef struct Alignment

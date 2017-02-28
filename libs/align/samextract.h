@@ -84,7 +84,7 @@ extern "C" {
 #endif
 
 //#ifndef DEBUG
-#define DEBUG 0
+#define DEBUG 1
 //#endif
 
 #define ERR(...) logmsg(__FILE__, __LINE__, __func__, "Error",  __VA_ARGS__)

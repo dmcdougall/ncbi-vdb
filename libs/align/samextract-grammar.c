@@ -74,7 +74,7 @@
 /* Copy the first part of user declarations.  */
 
 /* Line 268 of yacc.c  */
-#line 37 "/home/vartanianmh/devel/sra-tools/tools/bam-loader/samextract-grammar.y"
+#line 37 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y"
 
     #include <stdio.h>
     #include <ctype.h>
@@ -228,18 +228,6 @@
         return 1;
     }
 
-    void mark_headers(const char * type)
-    {
-        for (u32 i=0; i!=VectorLength(&globstate->headers); ++i)
-        {
-            Header * hdr;
-            hdr=VectorGet(&globstate->headers,i);
-            if (!strcmp(hdr->headercode,"TBD"))
-                hdr->headercode=strdup(type);
-//            DBG("Vector header[%d]: %s %s %s", i, hdr->headercode,hdr->tag,hdr->value);
-        }
-    }
-
     void process_tagvalue(const char * tag, const char * value)
     {
         if (strlen(tag)!=2)
@@ -287,11 +275,20 @@
                 free(s);
             }
         }
-        Header * hdr=calloc(1,sizeof(Header));
-        hdr->headercode="TBD";
-        hdr->tag=strdup(tag);
-        hdr->value=strdup(value);
-        VectorAppend(&globstate->headers,NULL,hdr);
+
+        TagValue * tv=calloc(1,sizeof(TagValue));
+        tv->tag=strdup(tag);
+        tv->value=strdup(value);
+        VectorAppend(globstate->tagvalues,NULL,tv);
+    }
+
+    void mark_headers(const char * type)
+    {
+        Header * hdr=(Header *)calloc(1,sizeof(Header));
+        hdr->headercode=type;
+        VectorCopy(globstate->tagvalues,hdr->tagvalues);
+        VectorWhack(globstate->tagvalues,NULL,NULL);
+        VectorAppend(globstate->headers,NULL,hdr);
     }
 
     void process_align(const char *field)
@@ -472,7 +469,7 @@
 
 
 /* Line 268 of yacc.c  */
-#line 476 "/home/vartanianmh/devel/sra-tools/tools/bam-loader/samextract-grammar.c"
+#line 473 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c"
 
 /* Enabling traces.  */
 #ifndef YYDEBUG
@@ -523,7 +520,7 @@ typedef union YYSTYPE
 {
 
 /* Line 293 of yacc.c  */
-#line 434 "/home/vartanianmh/devel/sra-tools/tools/bam-loader/samextract-grammar.y"
+#line 431 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y"
 
  int intval;
  char * strval;
@@ -532,7 +529,7 @@ typedef union YYSTYPE
 
 
 /* Line 293 of yacc.c  */
-#line 536 "/home/vartanianmh/devel/sra-tools/tools/bam-loader/samextract-grammar.c"
+#line 533 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c"
 } YYSTYPE;
 # define YYSTYPE_IS_TRIVIAL 1
 # define yystype YYSTYPE /* obsolescent; will be withdrawn */
@@ -544,7 +541,7 @@ typedef union YYSTYPE
 
 
 /* Line 343 of yacc.c  */
-#line 548 "/home/vartanianmh/devel/sra-tools/tools/bam-loader/samextract-grammar.c"
+#line 545 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c"
 
 #ifdef short
 # undef short
@@ -840,9 +837,9 @@ static const yytype_int8 yyrhs[] =
 /* YYRLINE[YYN] -- source line where rule number YYN was defined.  */
 static const yytype_uint16 yyrline[] =
 {
-       0,   467,   467,   469,   473,   474,   475,   476,   477,   478,
-     479,   480,   484,   490,   508,   521,   534,   545,   546,   549,
-     557,   558,   559,   563,   567,   582,   583,   589
+       0,   464,   464,   466,   470,   471,   472,   473,   474,   475,
+     476,   477,   481,   487,   505,   518,   531,   542,   543,   546,
+     554,   555,   556,   560,   564,   579,   580,   586
 };
 #endif
 
@@ -1794,57 +1791,57 @@ yyreduce:
         case 5:
 
 /* Line 1806 of yacc.c  */
-#line 474 "/home/vartanianmh/devel/sra-tools/tools/bam-loader/samextract-grammar.y"
+#line 471 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y"
     { ERR("CONTROLCHAR"); }
     break;
 
   case 6:
 
 /* Line 1806 of yacc.c  */
-#line 475 "/home/vartanianmh/devel/sra-tools/tools/bam-loader/samextract-grammar.y"
+#line 472 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y"
     { DBG("comment"); }
     break;
 
   case 7:
 
 /* Line 1806 of yacc.c  */
-#line 476 "/home/vartanianmh/devel/sra-tools/tools/bam-loader/samextract-grammar.y"
+#line 473 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y"
     { DBG("header"); }
     break;
 
   case 8:
 
 /* Line 1806 of yacc.c  */
-#line 477 "/home/vartanianmh/devel/sra-tools/tools/bam-loader/samextract-grammar.y"
+#line 474 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y"
     { DBG("sequence"); }
     break;
 
   case 9:
 
 /* Line 1806 of yacc.c  */
-#line 478 "/home/vartanianmh/devel/sra-tools/tools/bam-loader/samextract-grammar.y"
+#line 475 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y"
     { DBG("program"); }
     break;
 
   case 10:
 
 /* Line 1806 of yacc.c  */
-#line 479 "/home/vartanianmh/devel/sra-tools/tools/bam-loader/samextract-grammar.y"
+#line 476 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y"
     { DBG("readgroup"); }
     break;
 
   case 11:
 
 /* Line 1806 of yacc.c  */
-#line 480 "/home/vartanianmh/devel/sra-tools/tools/bam-loader/samextract-grammar.y"
+#line 477 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y"
     { DBG("alignment"); }
     break;
 
   case 12:
 
 /* Line 1806 of yacc.c  */
-#line 484 "/home/vartanianmh/devel/sra-tools/tools/bam-loader/samextract-grammar.y"
-    { 
+#line 481 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y"
+    {
         mark_headers("CO");
     }
     break;
@@ -1852,7 +1849,7 @@ yyreduce:
   case 13:
 
 /* Line 1806 of yacc.c  */
-#line 491 "/home/vartanianmh/devel/sra-tools/tools/bam-loader/samextract-grammar.y"
+#line 488 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y"
     {
         DBG("header tagvaluelist");
         check_required_tag(globstate->tags,"VN");
@@ -1872,7 +1869,7 @@ yyreduce:
   case 14:
 
 /* Line 1806 of yacc.c  */
-#line 509 "/home/vartanianmh/devel/sra-tools/tools/bam-loader/samextract-grammar.y"
+#line 506 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y"
     {
         DBG("sequence");
         DBG(" sequences were: %s", globstate->seqnames);
@@ -1887,7 +1884,7 @@ yyreduce:
   case 15:
 
 /* Line 1806 of yacc.c  */
-#line 522 "/home/vartanianmh/devel/sra-tools/tools/bam-loader/samextract-grammar.y"
+#line 519 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y"
     {
         DBG("ids were: %s", globstate->ids);
         DBG("program");
@@ -1901,7 +1898,7 @@ yyreduce:
   case 16:
 
 /* Line 1806 of yacc.c  */
-#line 535 "/home/vartanianmh/devel/sra-tools/tools/bam-loader/samextract-grammar.y"
+#line 532 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y"
     {
         DBG("readgroup");
         DBG("ids were: %s", globstate->ids);
@@ -1915,21 +1912,21 @@ yyreduce:
   case 17:
 
 /* Line 1806 of yacc.c  */
-#line 545 "/home/vartanianmh/devel/sra-tools/tools/bam-loader/samextract-grammar.y"
+#line 542 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y"
     { DBG(" one tagvaluelist"); }
     break;
 
   case 18:
 
 /* Line 1806 of yacc.c  */
-#line 546 "/home/vartanianmh/devel/sra-tools/tools/bam-loader/samextract-grammar.y"
+#line 543 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y"
     { DBG(" many tagvaluelist"); }
     break;
 
   case 19:
 
 /* Line 1806 of yacc.c  */
-#line 549 "/home/vartanianmh/devel/sra-tools/tools/bam-loader/samextract-grammar.y"
+#line 546 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y"
     {
         DBG("tagvalue:%s=%s", (yyvsp[(2) - (4)].strval), (yyvsp[(4) - (4)].strval));
         const char * tag=(yyvsp[(2) - (4)].strval);
@@ -1943,21 +1940,21 @@ yyreduce:
   case 20:
 
 /* Line 1806 of yacc.c  */
-#line 557 "/home/vartanianmh/devel/sra-tools/tools/bam-loader/samextract-grammar.y"
+#line 554 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y"
     { ERR("two tabs"); }
     break;
 
   case 21:
 
 /* Line 1806 of yacc.c  */
-#line 558 "/home/vartanianmh/devel/sra-tools/tools/bam-loader/samextract-grammar.y"
+#line 555 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y"
     { ERR("empty tags"); }
     break;
 
   case 22:
 
 /* Line 1806 of yacc.c  */
-#line 559 "/home/vartanianmh/devel/sra-tools/tools/bam-loader/samextract-grammar.y"
+#line 556 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y"
     {
         const char * tag=(yyvsp[(2) - (3)].strval);
         WARN("malformed TAG:VALUE 'TAB %s(NOT COLON)...'", tag);
@@ -1967,14 +1964,14 @@ yyreduce:
   case 23:
 
 /* Line 1806 of yacc.c  */
-#line 563 "/home/vartanianmh/devel/sra-tools/tools/bam-loader/samextract-grammar.y"
+#line 560 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y"
     { WARN("empty tags"); }
     break;
 
   case 24:
 
 /* Line 1806 of yacc.c  */
-#line 568 "/home/vartanianmh/devel/sra-tools/tools/bam-loader/samextract-grammar.y"
+#line 565 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y"
     {
         DBG(" avlist qname:%s fields=%zu", (yyvsp[(1) - (2)].strval), alignfields);
         alignfields=2;
@@ -1991,14 +1988,14 @@ yyreduce:
   case 25:
 
 /* Line 1806 of yacc.c  */
-#line 582 "/home/vartanianmh/devel/sra-tools/tools/bam-loader/samextract-grammar.y"
+#line 579 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y"
     { DBG(" one av"); }
     break;
 
   case 26:
 
 /* Line 1806 of yacc.c  */
-#line 583 "/home/vartanianmh/devel/sra-tools/tools/bam-loader/samextract-grammar.y"
+#line 580 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y"
     {
            // TODO"bison: many avlist");
             }
@@ -2007,7 +2004,7 @@ yyreduce:
   case 27:
 
 /* Line 1806 of yacc.c  */
-#line 590 "/home/vartanianmh/devel/sra-tools/tools/bam-loader/samextract-grammar.y"
+#line 587 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y"
     {
         const char * field=(yyvsp[(2) - (2)].strval);
         process_align(field);
@@ -2018,7 +2015,7 @@ yyreduce:
 
 
 /* Line 1806 of yacc.c  */
-#line 2022 "/home/vartanianmh/devel/sra-tools/tools/bam-loader/samextract-grammar.c"
+#line 2019 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c"
       default: break;
     }
   /* User semantic actions sometimes alter yychar, and that requires
@@ -2249,7 +2246,7 @@ yyreturn:
 
 
 /* Line 2067 of yacc.c  */
-#line 597 "/home/vartanianmh/devel/sra-tools/tools/bam-loader/samextract-grammar.y"
+#line 594 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y"
 
 
 

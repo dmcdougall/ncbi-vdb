@@ -187,18 +187,6 @@
         return 1;
     }
 
-    void mark_headers(const char * type)
-    {
-        for (u32 i=0; i!=VectorLength(&globstate->headers); ++i)
-        {
-            Header * hdr;
-            hdr=VectorGet(&globstate->headers,i);
-            if (!strcmp(hdr->headercode,"TBD"))
-                hdr->headercode=strdup(type);
-//            DBG("Vector header[%d]: %s %s %s", i, hdr->headercode,hdr->tag,hdr->value);
-        }
-    }
-
     void process_tagvalue(const char * tag, const char * value)
     {
         if (strlen(tag)!=2)
@@ -246,11 +234,26 @@
                 free(s);
             }
         }
-        Header * hdr=calloc(1,sizeof(Header));
-        hdr->headercode="TBD";
-        hdr->tag=strdup(tag);
-        hdr->value=strdup(value);
+
+        TagValue * tv=calloc(1,sizeof(TagValue));
+        tv->tag=strdup(tag);
+        tv->value=strdup(value);
+        DBG("globstate=%p",globstate);
+        DBG("globstate->tagvalues=%p",globstate->tagvalues);
+        VectorAppend(&globstate->tagvalues,NULL,tv);
+        u32 block=VectorBlock(&globstate->tagvalues);
+        DBG("block is %d",block);
+        DBG("Appending %d",VectorLength(&globstate->tagvalues));
+    }
+
+    void mark_headers(const char * type)
+    {
+        DBG("mark_headers");
+        Header * hdr=(Header *)calloc(1,sizeof(Header));
+        hdr->headercode=type;
+        VectorCopy(&globstate->tagvalues,&hdr->tagvalues);
         VectorAppend(&globstate->headers,NULL,hdr);
+        VectorWhack(&globstate->tagvalues,NULL,NULL);
     }
 
     void process_align(const char *field)

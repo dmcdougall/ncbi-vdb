@@ -714,16 +714,20 @@ rc_t MakeExtractor(Extractor **state, const char * fname, uint32_t num_threads=-
 {
     Extractor * s=(Extractor *)calloc(1,sizeof(Extractor));
     *state=s;
+
     s->mmapbuf=NULL;
     s->mmapbuf_sz=0;
     s->mmapbuf_cur=NULL;
 
     VectorInit(&s->headers,0,0);
     VectorInit(&s->alignments,0,0);
+    VectorInit(&s->tagvalues,0,0);
+    DBG("s->tagvalues=%p",s->tagvalues);
 
     s->tags=strdup("");
     s->seqnames=strdup("");
     s->ids=strdup("");
+
 
     int fd=open(fname, O_RDONLY);
     if (fd==-1)
@@ -824,30 +828,35 @@ rc_t ReleaseExtractor(Extractor *s)
 rc_t ExtractorGetHeaders(Extractor *s, Vector *headers)
 {
     DBG("get_headers");
-    VectorInit(headers,0,0);
-    for (u32 i=0; i!=VectorLength(&s->headers); ++i)
-    {
-        Header * hdr=(Header *)VectorGet(&s->headers,i);
-        VectorAppend(headers,NULL,hdr);
-    }
+    //VectorWhack(headers,NULL,NULL);
+    VectorCopy(&s->headers,headers);
     return 0;
 }
 
 rc_t ExtractorInvalidateHeaders(Extractor *s)
 {
     DBG("invalidate_headers");
+    return 0; //TODO
     for (u32 i=0; i!=VectorLength(&s->headers); ++i)
     {
         Header * hdr=(Header *)VectorGet(&s->headers,i);
+
         free((void*)hdr->headercode);
         hdr->headercode=NULL;
-        free((void*)hdr->tag);
-        hdr->tag=NULL;
-        free((void*)hdr->value);
-        hdr->value=NULL;
+
+        Vector * tvs=&hdr->tagvalues;
+        for (u32 j=0; j!=VectorLength(tvs); ++j)
+        {
+            TagValue * tv=(TagValue *)VectorGet(tvs,j);
+            free((void*)tv->tag);
+            free((void*)tv->value);
+        }
+        VectorWhack(tvs,NULL,NULL);
+
         free(hdr);
     }
-    VectorInit(&s->headers,0,0);
+    VectorWhack(&s->tagvalues,NULL,NULL);
+    VectorWhack(&s->headers,NULL,NULL);
     return 0;
 }
 
@@ -912,7 +921,6 @@ rc_t ExtractorInvalidateAlignments(Extractor *s)
         VectorSet(&s->alignments,i,align);
     }
     VectorWhack(&s->alignments,NULL,NULL);
-    VectorInit(&s->alignments,0,0);
 
     return 0;
 }
