@@ -867,7 +867,6 @@ LIB_EXPORT rc_t CC SAMExtractorGetAlignments(Extractor *s, Vector *alignments)
 {
     DBG("get_alignments");
     SAMExtractorInvalidateAlignments(s);
-    VectorWhack(alignments,NULL,NULL);
     VectorInit(&s->alignments,0,0);
     int numaligns=20;
     while (numaligns--)

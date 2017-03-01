@@ -98,7 +98,6 @@ rc_t CC KMain(int argc, char *argv[])
         do
         {
             Vector alignments;
-            VectorInit(&alignments,0,0);
             rc=SAMExtractorGetAlignments(extractor, &alignments);
             vlen=VectorLength(&alignments);
             fprintf(stderr,"\n\nReturned %d alignments\n",vlen);
