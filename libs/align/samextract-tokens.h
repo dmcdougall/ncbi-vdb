@@ -61,7 +61,7 @@ typedef union YYSTYPE
 {
 
 /* Line 2068 of yacc.c  */
-#line 437 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y"
+#line 451 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y"
 
  int intval;
  char * strval;

@@ -42,8 +42,9 @@ typedef struct Extractor
 
     Vector headers;
     Vector alignments;
-    // temp
-    Vector tagvalues;
+    Vector tagvalues; // temp
+
+    Vector allocs;
 
     char * read;
     char * cigar;

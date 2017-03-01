@@ -98,17 +98,19 @@ rc_t CC KMain(int argc, char *argv[])
         do
         {
             Vector alignments;
+            VectorInit(&alignments,0,0);
             rc=ExtractorGetAlignments(extractor, &alignments);
             vlen=VectorLength(&alignments);
             fprintf(stderr,"\n\nReturned %d alignments\n",vlen);
             for (uint32_t i=0; i!=vlen; ++i)
             {
                 Alignment * align=(Alignment *)VectorGet(&alignments,i);
-                fprintf(stderr,"\tAlignment%d: %s\n", i, align->read);
+                fprintf(stderr,"\tAlignment%2d: %s\n", i, align->read);
             // Do stuff with headers
             }
             fprintf(stderr,"\n");
             ExtractorInvalidateAlignments(extractor);
+            VectorWhack(&alignments,NULL,NULL);
         } while (vlen);
 
         ReleaseExtractor(extractor);

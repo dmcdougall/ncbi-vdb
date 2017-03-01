@@ -59,6 +59,22 @@
         return 0;
     }
 
+    void * myalloc(size_t sz)
+    {
+        void * buf=malloc(sz);
+        memset(buf,0,sz);
+        VectorAppend(&globstate->allocs,NULL,buf);
+        return buf;
+    }
+
+    void * mystrdup(char * str)
+    {
+        size_t len=strlen(str)+1;
+        void * buf=myalloc(len);
+        memmove(buf,str,len);
+        return buf;
+    }
+
     // Returns 1 if match found
     int regexcheck(const char *regex, const char * value)
     {
@@ -235,11 +251,9 @@
             }
         }
 
-        TagValue * tv=calloc(1,sizeof(TagValue));
-        tv->tag=strdup(tag);
-        tv->value=strdup(value);
-        DBG("globstate=%p",globstate);
-        DBG("globstate->tagvalues=%p",globstate->tagvalues);
+        TagValue * tv=myalloc(sizeof(TagValue));
+        tv->tag=mystrdup(tag);
+        tv->value=mystrdup(value);
         VectorAppend(&globstate->tagvalues,NULL,tv);
         u32 block=VectorBlock(&globstate->tagvalues);
         DBG("block is %d",block);
@@ -249,7 +263,7 @@
     void mark_headers(const char * type)
     {
         DBG("mark_headers");
-        Header * hdr=(Header *)calloc(1,sizeof(Header));
+        Header * hdr=(Header *)myalloc(sizeof(Header));
         hdr->headercode=type;
         VectorCopy(&globstate->tagvalues,&hdr->tagvalues);
         VectorAppend(&globstate->headers,NULL,hdr);
@@ -283,7 +297,7 @@
                     ERR("error parsing RNAME");
                 }
                 DBG("rname is %s",rname);
-                globstate->rname=strdup(rname);
+                globstate->rname=mystrdup(rname);
                 break;
             }
             case 4: // POS
@@ -319,7 +333,7 @@
                     ERR("error parsing cigar");
                 }
                 DBG("cigar is %s",cigar);
-                globstate->cigar=strdup(cigar);
+                globstate->cigar=mystrdup(cigar);
                 break;
             }
             case 7: // RNEXT
@@ -364,7 +378,7 @@
                     ERR("error parsing seq");
                 }
                 DBG("seq is %s",seq);
-                globstate->read=strdup(seq);
+                globstate->read=mystrdup(seq);
                 break;
             }
             case 11: // QUAL
@@ -500,8 +514,8 @@ header:
         if (!(strcmp(globstate->tags,"SO ") ||
               strcmp(globstate->tags,"GO ")))
            WARN("neither SO or GO tags present");
-        free(globstate->tags);
-        globstate->tags=strdup("");
+        //free(globstate->tags);
+        globstate->tags=mystrdup("");
 
         mark_headers("HD");
     }
@@ -514,8 +528,8 @@ sequence:
         DBG(" sequences were: %s", globstate->seqnames);
         check_required_tag(globstate->tags,"SN");
         check_required_tag(globstate->tags,"LN");
-        free(globstate->tags);
-        globstate->tags=strdup("");
+        //free(globstate->tags);
+        globstate->tags=mystrdup("");
         mark_headers("SQ");
     }
     ;
@@ -526,8 +540,8 @@ program:
         DBG("ids were: %s", globstate->ids);
         DBG("program");
         check_required_tag(globstate->tags,"ID");
-        free(globstate->tags);
-        globstate->tags=strdup("");
+        //free(globstate->tags);
+        globstate->tags=mystrdup("");
         mark_headers("PG");
      }
      ;
@@ -539,8 +553,8 @@ readgroup:
         DBG("readgroup");
         DBG("ids were: %s", globstate->ids);
         check_required_tag(globstate->tags,"ID");
-        free(globstate->tags);
-        globstate->tags=strdup("");
+        //free(globstate->tags);
+        globstate->tags=mystrdup("");
         mark_headers("RG");
      }
      ;
@@ -571,7 +585,7 @@ alignment:
     {
         DBG(" avlist qname:%s fields=%zu", $1, alignfields);
         alignfields=2;
-        Alignment * align=calloc(1,sizeof(Alignment));
+        Alignment * align=myalloc(sizeof(Alignment));
         align->read=globstate->read;
         align->cigar=globstate->cigar;
         align->rname=globstate->rname;

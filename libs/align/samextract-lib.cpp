@@ -722,7 +722,7 @@ rc_t MakeExtractor(Extractor **state, const char * fname, uint32_t num_threads=-
     VectorInit(&s->headers,0,0);
     VectorInit(&s->alignments,0,0);
     VectorInit(&s->tagvalues,0,0);
-    DBG("s->tagvalues=%p",s->tagvalues);
+    VectorInit(&s->allocs,0,0);
 
     s->tags=strdup("");
     s->seqnames=strdup("");
@@ -805,6 +805,8 @@ rc_t ReleaseExtractor(Extractor *s)
     // TODO: invalidate
     SAM_parseend(s);
 
+    ExtractorInvalidateAlignments(s);
+
     munmap(s->mmapbuf,s->mmapbuf_sz);
     s->mmapbuf=NULL;
     s->mmapbuf_sz=0;
@@ -813,13 +815,14 @@ rc_t ReleaseExtractor(Extractor *s)
     VectorWhack(&s->headers,NULL,NULL);
     VectorWhack(&s->alignments,NULL,NULL);
 
+/*
     free(s->tags);
     s->tags=NULL;
     free(s->seqnames);
     s->seqnames=NULL;
     free(s->ids);
     s->ids=NULL;
-
+*/
     free(s);
 
     return 0;
@@ -863,7 +866,8 @@ rc_t ExtractorInvalidateHeaders(Extractor *s)
 rc_t ExtractorGetAlignments(Extractor *s, Vector *alignments)
 {
     DBG("get_alignments");
-    VectorInit(alignments,0,0);
+    ExtractorInvalidateAlignments(s);
+    VectorWhack(alignments,NULL,NULL);
     VectorInit(&s->alignments,0,0);
     int numaligns=20;
     while (numaligns--)
@@ -895,7 +899,7 @@ rc_t ExtractorGetAlignments(Extractor *s, Vector *alignments)
         }
     }
 
-    VectorWhack(alignments,NULL,NULL);
+    VectorInit(alignments,0,0);
     VectorCopy(&s->alignments,alignments);
     VectorWhack(&s->alignments,NULL,NULL);
     DBG("got_alignments");
@@ -906,6 +910,15 @@ rc_t ExtractorGetAlignments(Extractor *s, Vector *alignments)
 rc_t ExtractorInvalidateAlignments(Extractor *s)
 {
     DBG("invalidate_alignments");
+    for (uint32_t i=0; i!=VectorLength(&s->allocs); ++i)
+    {
+        free(VectorGet(&s->allocs,i));
+    }
+    VectorWhack(&s->alignments,NULL,NULL);
+    VectorWhack(&s->allocs,NULL,NULL);
+    return 0;
+
+
     for (uint32_t i=0; i!=VectorLength(&s->alignments); ++i)
     {
         Alignment * align=(Alignment *)VectorGet(&s->alignments,i);
@@ -918,7 +931,7 @@ rc_t ExtractorInvalidateAlignments(Extractor *s)
         align->pos=0;
         free(align);
         align=NULL;
-        VectorSet(&s->alignments,i,align);
+//        VectorSet(&s->alignments,i,align);
     }
     VectorWhack(&s->alignments,NULL,NULL);
 

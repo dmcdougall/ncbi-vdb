@@ -132,6 +132,7 @@ void SAM_parseend(Extractor * state)
 int SAM_parsebuffer(Extractor * state, char * str, size_t size)
 {
     DBG("Parsing");
+    if (size > 4096) fprintf(stderr,"big buf %d\n",size);
     lexbuf=realloc(lexbuf,size+2);
     memmove(lexbuf,str,size);
     lexbuf[size]='\0';
