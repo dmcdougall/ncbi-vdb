@@ -710,7 +710,7 @@ bool threadinflate(Extractor * state, int numthreads)
 }
 
 
-rc_t MakeExtractor(Extractor **state, const char * fname, uint32_t num_threads=-1)
+LIB_EXPORT rc_t CC SAMExtractorMake(Extractor **state, const char * fname, uint32_t num_threads=-1)
 {
     Extractor * s=(Extractor *)calloc(1,sizeof(Extractor));
     *state=s;
@@ -799,13 +799,13 @@ rc_t MakeExtractor(Extractor **state, const char * fname, uint32_t num_threads=-
     return 0;
 }
 
-rc_t ReleaseExtractor(Extractor *s)
+LIB_EXPORT rc_t CC SAMExtractorRelease(Extractor *s)
 {
     DBG("release_Extractor");
     // TODO: invalidate
     SAM_parseend(s);
 
-    ExtractorInvalidateAlignments(s);
+    SAMExtractorInvalidateAlignments(s);
 
     munmap(s->mmapbuf,s->mmapbuf_sz);
     s->mmapbuf=NULL;
@@ -828,7 +828,7 @@ rc_t ReleaseExtractor(Extractor *s)
     return 0;
 }
 
-rc_t ExtractorGetHeaders(Extractor *s, Vector *headers)
+LIB_EXPORT rc_t CC SAMExtractorGetHeaders(Extractor *s, Vector *headers)
 {
     DBG("get_headers");
     //VectorWhack(headers,NULL,NULL);
@@ -836,7 +836,7 @@ rc_t ExtractorGetHeaders(Extractor *s, Vector *headers)
     return 0;
 }
 
-rc_t ExtractorInvalidateHeaders(Extractor *s)
+LIB_EXPORT rc_t CC SAMExtractorInvalidateHeaders(Extractor *s)
 {
     DBG("invalidate_headers");
     return 0; //TODO
@@ -863,10 +863,10 @@ rc_t ExtractorInvalidateHeaders(Extractor *s)
     return 0;
 }
 
-rc_t ExtractorGetAlignments(Extractor *s, Vector *alignments)
+LIB_EXPORT rc_t CC SAMExtractorGetAlignments(Extractor *s, Vector *alignments)
 {
     DBG("get_alignments");
-    ExtractorInvalidateAlignments(s);
+    SAMExtractorInvalidateAlignments(s);
     VectorWhack(alignments,NULL,NULL);
     VectorInit(&s->alignments,0,0);
     int numaligns=20;
@@ -907,7 +907,7 @@ rc_t ExtractorGetAlignments(Extractor *s, Vector *alignments)
     return 0;
 }
 
-rc_t ExtractorInvalidateAlignments(Extractor *s)
+LIB_EXPORT rc_t CC SAMExtractorInvalidateAlignments(Extractor *s)
 {
     DBG("invalidate_alignments");
     for (uint32_t i=0; i!=VectorLength(&s->allocs); ++i)

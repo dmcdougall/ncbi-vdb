@@ -67,7 +67,7 @@
         return buf;
     }
 
-    void * mystrdup(char * str)
+    void * mystrdup(const char * str)
     {
         size_t len=strlen(str)+1;
         void * buf=myalloc(len);

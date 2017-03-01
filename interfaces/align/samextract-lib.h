@@ -26,6 +26,7 @@
 
 #ifndef _h_samextract_lib_
 #define _h_samextract_lib_
+#include <align/extern.h>
 #include <klib/rc.h>
 #include <klib/defs.h>
 #include <klib/vector.h>
@@ -76,14 +77,14 @@ typedef struct Alignment
     uint32_t pos;
 } Alignment;
 
-rc_t MakeExtractor(Extractor **state, const char * fname, uint32_t num_threads);
-rc_t ReleaseExtractor(Extractor *state); // dtor
+ALIGN_EXTERN rc_t CC SAMExtractorMake(Extractor **state, const char * fname, uint32_t num_threads);
+ALIGN_EXTERN rc_t CC SAMExtractorRelease(Extractor *state); // dtor
 
-rc_t ExtractorGetHeaders(Extractor *state, Vector *headers);
-rc_t ExtractorInvalidateHeaders(Extractor *state);
+ALIGN_EXTERN rc_t CC SAMExtractorGetHeaders(Extractor *state, Vector *headers);
+ALIGN_EXTERN rc_t CC SAMExtractorInvalidateHeaders(Extractor *state);
 
-rc_t ExtractorGetAlignments(Extractor *state, Vector *alignments);
-rc_t ExtractorInvalidateAlignments(Extractor *state);
+ALIGN_EXTERN rc_t CC SAMExtractorGetAlignments(Extractor *state, Vector *alignments);
+ALIGN_EXTERN rc_t CC SAMExtractorInvalidateAlignments(Extractor *state);
 
 #ifdef __cplusplus
 }

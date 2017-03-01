@@ -72,11 +72,11 @@ rc_t CC KMain(int argc, char *argv[])
     }
     while (--argc) {
         Extractor * extractor;
-        rc_t rc=MakeExtractor(&extractor, *(++argv), -1);
+        rc_t rc=SAMExtractorMake(&extractor, *(++argv), -1);
         fprintf(stderr,"Made extractor\n");
 
         Vector headers;
-        rc=ExtractorGetHeaders(extractor, &headers);
+        rc=SAMExtractorGetHeaders(extractor, &headers);
         fprintf(stderr,"\n\nGot %d headers\n", VectorLength(&headers));
         for (uint32_t i=0; i!=VectorLength(&headers); ++i)
         {
@@ -91,7 +91,7 @@ rc_t CC KMain(int argc, char *argv[])
             }
         // Do stuff with headers
         }
-        ExtractorInvalidateHeaders(extractor);
+        SAMExtractorInvalidateHeaders(extractor);
 
 
         uint32_t vlen;
@@ -99,7 +99,7 @@ rc_t CC KMain(int argc, char *argv[])
         {
             Vector alignments;
             VectorInit(&alignments,0,0);
-            rc=ExtractorGetAlignments(extractor, &alignments);
+            rc=SAMExtractorGetAlignments(extractor, &alignments);
             vlen=VectorLength(&alignments);
             fprintf(stderr,"\n\nReturned %d alignments\n",vlen);
             for (uint32_t i=0; i!=vlen; ++i)
@@ -109,11 +109,11 @@ rc_t CC KMain(int argc, char *argv[])
             // Do stuff with headers
             }
             fprintf(stderr,"\n");
-            ExtractorInvalidateAlignments(extractor);
+            SAMExtractorInvalidateAlignments(extractor);
             VectorWhack(&alignments,NULL,NULL);
         } while (vlen);
 
-        ReleaseExtractor(extractor);
+        SAMExtractorRelease(extractor);
         fprintf(stderr,"Done with file\n");
     }
     fprintf(stderr,"KMain done\n");
