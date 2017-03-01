@@ -523,7 +523,7 @@ header:
         if (!(strcmp(globstate->tags,"SO ") ||
               strcmp(globstate->tags,"GO ")))
            WARN("neither SO or GO tags present");
-        //free(globstate->tags);
+        free(globstate->tags);
         globstate->tags=strdup("");
 
         mark_headers("HD");
@@ -537,7 +537,7 @@ sequence:
         DBG(" sequences were: %s", globstate->seqnames);
         check_required_tag(globstate->tags,"SN");
         check_required_tag(globstate->tags,"LN");
-        //free(globstate->tags);
+        free(globstate->tags);
         globstate->tags=strdup("");
         mark_headers("SQ");
     }
@@ -549,7 +549,7 @@ program:
         DBG("ids were: %s", globstate->ids);
         DBG("program");
         check_required_tag(globstate->tags,"ID");
-        //free(globstate->tags);
+        free(globstate->tags);
         globstate->tags=strdup("");
         mark_headers("PG");
      }
@@ -562,7 +562,7 @@ readgroup:
         DBG("readgroup");
         DBG("ids were: %s", globstate->ids);
         check_required_tag(globstate->tags,"ID");
-        //free(globstate->tags);
+        free(globstate->tags);
         globstate->tags=strdup("");
         mark_headers("RG");
      }
