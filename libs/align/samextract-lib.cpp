@@ -815,14 +815,12 @@ LIB_EXPORT rc_t CC SAMExtractorRelease(Extractor *s)
     VectorWhack(&s->headers,NULL,NULL);
     VectorWhack(&s->alignments,NULL,NULL);
 
-/*
     free(s->tags);
     s->tags=NULL;
     free(s->seqnames);
     s->seqnames=NULL;
     free(s->ids);
     s->ids=NULL;
-*/
     free(s);
 
     return 0;

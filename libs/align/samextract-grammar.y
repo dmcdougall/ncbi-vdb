@@ -74,7 +74,16 @@
         memmove(buf,str,len);
         return buf;
     }
+/*
+    void * myrealloc(void * ptr, size_t sz)
+    {
+        for (u32 i=0; i!=VectorLength(&globstate->allocs); ++i)
+        {
+            void * p=VectorGet(&globstate->allocs,i);
+            if (p==ptr) ...
 
+    }
+*/
     // Returns 1 if match found
     int regexcheck(const char *regex, const char * value)
     {
@@ -515,7 +524,7 @@ header:
               strcmp(globstate->tags,"GO ")))
            WARN("neither SO or GO tags present");
         //free(globstate->tags);
-        globstate->tags=mystrdup("");
+        globstate->tags=strdup("");
 
         mark_headers("HD");
     }
@@ -529,7 +538,7 @@ sequence:
         check_required_tag(globstate->tags,"SN");
         check_required_tag(globstate->tags,"LN");
         //free(globstate->tags);
-        globstate->tags=mystrdup("");
+        globstate->tags=strdup("");
         mark_headers("SQ");
     }
     ;
@@ -541,7 +550,7 @@ program:
         DBG("program");
         check_required_tag(globstate->tags,"ID");
         //free(globstate->tags);
-        globstate->tags=mystrdup("");
+        globstate->tags=strdup("");
         mark_headers("PG");
      }
      ;
