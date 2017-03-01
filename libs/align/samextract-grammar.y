@@ -563,7 +563,7 @@ readgroup:
         DBG("ids were: %s", globstate->ids);
         check_required_tag(globstate->tags,"ID");
         //free(globstate->tags);
-        globstate->tags=mystrdup("");
+        globstate->tags=strdup("");
         mark_headers("RG");
      }
      ;
