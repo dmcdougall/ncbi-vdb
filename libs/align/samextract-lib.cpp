@@ -45,137 +45,10 @@
 #include <regex.h>
 #include <stdint.h>
 #include <unistd.h>
+#include <asm-generic/mman-common.h>
 #include "samextract.h"
 #include <align/samextract-lib.h>
 
-
-extern "C" {
-void logmsg (const char * fname, int line, const char * func, const char * severity, const char * fmt, ...)
-{
-    char * buf;
-    size_t bufsize=0;
-    FILE * buffd;
-
-    const char * basename=strrchr(fname,'/');
-    if (!basename) basename=strrchr(fname,'\\');
-    if (basename) ++basename;
-    if (!basename) basename=fname;
-    va_list args;
-    va_start(args, fmt);
-
-    buffd=open_memstream(&buf,&bufsize); 
-    if (buffd==NULL)
-    {
-        fprintf(stderr,"can't open memstream\n");
-        return;
-    }
-    fprintf(buffd, "%s:", severity);
-    vfprintf(buffd, fmt, args);
-    va_end(args);
-    fprintf(buffd, "\t[%s:%s():%d]\n", basename, func, line);
-    fclose(buffd);
-    size_t r=fwrite(buf, bufsize, 1, stderr);
-    if (r!=1) fprintf(stderr,"previous %zd log message truncated\n", bufsize);
-    free(buf);
-}
-
-
-rc_t inflater(const KThread * kt, void * in)
-{
-    KQueue *inflatequeue=(KQueue *)in;
-    struct timeout_t tm;
-
-    z_stream strm;
-    pthread_t threadid=pthread_self();
-    INFO("\tThread %lu started.",threadid);
-
-    while (1)
-    {
-        void * where=NULL;
-        DBG("\t\tthread %lu checking queue",threadid);
-        TimeoutInit(&tm, 5000); // 5 seconds
-        rc_t rc=KQueuePop(inflatequeue, &where, &tm);
-        if (rc==0)
-        {
-            chunk * c=(chunk *)where;
-            DBG("\t\tthread %lu chunk %p size %u", threadid, c->in, c->insize);
-            if (c->state!=compressed)
-            {
-                ERR("Inflater bad state");
-                return 1;
-            }
-
-            memset(&strm,0,sizeof strm);
-            int zrc=inflateInit2(&strm, MAX_WBITS + 16); // Only gzip format
-            switch (zrc)
-            {
-                case Z_OK:
-                    break;
-                case Z_MEM_ERROR:
-                    ERR("Out of memory in zlib");
-                    break;
-                case Z_VERSION_ERROR:
-                    ERR("zlib version is not compatible; need version %s but have %s", ZLIB_VERSION,zlibVersion());
-                    break;
-                case Z_STREAM_ERROR:
-                    ERR("zlib stream error");
-                    break;
-                default:
-                    ERR("zlib error %s",strm.msg);
-                    break;
-            }
-            strm.next_in=c->in;
-            strm.avail_in=c->insize;
-            strm.next_out=c->out;
-            strm.avail_out=c->outsize;
-
-            zrc=inflate(&strm,Z_NO_FLUSH);
-            switch (zrc)
-            {
-                case Z_OK:
-                    DBG("\t\tthread %lu OK %d %d %lu", threadid, strm.avail_in, strm.avail_out,strm.total_out);
-                    c->outsize=strm.total_out;
-                    c->state=uncompressed;
-                    break;
-                case Z_MEM_ERROR:
-                    ERR("error: Out of memory in zlib");
-                    break;
-                case Z_VERSION_ERROR:
-                    ERR("zlib version is not compatible; need version %s but have %s", ZLIB_VERSION,zlibVersion());
-                    break;
-                case Z_STREAM_ERROR:
-                    ERR("zlib stream error %s",strm.msg);
-                    break;
-                case Z_STREAM_END:
-                    ERR("zlib stream end%s",strm.msg);
-                    break;
-                default:
-                    ERR("inflate error %d %s",zrc, strm.msg);
-                    break;
-            }
-            inflateEnd(&strm);
-        } else if ((int)GetRCObject(rc)== rcTimeout) 
-        {
-            INFO("\t\tthread %lu queue empty",threadid);
-            if (KQueueSealed(inflatequeue))
-            {
-                INFO("\t\tQueue sealed, thread %lu complete", threadid);
-                return 0;
-            }
-//            usleep(1);
-        } else if ((int)GetRCObject(rc)== rcData) 
-        {
-            INFO("\t\tthread %lu queue data (empty?)",threadid);
-            break;
-        } else
-        {
-            ERR("rc=%d",rc);
-        }
-    }
-
-    INFO("\t\tthread %lu terminating.",threadid);
-    return 0;
-}
 
 class chunkview
 {
@@ -189,10 +62,26 @@ class chunkview
         cur=NULL;
     }
 
+    // TODO: _MSC_VER
+    // TODO: Move to a USE_ include that defines features:
+    // __HAS_RVALUE_REFERENCES, ...
+    // __HAS_METHOD_DELETE, ...
+    // __has_cpp_attribute
+#ifndef __cplusplus
+// C++98
+    chunkview(const chunkview &);
+#elif __cplusplus <= 199711L
+// C++98
+    chunkview(const chunkview &);
+#elif __cplusplus <= 201103L
+// C++11
     chunkview(const chunkview &) = delete;
-// C++11+    chunkview(const chunkview &&) = delete;
+#else
+// C++14, 201402L
+    chunkview(const chunkview &&) = delete;
     chunkview & operator=(const chunkview &) = delete;
-// C++11+    chunkview & operator=(const chunkview &&) = delete;
+    chunkview & operator=(const chunkview &&) = delete;
+#endif
 
   private:
     bool getnextchunk()
@@ -203,7 +92,7 @@ class chunkview
         if (c && c->state!=uncompressed)
         {
             ERR("\t\tblocker bad state");
-            return false;
+            return RC(rcAlign,rcFile,rcConstructing,rcNoObj,rcUnexpected);
         }
         if (c) c->state=empty;
         c=NULL;
@@ -218,7 +107,7 @@ class chunkview
                 if (c->state==empty)
                 {
                     ERR("\t\tBlocker bad state");
-                    return false;
+                    return RC(rcAlign,rcFile,rcConstructing,rcNoObj,rcUnexpected);
                 }
                 while (c->state!=uncompressed)
                 {
@@ -227,7 +116,7 @@ class chunkview
                 }
                 DBG("\t\tBlocker thread chunk %p size %u", c->in, c->insize);
                 break;
-            } else if ((int)GetRCObject(rc)== rcTimeout) 
+            } else if ((int)GetRCObject(rc)== rcTimeout)
             {
                 INFO("\t\tBlocker thread queue empty");
                 if (KQueueSealed(que))
@@ -236,14 +125,14 @@ class chunkview
                     return false;
                 }
     //            usleep(1);
-            } else if ((int)GetRCObject(rc)== rcData) 
+            } else if ((int)GetRCObject(rc)== rcData)
             {
                 INFO("\t\tBlocker thread queue data (empty?)");
                 return false;
             } else
             {
                 ERR("blocker rc=%d",rc);
-                return false;
+                return RC(rcAlign,rcFile,rcConstructing,rcNoObj,rcUnexpected);
             }
         }
         return true;
@@ -280,6 +169,148 @@ class chunkview
 };
 
 
+extern "C" {
+void logmsg (const char * fname, int line, const char * func, const char * severity, const char * fmt, ...)
+{
+    char * buf;
+    size_t bufsize=0;
+    FILE * buffd;
+
+    const char * basename=strrchr(fname,'/');
+    if (!basename) basename=strrchr(fname,'\\');
+    if (basename) ++basename;
+    if (!basename) basename=fname;
+    va_list args;
+    va_start(args, fmt);
+
+    buffd=open_memstream(&buf,&bufsize);
+    if (buffd==NULL)
+    {
+        fprintf(stderr,"can't open memstream\n");
+        return;
+    }
+    fprintf(buffd, "%s:", severity);
+    vfprintf(buffd, fmt, args);
+    va_end(args);
+    fprintf(buffd, "\t[%s:%s():%d]\n", basename, func, line);
+    fclose(buffd);
+    size_t r=fwrite(buf, bufsize, 1, stderr);
+    if (r!=1) fprintf(stderr,"previous %zd log message truncated\n", bufsize);
+    free(buf);
+    fflush(stderr);
+    if (!strcmp(severity,"Error")) abort();
+}
+
+
+rc_t inflater(const KThread * kt, void * in)
+{
+    KQueue *inflatequeue=(KQueue *)in;
+    struct timeout_t tm;
+
+    z_stream strm;
+    pthread_t threadid=pthread_self();
+    INFO("\tThread %lu started.",threadid);
+
+    while (1)
+    {
+        void * where=NULL;
+        DBG("\t\tthread %lu checking queue",threadid);
+        TimeoutInit(&tm, 5000); // 5 seconds
+        rc_t rc=KQueuePop(inflatequeue, &where, &tm);
+        if (rc==0)
+        {
+            chunk * c=(chunk *)where;
+            DBG("\t\tthread %lu chunk %p size %u", threadid, c->in, c->insize);
+            if (c->state!=compressed)
+            {
+                ERR("Inflater bad state");
+                return RC(rcAlign,rcFile,rcReading,rcData,rcInvalid);
+                return 1;
+            }
+
+            memset(&strm,0,sizeof strm);
+            int zrc=inflateInit2(&strm, MAX_WBITS + 16); // Only gzip format
+            switch (zrc)
+            {
+                case Z_OK:
+                    break;
+                case Z_MEM_ERROR:
+                    ERR("Out of memory in zlib");
+                    return RC(rcAlign,rcFile,rcReading,rcMemory,rcExhausted);
+                    break;
+                case Z_VERSION_ERROR:
+                    ERR("zlib version is not compatible; need version %s but have %s", ZLIB_VERSION,zlibVersion());
+                    break;
+                    return RC(rcAlign,rcFile,rcConstructing,rcNoObj,rcUnexpected);
+                case Z_STREAM_ERROR:
+                    ERR("zlib stream error");
+                    return RC(rcAlign,rcFile,rcConstructing,rcNoObj,rcUnexpected);
+                    break;
+                default:
+                    ERR("zlib error %s",strm.msg);
+                    return RC(rcAlign,rcFile,rcConstructing,rcNoObj,rcUnexpected);
+                    break;
+            }
+            strm.next_in=c->in;
+            strm.avail_in=c->insize;
+            strm.next_out=c->out;
+            strm.avail_out=c->outsize;
+
+            zrc=inflate(&strm,Z_NO_FLUSH);
+            switch (zrc)
+            {
+                case Z_OK:
+                    DBG("\t\tthread %lu OK %d %d %lu", threadid, strm.avail_in, strm.avail_out,strm.total_out);
+                    c->outsize=strm.total_out;
+                    c->state=uncompressed;
+                    break;
+                case Z_MEM_ERROR:
+                    ERR("error: Out of memory in zlib");
+                    return RC(rcAlign,rcFile,rcReading,rcMemory,rcExhausted);
+                    break;
+                case Z_VERSION_ERROR:
+                    ERR("zlib version is not compatible; need version %s but have %s", ZLIB_VERSION,zlibVersion());
+                    return RC(rcAlign,rcFile,rcConstructing,rcNoObj,rcUnexpected);
+                    break;
+                case Z_STREAM_ERROR:
+                    ERR("zlib stream error %s",strm.msg);
+                    return RC(rcAlign,rcFile,rcConstructing,rcNoObj,rcUnexpected);
+                    break;
+                case Z_STREAM_END:
+                    ERR("zlib stream end%s",strm.msg);
+                    return RC(rcAlign,rcFile,rcConstructing,rcNoObj,rcUnexpected);
+                    break;
+                default:
+                    ERR("inflate error %d %s",zrc, strm.msg);
+                    return RC(rcAlign,rcFile,rcConstructing,rcNoObj,rcUnexpected);
+                    break;
+            }
+            inflateEnd(&strm);
+        } else if ((int)GetRCObject(rc)== rcTimeout)
+        {
+            INFO("\t\tthread %lu queue empty",threadid);
+            if (KQueueSealed(inflatequeue))
+            {
+                INFO("\t\tQueue sealed, thread %lu complete", threadid);
+                return 0;
+            }
+//            usleep(1);
+        } else if ((int)GetRCObject(rc)== rcData)
+        {
+            INFO("\t\tthread %lu queue data (empty?)",threadid);
+            break;
+        } else
+        {
+            ERR("rc=%d",rc);
+            return rc;
+        }
+    }
+
+    INFO("\t\tthread %lu terminating.",threadid);
+    return 0;
+}
+
+
 rc_t blocker(const KThread * kt, void * in)
 {
     KQueue *blockqueue=(KQueue *)in;
@@ -294,14 +325,14 @@ rc_t blocker(const KThread * kt, void * in)
     if (memcmp(magic,"BAM\x01",4))
     {
         ERR("BAM magic not found");
-        return 2;
+        return RC(rcAlign,rcFile,rcParsing,rcData,rcInvalid);
     }
     i32 l_text;
     if (!cv.getbytes(&l_text,4)) return 1;
     if (l_text<0)
     {
         ERR("error: invalid l_text");
-        return 1;
+        return RC(rcAlign,rcFile,rcParsing,rcData,rcInvalid);
     }
 
     char *text=(char *)calloc(1,l_text+1);
@@ -316,7 +347,7 @@ rc_t blocker(const KThread * kt, void * in)
     if (n_ref<0)
     {
         ERR("error: invalid n_ref");
-        return 1;
+        return RC(rcAlign,rcFile,rcParsing,rcData,rcInvalid);
     }
     DBG("# references %d", n_ref);
 
@@ -328,12 +359,12 @@ rc_t blocker(const KThread * kt, void * in)
         if (l_name < 0)
         {
             ERR("error: invalid reference name length");
-            return 1;
+            return RC(rcAlign,rcFile,rcParsing,rcData,rcInvalid);
         }
         if (l_name > 256)
         {
             WARN("warning: Long reference name");
-            return 1;
+            return 0;
         }
         char *name=(char *)calloc(1,l_name+1);
         if (!cv.getbytes(name,l_name)) return 1;
@@ -348,30 +379,30 @@ rc_t blocker(const KThread * kt, void * in)
     {
         bamalign align;
         if (!cv.getbytes(&align,sizeof(align))) return 1;
-        DBG("\n\n\nalignment block_size=%d refID=%d pos=%d", 
-                align.block_size, 
-                align.refID, 
+        DBG("\n\n\nalignment block_size=%d refID=%d pos=%d",
+                align.block_size,
+                align.refID,
                 align.pos);
 
         if (align.block_size < 0)
         {
             ERR("error: invalid block_size");
-            return 1;
+            return RC(rcAlign,rcFile,rcParsing,rcData,rcInvalid);
         }
         if (align.pos < 0)
         {
             ERR("error: invalid pos");
-            return 1;
+            return RC(rcAlign,rcFile,rcParsing,rcData,rcInvalid);
         }
         if (align.refID < -1 || align.refID > n_ref)
         {
             ERR("error: bad refID");
-            return 1;
+            return RC(rcAlign,rcFile,rcParsing,rcData,rcInvalid);
         }
         if (align.next_refID < -1 || align.next_refID > n_ref)
         {
             ERR("error: bad next_refID");
-            return 1;
+            return RC(rcAlign,rcFile,rcParsing,rcData,rcInvalid);
         }
         DBG("align.bin_mq_nl=%d",align.bin_mq_nl);
         u16 bin=align.bin_mq_nl >> 16;
@@ -506,7 +537,7 @@ rc_t blocker(const KThread * kt, void * in)
                   break;
               default:
                   ERR("Bad val_type:%c", val_type);
-                  return 1;
+                  return RC(rcAlign,rcFile,rcParsing,rcData,rcInvalid);
             }
         }
         DBG("no more ttvs");
@@ -538,7 +569,7 @@ void releasethreads(Vector * threads)
     }
 }
 
-bool threadinflate(Extractor * state, int numthreads)
+rc_t threadinflate(Extractor * state, int numthreads)
 {
     rc_t rc;
     struct timeout_t tm;
@@ -590,15 +621,19 @@ bool threadinflate(Extractor * state, int numthreads)
                 break;
             case Z_MEM_ERROR:
                 ERR("error: Out of memory in zlib");
+                return RC(rcAlign,rcFile,rcReading,rcMemory,rcExhausted);
                 break;
             case Z_VERSION_ERROR:
                 ERR("zlib version is not compatible; need version %s but have %s", ZLIB_VERSION,zlibVersion());
+                return RC(rcAlign,rcFile,rcConstructing,rcNoObj,rcUnexpected);
                 break;
             case Z_STREAM_ERROR:
                 ERR("zlib stream error");
+                return RC(rcAlign,rcFile,rcConstructing,rcNoObj,rcUnexpected);
                 break;
             default:
                 ERR("zlib error");
+                return RC(rcAlign,rcFile,rcConstructing,rcNoObj,rcUnexpected);
                 break;
         }
 
@@ -617,6 +652,7 @@ bool threadinflate(Extractor * state, int numthreads)
             if (zrc!=Z_OK)
             {
                 ERR("inflate error");
+                return RC(rcAlign,rcFile,rcConstructing,rcNoObj,rcUnexpected);
             }
         }
         INFO("found gzip header");
@@ -629,7 +665,7 @@ bool threadinflate(Extractor * state, int numthreads)
             DBG("buf   in:%p",state->mmapbuf_cur);
             DBG("next_in: %p",strm.next_in);
             DBG("offset:  %ld",state->mmapbuf_cur-state->mmapbuf);
-            if (bsize<=28) 
+            if (bsize<=28)
             {
                 INFO("small block found");
                 break;
@@ -660,7 +696,7 @@ bool threadinflate(Extractor * state, int numthreads)
             {
                 TimeoutInit(&tm, 1000); // 1 second
                 rc=KQueuePush(inflatequeue, (void *)c, &tm);
-                if ((int)GetRCObject(rc)== rcTimeout) 
+                if ((int)GetRCObject(rc)== rcTimeout)
                 {
                     DBG("queue full");
 //                    usleep(1);
@@ -678,7 +714,7 @@ bool threadinflate(Extractor * state, int numthreads)
             {
                 TimeoutInit(&tm, 1000); // 1 second
                 rc=KQueuePush(blockqueue, (void *)c, &tm);
-                if ((int)GetRCObject(rc)== rcTimeout) 
+                if ((int)GetRCObject(rc)== rcTimeout)
                 {
                     DBG("block queue full");
 //                    usleep(1);
@@ -696,6 +732,7 @@ bool threadinflate(Extractor * state, int numthreads)
         } else
         {
             ERR("error: BAM required extra extension not found");
+            return RC(rcAlign,rcFile,rcParsing,rcData,rcInvalid);
         }
     }
 
@@ -733,12 +770,14 @@ LIB_EXPORT rc_t CC SAMExtractorMake(Extractor **state, const char * fname, uint3
     if (fd==-1)
     {
         ERR("Cannot open %s:%s", fname, strerror(errno));
+        return RC(rcAlign,rcFile,rcReading,rcFile,rcNotFound);
     }
 
     struct stat st;
     if (fstat(fd,&st))
     {
         ERR("Cannot stat %s:%s", fname, strerror(errno));
+        return RC(rcAlign,rcFile,rcReading,rcFile,rcNotFound);
     }
     s->mmapbuf_sz=st.st_size;
     DBG("stat_sz = %ld", s->mmapbuf_sz);
@@ -748,34 +787,36 @@ LIB_EXPORT rc_t CC SAMExtractorMake(Extractor **state, const char * fname, uint3
     close(fd); // Still need to munmap
 
 //    madvise(mmapbuf, mmapbuf_sz, MADV_SEQUENTIAL | MADV_WILLNEED);
-    madvise(s->mmapbuf, s->mmapbuf_sz, MADV_SEQUENTIAL);
+    madvise(s->mmapbuf, s->mmapbuf_sz, MADV_SEQUENTIAL | MADV_HUGEPAGE);
 
     if (s->mmapbuf==MAP_FAILED)
     {
         ERR("Cannot mmap %s:%s", fname, strerror(errno));
-        return 1;
+        return RC(rcAlign,rcFile,rcReading,rcFile,rcNotFound);
     }
 
     if (!memcmp(s->mmapbuf,"\x1f\x8b\x08",3))
     {
-        INFO("gzip file");
+        DBG("gzip file");
         threadinflate(s,num_threads);
     } else if (s->mmapbuf[0]=='@')
     {
-        INFO("SAM file");
+        DBG("SAM file");
 
-        SAM_parsebegin(s);
+        rc_t rc=SAM_parsebegin(s);
+        DBG("begin=%d",rc);
+        if (rc) return rc;
         while (1)
         {
             ssize_t remain=s->mmapbuf_sz-(s->mmapbuf_cur-s->mmapbuf);
-            if (remain<=0) 
+            if (remain<=0)
             {
-                INFO("Buffer complete");
+                DBG("Buffer complete");
                 break;
             }
-            if (s->mmapbuf_cur[0]!='@') 
+            if (s->mmapbuf_cur[0]!='@')
             {
-                INFO("out of headers");
+                DBG("out of headers");
                 break;
             }
             char * nl=(char *)memchr(s->mmapbuf_cur, '\x0a', remain);
@@ -784,11 +825,12 @@ LIB_EXPORT rc_t CC SAMExtractorMake(Extractor **state, const char * fname, uint3
                 ++nl;
                 size_t linesize=nl-s->mmapbuf_cur;
                 DBG("linesize=%d",linesize);
-                SAM_parsebuffer(s,s->mmapbuf_cur,linesize);
+                rc=SAM_parsebuffer(s,s->mmapbuf_cur,linesize);
+                if (rc) return rc;
                 s->mmapbuf_cur+=linesize;
             } else
             {
-                INFO("No newline");
+                DBG("No newline");
                 // No newline, TODO: final line terminated?
                 break;
             }
@@ -870,14 +912,15 @@ LIB_EXPORT rc_t CC SAMExtractorGetAlignments(Extractor *s, Vector *alignments)
     while (numaligns--)
     {
         ssize_t remain=s->mmapbuf_sz-(s->mmapbuf_cur-s->mmapbuf);
-        if (remain<=0) 
+        if (remain<=0)
         {
-            INFO("Buffer complete");
+            DBG("Buffer complete");
+            numaligns=0;
             break;
         }
-        if (s->mmapbuf_cur[0]=='@') 
+        if (s->mmapbuf_cur[0]=='@')
         {
-            INFO("headers restarted");
+            DBG("headers restarted");
             break;
         }
         char * nl=(char *)memchr(s->mmapbuf_cur, '\x0a', remain);
@@ -886,11 +929,12 @@ LIB_EXPORT rc_t CC SAMExtractorGetAlignments(Extractor *s, Vector *alignments)
             ++nl;
             size_t linesize=nl-s->mmapbuf_cur;
             DBG("alignment #%d linesize=%d",numaligns,linesize);
-            SAM_parsebuffer(s,s->mmapbuf_cur,linesize);
+            rc_t rc=SAM_parsebuffer(s,s->mmapbuf_cur,linesize);
+            if (rc) { fprintf(stderr,"parsebuffer rc\n"); return rc; }
             s->mmapbuf_cur+=linesize;
         } else
         {
-            INFO("No newline");
+            DBG("No newline");
             // No newline, TODO: final line terminated?
             break;
         }

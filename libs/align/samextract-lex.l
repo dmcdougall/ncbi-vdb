@@ -108,36 +108,54 @@ qname [!-?A-~][!-~]{0,253}
 <AFTERCOLON>\t { BEGIN INITIAL; DBG(" tab INITIAL"); return TAB;}
 
 <INITIAL,INALIGNMENT,AFTERCOLON>{eol} { BEGIN INITIAL; DBG(" eol INITIAL"); return EOL;}
-<INALIGNMENT>[ -~]+ { SAMlval.strval=strdup(yytext); DBG(" alignvalue"); return ALIGNVALUE; }
-{tag}  { SAMlval.strval=strdup(yytext); DBG(" Valid Tag:%s", yytext); return TAG; }
+<INALIGNMENT>[ -~]+ {
+    SAMlval.strval=strdup(yytext); DBG(" alignvalue"); return ALIGNVALUE; }
+{tag}  {
+    SAMlval.strval=strdup(yytext); DBG(" Valid Tag:%s", yytext); return TAG; }
 <INITIAL,INALIGNMENT>: { BEGIN AFTERCOLON; DBG(" colon AFTERCOLON"); return COLON;}
 <AFTERCOLON>[ -~]+ { SAMlval.strval=strdup(yytext); DBG(" Value:%s", yytext); return VALUE; }
 
 .|\n       DBG("DEFAULT '%c' ", *yytext);
-
+ /* TODO: <<EOF>> rule */
 %%
 
-bool SAM_parsebegin(Extractor * state)
+#if YY_FLEX_MAJOR_VERSION == 2 && YY_FLEX_MINOR_VERSION < 6
+#error "Flex version should be >= 2.6.X"
+#endif
+
+
+rc_t SAM_parsebegin(Extractor * state)
 {
+    DBG("parsebegin");
     globstate=state;
-    return true;
+    return 0;
 }
 
-void SAM_parseend(Extractor * state)
+rc_t SAM_parseend(Extractor * state)
 {
+    DBG("parseend");
     free(lexbuf);
     lexbuf=NULL;
+    return 0;
 }
 
-int SAM_parsebuffer(Extractor * state, char * str, size_t size)
+rc_t SAM_parsebuffer(Extractor * state, char * str, size_t size)
 {
-    DBG("Parsing");
+    DBG("Parsingbuffer");
+    state->rc=0;
     if (size > 4096) fprintf(stderr,"big buf %zd\n",size);
     lexbuf=realloc(lexbuf,size+2);
+    if (lexbuf==NULL)
+    {
+        ERR("out of memory");
+        rc_t rc=RC(rcAlign,rcFile,rcReading,rcMemory,rcExhausted);
+        state->rc=rc;
+        return rc;
+    }
     memmove(lexbuf,str,size);
     lexbuf[size]='\0';
-    SAMparse(&state);
-    return 0;
+    SAMparse(state);
+    return state->rc;
 }
 
 int moredata(char * buf, int * numbytes, size_t maxbytes)

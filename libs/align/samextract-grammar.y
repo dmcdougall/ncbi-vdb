@@ -44,6 +44,7 @@
     #include <regex.h>
     #include <stdint.h>
 
+    #include <klib/rc.h>
     #include "samextract.h"
     #include <align/samextract-lib.h>
     #include "samextract-tokens.h"
@@ -53,15 +54,23 @@
 
     size_t alignfields=2; // 1 based, QNAME is #1
 
-    int SAMerror(const char * s)
+    int SAMerror(Extractor * extractor, const char * s)
     {
-        ERR("%s",s);
-        return 0;
+        ERR("Bison error: %s",s);
+        rc_t rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
+        globstate->rc=rc;
+        extractor->rc=rc;
+        return rc;
     }
 
     void * myalloc(size_t sz)
     {
         void * buf=malloc(sz);
+        if (buf==NULL) 
+        {
+            ERR("out of memory");
+            return NULL;
+        }
         memset(buf,0,sz);
         VectorAppend(&globstate->allocs,NULL,buf);
         return buf;
@@ -178,16 +187,19 @@
         return ok;
     }
 
-    void check_required_tag(const char * tags, const char * tag)
+    rc_t check_required_tag(const char * tags, const char * tag)
     {
         if (!strstr(tags,tag))
         {
             ERR("%s tag not seen in header", tag);
+            rc_t rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
+            globstate->rc=rc;
+            return rc;
         }
+        return 0;
     }
 
-    // Returns 1 if OK
-    int checkopttagtype(const char * optfield)
+    rc_t checkopttagtype(const char * optfield)
     {
         const char *opttypes="AMi ASi BCZ BQZ CCZ CMi COZ CPi CQZ CSZ CTZ E2Z FIi FSZ FZZ H0i H1i H2i HIi IHi LBZ MCZ MDZ MQi NHi NMi OCZ OPi OQZ PGZ PQi PTZ PUZ QTZ Q2Z R2Z RGZ RTZ SAZ SMi TCi U2Z UQi";
         const char type=optfield[3];
@@ -199,24 +211,30 @@
 
         if (tag[0]=='X' ||
             tag[0]=='Y' ||
-            tag[0]=='Z') return 1;
+            tag[0]=='Z') return 0;
 
         const char *p=strstr(opttypes,tag);
-        if (p==NULL) return 1;
+        if (p==NULL) return 0;
 
         if (p[2]!=type)
         {
-            ERR("tag %s should have type %c, not %c", tag, p[2], type); return 0;
+            ERR("tag %s should have type %c, not %c", tag, p[2], type);
+            rc_t rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
+            globstate->rc=rc;
+            return rc;
         }
 
-        return 1;
+        return 0;
     }
 
-    void process_tagvalue(const char * tag, const char * value)
+    rc_t process_tagvalue(const char * tag, const char * value)
     {
         if (strlen(tag)!=2)
         {
             ERR("tag '%s' must be 2 characters", tag);
+            rc_t rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
+            globstate->rc=rc;
+            return rc;
         }
 
         if (islower(tag[0] &&
@@ -228,6 +246,9 @@
             if (!validate(tag, value))
             {
                 ERR("Tag validataion %s failed",tag);
+                rc_t rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
+                globstate->rc=rc;
+                return rc;
             }
             globstate->tags=realloc(globstate->tags, strlen(globstate->tags) + strlen(tag) + 1 + 1);
             strcat(globstate->tags,tag); strcat(globstate->tags," ");
@@ -235,54 +256,120 @@
             if (!strcmp(tag,"SN"))
             {
                 char * s=malloc(strlen(value)+2);
+                if (s==NULL) 
+                {
+                    ERR("out of memory");
+                    rc_t rc=RC(rcAlign, rcRow,rcConstructing,rcMemory,rcExhausted);
+                    globstate->rc=rc;
+                    return rc;
+                    }
                 strcpy(s,value);
                 strcat(s," ");
                 if (strstr(globstate->seqnames,s))
                 {
                     ERR("duplicate sequence %s", value);
+                    rc_t rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
+                    globstate->rc=rc;
+                    return rc;
                 }
                 globstate->seqnames=realloc(globstate->seqnames,strlen(globstate->seqnames) + strlen(value) + 1 + 1);
+                if (globstate->seqnames==NULL) 
+                {
+                    ERR("out of memory");
+                    rc_t rc=RC(rcAlign, rcRow,rcConstructing,rcMemory,rcExhausted);
+                    globstate->rc=rc;
+                    return rc;
+                }
                 strcat(globstate->seqnames,s);
                 free(s);
             }
             if (!strcmp(tag,"ID"))
             {
                 char * s=malloc(strlen(value)+2);
+                if (s==NULL) 
+                {
+                    ERR("out of memory");
+                    rc_t rc=RC(rcAlign, rcRow,rcConstructing,rcMemory,rcExhausted);
+                    globstate->rc=rc;
+                    return rc;
+                }
                 strcpy(s,value);
                 strcat(s," ");
                 if (strstr(globstate->ids,s))
                 {
                     ERR("duplicate id %s", value);
+                    rc_t rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
+                    globstate->rc=rc;
+                    return rc;
                 }
                 globstate->ids=realloc(globstate->ids,strlen(globstate->ids) + strlen(value) + 1 + 1);
+                if (globstate->ids==NULL) 
+                {
+                    ERR("out of memory");
+                    rc_t rc=RC(rcAlign, rcRow,rcConstructing,rcMemory,rcExhausted);
+                    globstate->rc=rc;
+                    return rc;
+                }
                 strcat(globstate->ids,s);
                 free(s);
             }
         }
 
         TagValue * tv=myalloc(sizeof(TagValue));
+        if (tv==NULL) 
+        {
+            ERR("out of memory");
+            rc_t rc=RC(rcAlign, rcRow,rcConstructing,rcMemory,rcExhausted);
+            globstate->rc=rc;
+            return rc;
+        }
         tv->tag=mystrdup(tag);
+        if (tv->tag==NULL) 
+        {
+            ERR("out of memory");
+            rc_t rc=RC(rcAlign, rcRow,rcConstructing,rcMemory,rcExhausted);
+            globstate->rc=rc;
+            return rc;
+        }
         tv->value=mystrdup(value);
+        if (tv->value==NULL) 
+        {
+            ERR("out of memory");
+            rc_t rc=RC(rcAlign, rcRow,rcConstructing,rcMemory,rcExhausted);
+            globstate->rc=rc;
+            return rc;
+        }
         VectorAppend(&globstate->tagvalues,NULL,tv);
         u32 block=VectorBlock(&globstate->tagvalues);
         DBG("block is %d",block);
         DBG("Appending %d",VectorLength(&globstate->tagvalues));
+        return 0;
     }
 
-    void mark_headers(const char * type)
+    rc_t mark_headers(const char * type)
     {
         DBG("mark_headers");
         Header * hdr=(Header *)myalloc(sizeof(Header));
+        if (hdr==NULL) 
+        {
+            ERR("out of memory");
+            rc_t rc=RC(rcAlign, rcRow,rcConstructing,rcMemory,rcExhausted);
+            globstate->rc=rc;
+            return rc;
+        }
         hdr->headercode=type;
         VectorCopy(&globstate->tagvalues,&hdr->tagvalues);
         VectorAppend(&globstate->headers,NULL,hdr);
         VectorWhack(&globstate->tagvalues,NULL,NULL);
+        return 0;
     }
 
-    void process_align(const char *field)
+    rc_t process_align(const char *field)
     {
+        rc_t rc=0;
         const char * opt="(required)";
         if (alignfields>=12) opt="(optional)";
+        DBG("rc=%d", globstate->rc);
         DBG("alignvalue #%zu%s: %s", alignfields, opt, field);
         switch (alignfields)
         {
@@ -294,6 +381,9 @@
                     flag > 4095)
                 {
                     ERR("error parsing FLAG: %s", field);
+                    rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
+                    globstate->rc=rc;
+                    return rc;
                 }
                 DBG("flag is %d",flag);
                 break;
@@ -304,9 +394,19 @@
                 if (!regexcheck("\\*|[!-)+-<>-~][!-~]*",rname))
                 {
                     ERR("error parsing RNAME");
+                    rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
+                    globstate->rc=rc;
+                    return rc;
                 }
                 DBG("rname is %s",rname);
                 globstate->rname=mystrdup(rname);
+                if (globstate->rname==NULL) 
+                {
+                    ERR("NULL rname");
+                    rc=RC(rcAlign, rcRow,rcConstructing,rcMemory,rcExhausted);
+                    globstate->rc=rc;
+                    return rc;
+                }
                 break;
             }
             case 4: // POS
@@ -317,6 +417,9 @@
                     pos > INT32_MAX)
                 {
                     ERR("error parsing POS: %s", field);
+                    rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
+                    globstate->rc=rc;
+                    return rc;
                 }
                 DBG("pos is %d",pos);
                 globstate->pos=pos;
@@ -330,6 +433,9 @@
                     mapq > UINT8_MAX)
                 {
                     ERR("error parsing MAPQ: %s", field);
+                    rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
+                    globstate->rc=rc;
+                    return rc;
                 }
                 DBG("mapq is %d", mapq);
                 break;
@@ -340,9 +446,19 @@
                 if (!regexcheck("\\*|([0-9]+[MIDNSHPX=])+",cigar))
                 {
                     ERR("error parsing cigar");
+                    rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
+                    globstate->rc=rc;
+                    return rc;
                 }
                 DBG("cigar is %s",cigar);
                 globstate->cigar=mystrdup(cigar);
+                if (globstate->cigar==NULL) 
+                {
+                    ERR("out of memory");
+                    rc=RC(rcAlign, rcRow,rcConstructing,rcMemory,rcExhausted);
+                    globstate->rc=rc;
+                    return rc;
+                }
                 break;
             }
             case 7: // RNEXT
@@ -351,6 +467,9 @@
                 if (!regexcheck("\\*|=|[!-)+-<>-~][!-~]*",rnext))
                 {
                     ERR("error parsing rnext");
+                    rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
+                    globstate->rc=rc;
+                    return rc;
                 }
                 DBG("rnext is %s",rnext);
                 break;
@@ -363,6 +482,9 @@
                     pnext > INT32_MAX)
                 {
                     ERR("error parsing PNEXT: %s", field);
+                    rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
+                    globstate->rc=rc;
+                    return rc;
                 }
                 DBG("pnext is %d",pnext);
                 break;
@@ -375,6 +497,9 @@
                     tlen > INT32_MAX)
                 {
                     ERR("error parsing TLEN: %s", field);
+                    rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
+                    globstate->rc=rc;
+                    return rc;
                 }
                 DBG("tlen is %d", tlen);
                 break;
@@ -385,9 +510,19 @@
                 if (!regexcheck("\\*|[A-Za-z=.]+",seq))
                 {
                     ERR("error parsing seq");
+                    rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
+                    globstate->rc=rc;
+                    return rc;
                 }
                 DBG("seq is %s",seq);
                 globstate->read=mystrdup(seq);
+                if (globstate->read==NULL) 
+                {
+                    ERR("out of memory");
+                    rc=RC(rcAlign, rcRow,rcConstructing,rcMemory,rcExhausted);
+                    globstate->rc=rc;
+                    return rc;
+                }
                 break;
             }
             case 11: // QUAL
@@ -396,52 +531,89 @@
                 if (!regexcheck("[!-~]+",qual))
                 {
                     ERR("error parsing qual");
+                    rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
+                    globstate->rc=rc;
+                    return rc;
                 }
                 DBG("qual is %s", qual);
+                DBG("rc=%d", globstate->rc);
                 break;
             }
             default: // Optional
             {
+            DBG("optional");
  //               /TT:t:
                 if ((strlen(field)<5) ||
                   field[2]!=':' ||
                   field[4]!=':')
                   {
                     ERR("invald tagtypevalue:%s", field);
+                    rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
+                    globstate->rc=rc;
+                    return rc;
                   }
                 const char type=field[3];
-                if (!checkopttagtype(field))
+                if (checkopttagtype(field))
                 {
+                    ERR("Optional field tag %s doesn't match type", field);
                     WARN("Optional field tag %s doesn't match type", field);
-
                 }
                 const char * value=&field[5];
                 switch (type)
                 {
                     case 'A':
                         if (!regexcheck("[!-~]", value))
+                        {
                             ERR("value doesn't match A type:%s",value);
+                            rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
+                            globstate->rc=rc;
+                            return rc;
+                            }
                         break;
                     case 'i':
                         if (!regexcheck("[-+]?[0-9]+", value))
+                        {
                             ERR("value doesn't match i type:%s",value);
+                            rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
+                            globstate->rc=rc;
+                            return rc;
+                        }
                         break;
                     case 'f':
                         if (!regexcheck("[-+]?[0-9]*\\.?[0-9]+([eE][-+]?[0-9]+)?", value))
+                        {
                             ERR("value doesn't match f type:%s",value);
+                            rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
+                            globstate->rc=rc;
+                            return rc;
+                        }
                         break;
                     case 'Z':
                         if (!regexcheck("[ !-~]*", value))
+                        {
                             ERR("value doesn't match Z type:%s",value);
+                            rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
+                            globstate->rc=rc;
+                            return rc;
+                        }
                         break;
                     case 'H':
                         if (!regexcheck("([0-9A-F][0-9A-F])*", value))
+                        {
                             ERR("value doesn't match H type:%s",value);
+                            rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
+                            globstate->rc=rc;
+                            return rc;
+                        }
                         break;
                     case 'B':
-                        if
-                        (!regexcheck("[cCsSiIf](,[-+]?[0-9]*\\.?[0-9]+(eE][-+]?[0-9]+)?)+", value))
+                        if (!regexcheck("[cCsSiIf](,[-+]?[0-9]*\\.?[0-9]+(eE][-+]?[0-9]+)?)+", value))
+                        {
                             ERR("value doesn't match B type:%s",value);
+                            rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
+                            globstate->rc=rc;
+                            return rc;
+                        }
                         break;
                     default:
                         break;
@@ -451,7 +623,7 @@
             }
         }
         ++alignfields;
-
+        return 0;
     }
 
 %}
@@ -463,41 +635,44 @@
  double floatval;
 }
 
+%name-prefix "SAM"
+/* %define api.pure // was pure-parser */
+/* %lex-param   { Extractor * state } */
+/* %parse-param { Extractor * state } */
+%param { Extractor * state}
+%require "3.0"
+%define parse.error verbose
+
 %token <strval> HEADER
 %token <strval> SEQUENCE
 %token <strval> READGROUP
 %token <strval> PROGRAM
 %token <strval> COMMENT
 %token <strval> TAG
- /* %token <strval> BADTAG */
 %token <strval> VALUE
 %token <strval> ALIGNVALUE
-/* %token DIGITS */
 %token <strval> QNAME
 %token COLON
 %token TAB
 %token CONTROLCHAR
 %token EOL
 %token END 0 "end of file"
-%error-verbose
-%name-prefix="SAM"
-/* %define api.pure // was pure-parser */
-/* %lex-param   { extractor * state } */
-/* %parse-param { extractor * state } */
-%require "2.5" //TODO: 3.0.4+
-%error-verbose
 
 
 %%
  /* Grammar rules */
 sam: /* beginning of input */
-   /* empty %empty */
+   %empty
    | sam line
    ;
 
 line:
    EOL /* Spec is unclear about empty lines, accept for now */
-   | CONTROLCHAR { ERR("CONTROLCHAR"); }
+   | CONTROLCHAR { ERR("CONTROLCHAR"); 
+                   rc_t rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
+                   globstate->rc=rc;
+                   return rc;
+   }
    | comment { DBG("comment"); }
    | header EOL { DBG("header"); }
    | sequence { DBG("sequence"); }
@@ -580,8 +755,18 @@ tagvalue: TAB TAG COLON VALUE {
         free($2);
         free($4);
         };
-  | TAB TAB TAG COLON VALUE { ERR("two tabs"); }
-  | TAB TAB EOL { ERR("empty tags"); }
+  | TAB TAB TAG COLON VALUE { 
+        ERR("two tabs"); 
+        rc_t rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
+        globstate->rc=rc;
+        return rc;
+  }
+  | TAB TAB EOL { 
+        ERR("empty tags"); 
+        rc_t rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
+        globstate->rc=rc;
+        return rc;
+  }
   | TAB TAG TAG {
         const char * tag=$2;
         WARN("malformed TAG:VALUE 'TAB %s(NOT COLON)...'", tag);
@@ -595,6 +780,13 @@ alignment:
         DBG(" avlist qname:%s fields=%zu", $1, alignfields);
         alignfields=2;
         Alignment * align=myalloc(sizeof(Alignment));
+        if (align==NULL) 
+        {
+            ERR("out of memory");
+            rc_t rc=RC(rcAlign, rcRow,rcConstructing,rcMemory,rcExhausted);
+            globstate->rc=rc;
+            return rc;
+        }
         align->read=globstate->read;
         align->cigar=globstate->cigar;
         align->rname=globstate->rname;
@@ -615,7 +807,8 @@ av:
     TAB ALIGNVALUE
     {
         const char * field=$2;
-        process_align(field);
+        rc_t rc=process_align(field);
+        globstate->rc=rc;
         free($2);
     }
     ;

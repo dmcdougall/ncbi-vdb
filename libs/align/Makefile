@@ -180,19 +180,18 @@ SAM_EXTRACT_OBJ = \
 
 SAM_EXTRACT_LIB =
 
-samextract-grammar: samextract-grammar.c
+$(SRCDIR)/samextract-grammar: $(SRCDIR)/samextract-grammar.c
 
-samextract-grammar.c: samextract-grammar.y
-	bison --warnings=error -o samextract-grammar.c --defines=$(SRCDIR)/samextract-tokens.h -v -Wall $(SRCDIR)/samextract-grammar.y
-#	bison --warnings=error -o $(SRCDIR)/samextract-grammar.c --defines=$(SRCDIR)/samextract-tokens.h -v -Wall $(SRCDIR)/samextract-grammar.y
+$(SRCDIR)/samextract-grammar.c: $(SRCDIR)/samextract-grammar.y
+	bison --warnings=error -o $(SRCDIR)/samextract-grammar.c --defines=$(SRCDIR)/samextract-tokens.h -v -Wall $(SRCDIR)/samextract-grammar.y
 
 ifeq (dbg,$(BUILD))
   FLEX_DEBUG=-d
 endif
 
-samextract-lex: samextract-lex.l
+$(SRCDIR)/samextract-lex: $(SRCDIR)/samextract-lex.l $(SRCDIR)/samextract-grammar.c $(SRCDIR)/samextract-tokens.h
 
-samextract-lex.c: samextract-lex.l
+$(SRCDIR)/samextract-lex.c: $(SRCDIR)/samextract-lex.l
 	flex --fast $(FLEX_DEBUG) -o $(SRCDIR)/samextract-lex.c $(SRCDIR)/samextract-lex.l
 
 $(ILIBDIR)/libsam-extract.$(LIBX): $(SAM_EXTRACT_OBJ)

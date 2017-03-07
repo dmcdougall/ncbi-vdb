@@ -1,5 +1,4 @@
-#line 2 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.c"
-#line 45 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
+#line 1 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.c"
 #include <stdio.h>
 #include <string.h>
 #include "samextract.h"
@@ -14,11 +13,7 @@ Extractor * globstate=NULL;
 int moredata(char * buf, int * numbytes, size_t maxbytes);
 #define YY_INPUT(buf,numbytes,maxbytes) moredata(buf,&numbytes,maxbytes)
 
-
-  
-
-
-#line 22 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.c"
+#line 16 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.c"
 
 #define  YY_INT_ALIGNED short int
 
@@ -45,11 +40,89 @@ int moredata(char * buf, int * numbytes, size_t maxbytes);
 
 #define FLEX_SCANNER
 #define YY_FLEX_MAJOR_VERSION 2
-#define YY_FLEX_MINOR_VERSION 5
-#define YY_FLEX_SUBMINOR_VERSION 35
+#define YY_FLEX_MINOR_VERSION 6
+#define YY_FLEX_SUBMINOR_VERSION 3
 #if YY_FLEX_SUBMINOR_VERSION > 0
 #define FLEX_BETA
 #endif
+
+    #define yy_create_buffer SAM_create_buffer
+
+    #define yy_delete_buffer SAM_delete_buffer
+
+    #define yy_scan_buffer SAM_scan_buffer
+
+    #define yy_scan_string SAM_scan_string
+
+    #define yy_scan_bytes SAM_scan_bytes
+
+    #define yy_init_buffer SAM_init_buffer
+
+    #define yy_flush_buffer SAM_flush_buffer
+
+    #define yy_load_buffer_state SAM_load_buffer_state
+
+    #define yy_switch_to_buffer SAM_switch_to_buffer
+
+    #define yypush_buffer_state SAMpush_buffer_state
+
+    #define yypop_buffer_state SAMpop_buffer_state
+
+    #define yyensure_buffer_stack SAMensure_buffer_stack
+
+    #define yylex SAMlex
+
+    #define yyrestart SAMrestart
+
+    #define yylex_init SAMlex_init
+
+    #define yylex_init_extra SAMlex_init_extra
+
+    #define yylex_destroy SAMlex_destroy
+
+    #define yyget_debug SAMget_debug
+
+    #define yyset_debug SAMset_debug
+
+    #define yyget_extra SAMget_extra
+
+    #define yyset_extra SAMset_extra
+
+    #define yyget_in SAMget_in
+
+    #define yyset_in SAMset_in
+
+    #define yyget_out SAMget_out
+
+    #define yyset_out SAMset_out
+
+    #define yyget_leng SAMget_leng
+
+    #define yyget_text SAMget_text
+
+    #define yyget_lineno SAMget_lineno
+
+    #define yyset_lineno SAMset_lineno
+
+    #define yywrap SAMwrap
+
+    #define yyalloc SAMalloc
+
+    #define yyrealloc SAMrealloc
+
+    #define yyfree SAMfree
+
+    #define yytext SAMtext
+
+    #define yyleng SAMleng
+
+    #define yyin SAMin
+
+    #define yyout SAMout
+
+    #define yy_flex_debug SAM_flex_debug
+
+    #define yylineno SAMlineno
 
 /* First, we deal with  platform-specific or compiler-specific issues. */
 
@@ -91,7 +164,6 @@ typedef int flex_int32_t;
 typedef unsigned char flex_uint8_t; 
 typedef unsigned short int flex_uint16_t;
 typedef unsigned int flex_uint32_t;
-#endif /* ! C99 */
 
 /* Limits of integral types. */
 #ifndef INT8_MIN
@@ -122,63 +194,55 @@ typedef unsigned int flex_uint32_t;
 #define UINT32_MAX             (4294967295U)
 #endif
 
+#endif /* ! C99 */
+
 #endif /* ! FLEXINT_H */
 
-#ifdef __cplusplus
-
-/* The "const" storage-class-modifier is valid. */
-#define YY_USE_CONST
-
-#else	/* ! __cplusplus */
-
-/* C99 requires __STDC__ to be defined as 1. */
-#if defined (__STDC__)
-
-#define YY_USE_CONST
-
-#endif	/* defined (__STDC__) */
-#endif	/* ! __cplusplus */
-
-#ifdef YY_USE_CONST
+/* TODO: this is always defined, so inline it */
 #define yyconst const
+
+#if defined(__GNUC__) && __GNUC__ >= 3
+#define yynoreturn __attribute__((__noreturn__))
 #else
-#define yyconst
+#define yynoreturn
 #endif
 
 /* Returned upon end-of-file. */
 #define YY_NULL 0
 
-/* Promotes a possibly negative, possibly signed char to an unsigned
- * integer for use as an array index.  If the signed char is negative,
- * we want to instead treat it as an 8-bit unsigned char, hence the
- * double cast.
+/* Promotes a possibly negative, possibly signed char to an
+ *   integer in range [0..255] for use as an array index.
  */
-#define YY_SC_TO_UI(c) ((unsigned int) (unsigned char) c)
+#define YY_SC_TO_UI(c) ((YY_CHAR) (c))
 
 /* Enter a start condition.  This macro really ought to take a parameter,
  * but we do it the disgusting crufty way forced on us by the ()-less
  * definition of BEGIN.
  */
 #define BEGIN (yy_start) = 1 + 2 *
-
 /* Translate the current start state into a value that can be later handed
  * to BEGIN to return to the state.  The YYSTATE alias is for lex
  * compatibility.
  */
 #define YY_START (((yy_start) - 1) / 2)
 #define YYSTATE YY_START
-
 /* Action number for EOF rule of a given start state. */
 #define YY_STATE_EOF(state) (YY_END_OF_BUFFER + state + 1)
-
 /* Special action meaning "start processing a new file". */
 #define YY_NEW_FILE SAMrestart(SAMin  )
-
 #define YY_END_OF_BUFFER_CHAR 0
 
 /* Size of default input buffer. */
 #ifndef YY_BUF_SIZE
+#ifdef __ia64__
+/* On IA-64, the buffer size is 16k, not 8k.
+ * Moreover, YY_BUF_SIZE is 2*YY_READ_BUF_SIZE in the general case.
+ * Ditto for the __ia64__ case accordingly.
+ */
+#define YY_BUF_SIZE 32768
+#else
 #define YY_BUF_SIZE 16384
+#endif /* __ia64__ */
 #endif
 
 /* The state buf must be large enough to hold one state per character in the main buffer.
@@ -190,6 +254,11 @@ typedef unsigned int flex_uint32_t;
 typedef struct yy_buffer_state *YY_BUFFER_STATE;
 #endif
 
+#ifndef YY_TYPEDEF_YY_SIZE_T
+#define YY_TYPEDEF_YY_SIZE_T
+typedef size_t yy_size_t;
+#endif
+
 extern int SAMleng;
 
 extern FILE *SAMin, *SAMout;
@@ -197,10 +266,10 @@ extern FILE *SAMin, *SAMout;
 #define EOB_ACT_CONTINUE_SCAN 0
 #define EOB_ACT_END_OF_FILE 1
 #define EOB_ACT_LAST_MATCH 2
-
+    
     /* Note: We specifically omit the test for yy_rule_can_match_eol because it requires
      *       access to the local variable yy_act. Since yyless() is a macro, it would break
-     *       existing scanners that call yyless() from OUTSIDE SAMlex. 
+     *       existing scanners that call yyless() from OUTSIDE SAMlex.
      *       One obvious solution it to make yy_act a global. I tried that, and saw
      *       a 5% performance hit in a non-SAMlineno scanner, because yy_act is
      *       normally declared as a register variable-- so it is not worth it.
@@ -210,6 +279,13 @@ extern FILE *SAMin, *SAMout;
                 int yyl;\
                 for ( yyl = n; yyl < SAMleng; ++yyl )\
                     if ( SAMtext[yyl] == '\n' )\
+                        --SAMlineno;\
+            }while(0)
+    #define YY_LINENO_REWIND_TO(dst) \
+            do {\
+                const char *p;\
+                for ( p = yy_cp-1; p >= (dst); --p)\
+                    if ( *p == '\n' )\
                         --SAMlineno;\
             }while(0)
     
@@ -226,13 +302,7 @@ extern FILE *SAMin, *SAMout;
 		YY_DO_BEFORE_ACTION; /* set up SAMtext again */ \
 		} \
 	while ( 0 )
-
 #define unput(c) yyunput( c, (yytext_ptr)  )
-
-#ifndef YY_TYPEDEF_YY_SIZE_T
-#define YY_TYPEDEF_YY_SIZE_T
-typedef size_t yy_size_t;
-#endif
 
 #ifndef YY_STRUCT_YY_BUFFER_STATE
 #define YY_STRUCT_YY_BUFFER_STATE
@@ -246,7 +316,7 @@ struct yy_buffer_state
 	/* Size of input buffer in bytes, not including room for EOB
 	 * characters.
 	 */
-	yy_size_t yy_buf_size;
+	int yy_buf_size;
 
 	/* Number of characters read into yy_ch_buf, not including EOB
 	 * characters.
@@ -274,7 +344,7 @@ struct yy_buffer_state
 
     int yy_bs_lineno; /**< The line count. */
     int yy_bs_column; /**< The column count. */
-    
+
 	/* Whether to try to fill the input buffer when we reach the
 	 * end of it.
 	 */
@@ -302,7 +372,7 @@ struct yy_buffer_state
 /* Stack of input buffers. */
 static size_t yy_buffer_stack_top = 0; /**< index of top of stack. */
 static size_t yy_buffer_stack_max = 0; /**< capacity of stack. */
-static YY_BUFFER_STATE * yy_buffer_stack = 0; /**< Stack as an array. */
+static YY_BUFFER_STATE * yy_buffer_stack = NULL; /**< Stack as an array. */
 
 /* We provide macros for accessing buffer states in case in the
  * future we want to put the buffer states in a more general
@@ -313,7 +383,6 @@ static YY_BUFFER_STATE * yy_buffer_stack = 0; /**< Stack as an array. */
 #define YY_CURRENT_BUFFER ( (yy_buffer_stack) \
                           ? (yy_buffer_stack)[(yy_buffer_stack_top)] \
                           : NULL)
-
 /* Same as previous macro, but useful when we know that the buffer stack is not
  * NULL or when we need an lvalue. For internal use only.
  */
@@ -325,7 +394,7 @@ static int yy_n_chars;		/* number of characters read into yy_ch_buf */
 int SAMleng;
 
 /* Points to current character in buffer. */
-static char *yy_c_buf_p = (char *) 0;
+static char *yy_c_buf_p = NULL;
 static int yy_init = 0;		/* whether we need to initialize */
 static int yy_start = 0;	/* start state number */
 
@@ -334,30 +403,28 @@ static int yy_start = 0;	/* start state number */
  */
 static int yy_did_buffer_switch_on_eof;
 
-void SAMrestart (FILE *input_file  );
-void SAM_switch_to_buffer (YY_BUFFER_STATE new_buffer  );
-YY_BUFFER_STATE SAM_create_buffer (FILE *file,int size  );
-void SAM_delete_buffer (YY_BUFFER_STATE b  );
-void SAM_flush_buffer (YY_BUFFER_STATE b  );
-void SAMpush_buffer_state (YY_BUFFER_STATE new_buffer  );
-void SAMpop_buffer_state (void );
+void SAMrestart ( FILE *input_file  );
+void SAM_switch_to_buffer ( YY_BUFFER_STATE new_buffer  );
+YY_BUFFER_STATE SAM_create_buffer ( FILE *file, int size  );
+void SAM_delete_buffer ( YY_BUFFER_STATE b  );
+void SAM_flush_buffer ( YY_BUFFER_STATE b  );
+void SAMpush_buffer_state ( YY_BUFFER_STATE new_buffer  );
+void SAMpop_buffer_state ( void );
 
-static void SAMensure_buffer_stack (void );
-static void SAM_load_buffer_state (void );
-static void SAM_init_buffer (YY_BUFFER_STATE b,FILE *file  );
-
+static void SAMensure_buffer_stack ( void );
+static void SAM_load_buffer_state ( void );
+static void SAM_init_buffer ( YY_BUFFER_STATE b, FILE *file  );
 #define YY_FLUSH_BUFFER SAM_flush_buffer(YY_CURRENT_BUFFER )
 
-YY_BUFFER_STATE SAM_scan_buffer (char *base,yy_size_t size  );
-YY_BUFFER_STATE SAM_scan_string (yyconst char *yy_str  );
-YY_BUFFER_STATE SAM_scan_bytes (yyconst char *bytes,int len  );
+YY_BUFFER_STATE SAM_scan_buffer ( char *base, yy_size_t size  );
+YY_BUFFER_STATE SAM_scan_string ( const char *yy_str  );
+YY_BUFFER_STATE SAM_scan_bytes ( const char *bytes, int len  );
 
-void *SAMalloc (yy_size_t  );
-void *SAMrealloc (void *,yy_size_t  );
-void SAMfree (void *  );
+void *SAMalloc ( yy_size_t  );
+void *SAMrealloc ( void *, yy_size_t  );
+void SAMfree ( void *  );
 
 #define yy_new_buffer SAM_create_buffer
-
 #define yy_set_interactive(is_interactive) \
 	{ \
 	if ( ! YY_CURRENT_BUFFER ){ \
@@ -367,7 +434,6 @@ void SAMfree (void *  );
 	} \
 	YY_CURRENT_BUFFER_LVALUE->yy_is_interactive = is_interactive; \
 	}
-
 #define yy_set_bol(at_bol) \
 	{ \
 	if ( ! YY_CURRENT_BUFFER ){\
@@ -377,42 +443,41 @@ void SAMfree (void *  );
 	} \
 	YY_CURRENT_BUFFER_LVALUE->yy_at_bol = at_bol; \
 	}
-
 #define YY_AT_BOL() (YY_CURRENT_BUFFER_LVALUE->yy_at_bol)
 
 /* Begin user sect3 */
 
-#define SAMwrap(n) 1
+#define SAMwrap() (/*CONSTCOND*/1)
 #define YY_SKIP_YYWRAP
+typedef flex_uint8_t YY_CHAR;
 
-typedef char YY_CHAR;
+FILE *SAMin = NULL, *SAMout = NULL;
 
-FILE *SAMin = (FILE *) 0, *SAMout = (FILE *) 0;
-
-typedef yyconst struct yy_trans_info *yy_state_type;
+typedef const struct yy_trans_info *yy_state_type;
 
 extern int SAMlineno;
-
 int SAMlineno = 1;
 
 extern char *SAMtext;
+#ifdef yytext_ptr
+#undef yytext_ptr
+#endif
 #define yytext_ptr SAMtext
 
-static yy_state_type yy_get_previous_state (void );
-static yy_state_type yy_try_NUL_trans (yy_state_type current_state  );
-static int yy_get_next_buffer (void );
-static void yy_fatal_error (yyconst char msg[]  );
+static yy_state_type yy_get_previous_state ( void );
+static yy_state_type yy_try_NUL_trans ( yy_state_type current_state  );
+static int yy_get_next_buffer ( void );
+static void yynoreturn yy_fatal_error ( const char* msg  );
 
 /* Done after the current pattern has been matched and before the
  * corresponding action - sets up SAMtext.
  */
 #define YY_DO_BEFORE_ACTION \
 	(yytext_ptr) = yy_bp; \
-	SAMleng = (size_t) (yy_cp - yy_bp); \
+	SAMleng = (int) (yy_cp - yy_bp); \
 	(yy_hold_char) = *yy_cp; \
 	*yy_cp = '\0'; \
 	(yy_c_buf_p) = yy_cp;
-
 #define YY_NUM_RULES 16
 #define YY_END_OF_BUFFER 17
 struct yy_trans_info
@@ -420,7 +485,7 @@ struct yy_trans_info
 	flex_int32_t yy_verify;
 	flex_int32_t yy_nxt;
 	};
-static yyconst struct yy_trans_info yy_transition[67554] =
+static const struct yy_trans_info yy_transition[67554] =
     {
  {   0,   0 }, {   0,67426 }, {   0,   0 }, {   0,67424 }, {   1, 780 },
  {   2, 780 }, {   3, 780 }, {   4, 780 }, {   5, 780 }, {   6, 780 },
@@ -15257,7 +15322,7 @@ static yyconst struct yy_trans_info yy_transition[67554] =
  { 123,-65030 }, { 124,-65030 }, { 125,-65030 }, { 126,-65030 }, {   0,   0 },
  {   0,   0 }, { 129,  17 }, {   1,   0 },    };
 
-static yyconst struct yy_trans_info *yy_start_state_list[7] =
+static const struct yy_trans_info *yy_start_state_list[7] =
     {
     &yy_transition[1],
     &yy_transition[3],
@@ -15270,7 +15335,7 @@ static yyconst struct yy_trans_info *yy_start_state_list[7] =
     } ;
 
 /* Table of booleans, true if rule could match eol. */
-static yyconst flex_int32_t yy_rule_can_match_eol[17] =
+static const flex_int32_t yy_rule_can_match_eol[17] =
     {   0,
 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0,     };
 
@@ -15314,37 +15379,38 @@ char *SAMtext;
 * ===========================================================================
 *
 */
-/*
-lex file is three sections:
-definitions: name definition
-%%
-rules: pattern action
-%%
-user code
-*/
-/*
-@HD\tVN:1.4\tSO:coordinate
-@SQ\tSN:1\t...
-@SQ\tSN:16\t...
-@RG\tID:PM89\tPL:Illumina\tLB...
-HWI-...
-*/
+#line 28 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
+   /*
+      lex file is three sections:
+      definitions: name definition
+      %%
+      rules: pattern action
+      %%
+      user code
+   */
+  /*
+    @HD\tVN:1.4\tSO:coordinate
+    @SQ\tSN:1\t...
+    @SQ\tSN:16\t...
+    @RG\tID:PM89\tPL:Illumina\tLB...
+    HWI-...
+  */
 
-/* definitions */
-/* No @ in first, to distinguish from headers */
-/* See also bison's lex-param/parse-param */
+ /* definitions */
+ /* No @ in first, to distinguish from headers */
+ /* See also bison's lex-param/parse-param */
 /*%option extra-type="Extractor *" */
-/* stop after first EOF */
-/* Don't use these functions */
+ /* stop after first EOF */
+ /* Don't use these functions */
 #define YY_NO_INPUT 1
-/* Not a TTY */
+ /* Not a TTY */
 #define YY_NO_UNISTD_H 1
 /* %option reentrant */
 /* %option bison-bridge */
-/* Start states */
+ /* Start states */
 
 
-#line 15348 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.c"
+#line 15413 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.c"
 
 #define INITIAL 0
 #define INALIGNMENT 1
@@ -15362,36 +15428,36 @@ HWI-...
 #define YY_EXTRA_TYPE void *
 #endif
 
-static int yy_init_globals (void );
+static int yy_init_globals ( void );
 
 /* Accessor methods to globals.
    These are made visible to non-reentrant scanners for convenience. */
 
-int SAMlex_destroy (void );
+int SAMlex_destroy ( void );
 
-int SAMget_debug (void );
+int SAMget_debug ( void );
 
-void SAMset_debug (int debug_flag  );
+void SAMset_debug ( int debug_flag  );
 
-YY_EXTRA_TYPE SAMget_extra (void );
+YY_EXTRA_TYPE SAMget_extra ( void );
 
-void SAMset_extra (YY_EXTRA_TYPE user_defined  );
+void SAMset_extra ( YY_EXTRA_TYPE user_defined  );
 
-FILE *SAMget_in (void );
+FILE *SAMget_in ( void );
 
-void SAMset_in  (FILE * in_str  );
+void SAMset_in  ( FILE * _in_str  );
 
-FILE *SAMget_out (void );
+FILE *SAMget_out ( void );
 
-void SAMset_out  (FILE * out_str  );
+void SAMset_out  ( FILE * _out_str  );
 
-int SAMget_leng (void );
+			int SAMget_leng ( void );
 
-char *SAMget_text (void );
+char *SAMget_text ( void );
 
-int SAMget_lineno (void );
+int SAMget_lineno ( void );
 
-void SAMset_lineno (int line_number  );
+void SAMset_lineno ( int _line_number  );
 
 /* Macros after this point can all be overridden by user definitions in
  * section 1.
@@ -15399,33 +15465,41 @@ void SAMset_lineno (int line_number  );
 
 #ifndef YY_SKIP_YYWRAP
 #ifdef __cplusplus
-extern "C" int SAMwrap (void );
+extern "C" int SAMwrap ( void );
 #else
-extern int SAMwrap (void );
+extern int SAMwrap ( void );
 #endif
+#endif
+
+#ifndef YY_NO_UNPUT
+    
 #endif
 
 #ifndef yytext_ptr
-static void yy_flex_strncpy (char *,yyconst char *,int );
+static void yy_flex_strncpy ( char *, const char *, int );
 #endif
 
 #ifdef YY_NEED_STRLEN
-static int yy_flex_strlen (yyconst char * );
+static int yy_flex_strlen ( const char * );
 #endif
 
 #ifndef YY_NO_INPUT
-
 #ifdef __cplusplus
-static int yyinput (void );
+static int yyinput ( void );
 #else
-static int input (void );
+static int input ( void );
 #endif
 
 #endif
 
 /* Amount of stuff to slurp up with each read. */
 #ifndef YY_READ_BUF_SIZE
+#ifdef __ia64__
+/* On IA-64, the buffer size is 16k, not 8k */
+#define YY_READ_BUF_SIZE 16384
+#else
 #define YY_READ_BUF_SIZE 8192
+#endif /* __ia64__ */
 #endif
 
 /* Copy whatever the last rule matched to the standard output. */
@@ -15433,7 +15507,7 @@ static int input (void );
 /* This used to be an fputs(), but since the string might contain NUL's,
  * we now use fwrite().
  */
-#define ECHO do { if (fwrite( SAMtext, SAMleng, 1, SAMout )) {} } while (0)
+#define ECHO do { if (fwrite( SAMtext, (size_t) SAMleng, 1, SAMout )) {} } while (0)
 #endif
 
 /* Gets input and stuffs it into "buf".  number of characters read, or YY_NULL,
@@ -15442,7 +15516,7 @@ static int input (void );
 #ifndef YY_INPUT
 #define YY_INPUT(buf,result,max_size) \
 	errno=0; \
-	while ( (result = read( fileno(SAMin), (char *) buf, max_size )) < 0 ) \
+	while ( (result = (int) read( fileno(SAMin), buf, (yy_size_t) max_size )) < 0 ) \
 	{ \
 		if( errno != EINTR) \
 		{ \
@@ -15496,7 +15570,7 @@ extern int SAMlex (void);
 
 /* Code executed at the end of each rule. */
 #ifndef YY_BREAK
-#define YY_BREAK break;
+#define YY_BREAK /*LINTED*/break;
 #endif
 
 #define YY_RULE_SETUP \
@@ -15509,15 +15583,10 @@ extern int SAMlex (void);
  */
 YY_DECL
 {
-	register yy_state_type yy_current_state;
-	register char *yy_cp, *yy_bp;
-	register int yy_act;
+	yy_state_type yy_current_state;
+	char *yy_cp, *yy_bp;
+	int yy_act;
     
-#line 96 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
-
- /* rules */
-#line 15520 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.c"
-
 	if ( !(yy_init) )
 		{
 		(yy_init) = 1;
@@ -15544,7 +15613,13 @@ YY_DECL
 		SAM_load_buffer_state( );
 		}
 
-	while ( 1 )		/* loops until end-of-file is reached */
+	{
+#line 97 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
+
+ /* rules */
+#line 15620 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.c"
+
+	while ( /*CONSTCOND*/1 )		/* loops until end-of-file is reached */
 		{
 		yy_cp = (yy_c_buf_p);
 
@@ -15559,12 +15634,12 @@ YY_DECL
 		yy_current_state = yy_start_state_list[(yy_start) + YY_AT_BOL()];
 yy_match:
 		{
-		register yyconst struct yy_trans_info *yy_trans_info;
+		const struct yy_trans_info *yy_trans_info;
 
-		register YY_CHAR yy_c;
+		YY_CHAR yy_c;
 
 		for ( yy_c = YY_SC_TO_UI(*yy_cp);
-		      (yy_trans_info = &yy_current_state[(unsigned int) yy_c])->
+		      (yy_trans_info = &yy_current_state[yy_c])->
 		yy_verify == yy_c;
 		      yy_c = YY_SC_TO_UI(*++yy_cp) )
 			{
@@ -15588,7 +15663,7 @@ yy_find_action:
 			int yyl;
 			for ( yyl = 0; yyl < SAMleng; ++yyl )
 				if ( SAMtext[yyl] == '\n' )
-					   
+					
     SAMlineno++;
 ;
 			}
@@ -15606,88 +15681,91 @@ do_action:	/* This label is used only to access EOF actions. */
 
 case 1:
 YY_RULE_SETUP
-#line 98 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
+#line 99 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 { DBG( " Header"); return HEADER; }
 	YY_BREAK
 case 2:
 YY_RULE_SETUP
-#line 99 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
+#line 100 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 { DBG( " SQ"); return SEQUENCE; }
 	YY_BREAK
 case 3:
 YY_RULE_SETUP
-#line 100 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
+#line 101 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 { DBG( " RG"); return READGROUP; }
 	YY_BREAK
 case 4:
 YY_RULE_SETUP
-#line 101 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
+#line 102 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 { DBG( " PG"); return PROGRAM; }
 	YY_BREAK
 case 5:
 /* rule 5 can match eol */
 YY_RULE_SETUP
-#line 102 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
+#line 103 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 { DBG( " Comment"); return COMMENT; }
 	YY_BREAK
 case 6:
 YY_RULE_SETUP
-#line 105 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
-{ BEGIN INALIGNMENT; SAMlval.strval=strdup(SAMtext); DBG(" alignment qname, INALIGNMENT"); return QNAME; }
+#line 106 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
+{ BEGIN INALIGNMENT; SAMlval.strval=strdup(yytext); DBG(" alignment qname, INALIGNMENT"); return QNAME; }
 	YY_BREAK
 case 7:
 YY_RULE_SETUP
-#line 106 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
+#line 107 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 { DBG("CONTROLCHAR1"); return CONTROLCHAR; }
 	YY_BREAK
 case 8:
 YY_RULE_SETUP
-#line 107 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
+#line 108 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 { DBG(" tab"); return TAB;}
 	YY_BREAK
 case 9:
 YY_RULE_SETUP
-#line 108 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
+#line 109 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 { BEGIN INITIAL; DBG(" tab INITIAL"); return TAB;}
 	YY_BREAK
 case 10:
 /* rule 10 can match eol */
 YY_RULE_SETUP
-#line 110 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
+#line 111 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 { BEGIN INITIAL; DBG(" eol INITIAL"); return EOL;}
 	YY_BREAK
 case 11:
 YY_RULE_SETUP
-#line 111 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
-{ SAMlval.strval=strdup(SAMtext); DBG(" alignvalue"); return ALIGNVALUE; }
+#line 112 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
+{
+    SAMlval.strval=strdup(yytext); DBG(" alignvalue"); return ALIGNVALUE; }
 	YY_BREAK
 case 12:
 YY_RULE_SETUP
-#line 112 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
-{ SAMlval.strval=strdup(SAMtext); DBG(" Valid Tag:%s", SAMtext); return TAG; }
+#line 114 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
+{
+    SAMlval.strval=strdup(yytext); DBG(" Valid Tag:%s", yytext); return TAG; }
 	YY_BREAK
 case 13:
 YY_RULE_SETUP
-#line 113 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
+#line 116 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 { BEGIN AFTERCOLON; DBG(" colon AFTERCOLON"); return COLON;}
 	YY_BREAK
 case 14:
 YY_RULE_SETUP
-#line 114 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
-{ SAMlval.strval=strdup(SAMtext); DBG(" Value:%s", SAMtext); return VALUE; }
+#line 117 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
+{ SAMlval.strval=strdup(yytext); DBG(" Value:%s", yytext); return VALUE; }
 	YY_BREAK
 case 15:
 /* rule 15 can match eol */
 YY_RULE_SETUP
-#line 116 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
-DBG("DEFAULT '%c' ", *SAMtext);
+#line 119 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
+DBG("DEFAULT '%c' ", *yytext);
 	YY_BREAK
+/* TODO: <<EOF>> rule */
 case 16:
 YY_RULE_SETUP
-#line 118 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
+#line 121 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 YY_FATAL_ERROR( "flex scanner jammed" );
 	YY_BREAK
-#line 15691 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.c"
+#line 15768 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.c"
 case YY_STATE_EOF(INITIAL):
 case YY_STATE_EOF(INALIGNMENT):
 case YY_STATE_EOF(AFTERCOLON):
@@ -15820,6 +15898,7 @@ case YY_STATE_EOF(AFTERCOLON):
 			"fatal flex scanner internal error--no action found" );
 	} /* end of action switch */
 		} /* end of scanning one token */
+	} /* end of user's declarations */
 } /* end of SAMlex */
 
 /* yy_get_next_buffer - try to read in a new buffer
@@ -15831,9 +15910,9 @@ case YY_STATE_EOF(AFTERCOLON):
  */
 static int yy_get_next_buffer (void)
 {
-    	register char *dest = YY_CURRENT_BUFFER_LVALUE->yy_ch_buf;
-	register char *source = (yytext_ptr);
-	register int number_to_move, i;
+    	char *dest = YY_CURRENT_BUFFER_LVALUE->yy_ch_buf;
+	char *source = (yytext_ptr);
+	int number_to_move, i;
 	int ret_val;
 
 	if ( (yy_c_buf_p) > &YY_CURRENT_BUFFER_LVALUE->yy_ch_buf[(yy_n_chars) + 1] )
@@ -15862,7 +15941,7 @@ static int yy_get_next_buffer (void)
 	/* Try to read more data. */
 
 	/* First move last chars to start of buffer. */
-	number_to_move = (int) ((yy_c_buf_p) - (yytext_ptr)) - 1;
+	number_to_move = (int) ((yy_c_buf_p) - (yytext_ptr) - 1);
 
 	for ( i = 0; i < number_to_move; ++i )
 		*(dest++) = *(source++);
@@ -15882,7 +15961,7 @@ static int yy_get_next_buffer (void)
 			{ /* Not enough room in the buffer - grow it. */
 
 			/* just a shorter name for the current buffer */
-			YY_BUFFER_STATE b = YY_CURRENT_BUFFER;
+			YY_BUFFER_STATE b = YY_CURRENT_BUFFER_LVALUE;
 
 			int yy_c_buf_p_offset =
 				(int) ((yy_c_buf_p) - b->yy_ch_buf);
@@ -15898,11 +15977,11 @@ static int yy_get_next_buffer (void)
 
 				b->yy_ch_buf = (char *)
 					/* Include room in for 2 EOB chars. */
-					SAMrealloc((void *) b->yy_ch_buf,b->yy_buf_size + 2  );
+					SAMrealloc((void *) b->yy_ch_buf,(yy_size_t) (b->yy_buf_size + 2)  );
 				}
 			else
 				/* Can't grow it, we don't own it. */
-				b->yy_ch_buf = 0;
+				b->yy_ch_buf = NULL;
 
 			if ( ! b->yy_ch_buf )
 				YY_FATAL_ERROR(
@@ -15920,7 +15999,7 @@ static int yy_get_next_buffer (void)
 
 		/* Read in more data. */
 		YY_INPUT( (&YY_CURRENT_BUFFER_LVALUE->yy_ch_buf[number_to_move]),
-			(yy_n_chars), (size_t) num_to_read );
+			(yy_n_chars), num_to_read );
 
 		YY_CURRENT_BUFFER_LVALUE->yy_n_chars = (yy_n_chars);
 		}
@@ -15944,10 +16023,10 @@ static int yy_get_next_buffer (void)
 	else
 		ret_val = EOB_ACT_CONTINUE_SCAN;
 
-	if ((yy_size_t) ((yy_n_chars) + number_to_move) > YY_CURRENT_BUFFER_LVALUE->yy_buf_size) {
+	if (((yy_n_chars) + number_to_move) > YY_CURRENT_BUFFER_LVALUE->yy_buf_size) {
 		/* Extend the array by 50%, plus the number we really need. */
-		yy_size_t new_size = (yy_n_chars) + number_to_move + ((yy_n_chars) >> 1);
-		YY_CURRENT_BUFFER_LVALUE->yy_ch_buf = (char *) SAMrealloc((void *) YY_CURRENT_BUFFER_LVALUE->yy_ch_buf,new_size  );
+		int new_size = (yy_n_chars) + number_to_move + ((yy_n_chars) >> 1);
+		YY_CURRENT_BUFFER_LVALUE->yy_ch_buf = (char *) SAMrealloc((void *) YY_CURRENT_BUFFER_LVALUE->yy_ch_buf,(yy_size_t) new_size  );
 		if ( ! YY_CURRENT_BUFFER_LVALUE->yy_ch_buf )
 			YY_FATAL_ERROR( "out of dynamic memory in yy_get_next_buffer()" );
 	}
@@ -15965,8 +16044,8 @@ static int yy_get_next_buffer (void)
 
     static yy_state_type yy_get_previous_state (void)
 {
-	register yy_state_type yy_current_state;
-	register char *yy_cp;
+	yy_state_type yy_current_state;
+	char *yy_cp;
     
 	yy_current_state = yy_start_state_list[(yy_start) + YY_AT_BOL()];
 
@@ -15990,11 +16069,11 @@ static int yy_get_next_buffer (void)
  */
     static yy_state_type yy_try_NUL_trans  (yy_state_type yy_current_state )
 {
-	register int yy_is_jam;
-    	register char *yy_cp = (yy_c_buf_p);
+	int yy_is_jam;
+    	char *yy_cp = (yy_c_buf_p);
 
-	register int yy_c = 128;
-	register yyconst struct yy_trans_info *yy_trans_info;
+	int yy_c = 128;
+	const struct yy_trans_info *yy_trans_info;
 
 	yy_trans_info = &yy_current_state[(unsigned int) yy_c];
 	yy_current_state += yy_trans_info->yy_nxt;
@@ -16009,8 +16088,12 @@ static int yy_get_next_buffer (void)
 			}
 		}
 
-	return yy_is_jam ? 0 : yy_current_state;
+		return yy_is_jam ? 0 : yy_current_state;
 }
+
+#ifndef YY_NO_UNPUT
+
+#endif
 
 #ifndef YY_NO_INPUT
 #ifdef __cplusplus
@@ -16036,7 +16119,7 @@ static int yy_get_next_buffer (void)
 
 		else
 			{ /* need more input */
-			int offset = (yy_c_buf_p) - (yytext_ptr);
+			int offset = (int) ((yy_c_buf_p) - (yytext_ptr));
 			++(yy_c_buf_p);
 
 			switch ( yy_get_next_buffer(  ) )
@@ -16060,7 +16143,7 @@ static int yy_get_next_buffer (void)
 				case EOB_ACT_END_OF_FILE:
 					{
 					if ( SAMwrap( ) )
-						return EOF;
+						return 0;
 
 					if ( ! (yy_did_buffer_switch_on_eof) )
 						YY_NEW_FILE;
@@ -16084,7 +16167,7 @@ static int yy_get_next_buffer (void)
 
 	YY_CURRENT_BUFFER_LVALUE->yy_at_bol = (c == '\n');
 	if ( YY_CURRENT_BUFFER_LVALUE->yy_at_bol )
-		   
+		
     SAMlineno++;
 ;
 
@@ -16172,7 +16255,7 @@ static void SAM_load_buffer_state  (void)
 	/* yy_ch_buf has to be 2 characters longer than the size given because
 	 * we need to put in 2 end-of-buffer characters.
 	 */
-	b->yy_ch_buf = (char *) SAMalloc(b->yy_buf_size + 2  );
+	b->yy_ch_buf = (char *) SAMalloc((yy_size_t) (b->yy_buf_size + 2)  );
 	if ( ! b->yy_ch_buf )
 		YY_FATAL_ERROR( "out of dynamic memory in SAM_create_buffer()" );
 
@@ -16314,7 +16397,7 @@ void SAMpop_buffer_state (void)
  */
 static void SAMensure_buffer_stack (void)
 {
-	int num_to_alloc;
+	yy_size_t num_to_alloc;
     
 	if (!(yy_buffer_stack)) {
 
@@ -16322,15 +16405,15 @@ static void SAMensure_buffer_stack (void)
 		 * scanner will even need a stack. We use 2 instead of 1 to avoid an
 		 * immediate realloc on the next call.
          */
-		num_to_alloc = 1;
+      num_to_alloc = 1; /* After all that talk, this was set to 1 anyways... */
 		(yy_buffer_stack) = (struct yy_buffer_state**)SAMalloc
 								(num_to_alloc * sizeof(struct yy_buffer_state*)
 								);
 		if ( ! (yy_buffer_stack) )
 			YY_FATAL_ERROR( "out of dynamic memory in SAMensure_buffer_stack()" );
-								  
+
 		memset((yy_buffer_stack), 0, num_to_alloc * sizeof(struct yy_buffer_state*));
-				
+
 		(yy_buffer_stack_max) = num_to_alloc;
 		(yy_buffer_stack_top) = 0;
 		return;
@@ -16339,7 +16422,7 @@ static void SAMensure_buffer_stack (void)
 	if ((yy_buffer_stack_top) >= ((yy_buffer_stack_max)) - 1){
 
 		/* Increase the buffer to prepare for a possible push. */
-		int grow_size = 8 /* arbitrary grow size */;
+		yy_size_t grow_size = 8 /* arbitrary grow size */;
 
 		num_to_alloc = (yy_buffer_stack_max) + grow_size;
 		(yy_buffer_stack) = (struct yy_buffer_state**)SAMrealloc
@@ -16359,7 +16442,7 @@ static void SAMensure_buffer_stack (void)
  * @param base the character buffer
  * @param size the size in bytes of the character buffer
  * 
- * @return the newly allocated buffer state object. 
+ * @return the newly allocated buffer state object.
  */
 YY_BUFFER_STATE SAM_scan_buffer  (char * base, yy_size_t  size )
 {
@@ -16369,16 +16452,16 @@ YY_BUFFER_STATE SAM_scan_buffer  (char * base, yy_size_t  size )
 	     base[size-2] != YY_END_OF_BUFFER_CHAR ||
 	     base[size-1] != YY_END_OF_BUFFER_CHAR )
 		/* They forgot to leave room for the EOB's. */
-		return 0;
+		return NULL;
 
 	b = (YY_BUFFER_STATE) SAMalloc(sizeof( struct yy_buffer_state )  );
 	if ( ! b )
 		YY_FATAL_ERROR( "out of dynamic memory in SAM_scan_buffer()" );
 
-	b->yy_buf_size = size - 2;	/* "- 2" to take care of EOB's */
+	b->yy_buf_size = (int) (size - 2);	/* "- 2" to take care of EOB's */
 	b->yy_buf_pos = b->yy_ch_buf = base;
 	b->yy_is_our_buffer = 0;
-	b->yy_input_file = 0;
+	b->yy_input_file = NULL;
 	b->yy_n_chars = b->yy_buf_size;
 	b->yy_is_interactive = 0;
 	b->yy_at_bol = 1;
@@ -16398,20 +16481,20 @@ YY_BUFFER_STATE SAM_scan_buffer  (char * base, yy_size_t  size )
  * @note If you want to scan bytes that may contain NUL values, then use
  *       SAM_scan_bytes() instead.
  */
-YY_BUFFER_STATE SAM_scan_string (yyconst char * yystr )
+YY_BUFFER_STATE SAM_scan_string (const char * yystr )
 {
     
-	return SAM_scan_bytes(yystr,strlen(yystr) );
+	return SAM_scan_bytes(yystr,(int) strlen(yystr) );
 }
 
 /** Setup the input buffer state to scan the given bytes. The next call to SAMlex() will
  * scan from a @e copy of @a bytes.
- * @param bytes the byte buffer to scan
- * @param len the number of bytes in the buffer pointed to by @a bytes.
+ * @param yybytes the byte buffer to scan
+ * @param _yybytes_len the number of bytes in the buffer pointed to by @a bytes.
  * 
  * @return the newly allocated buffer state object.
  */
-YY_BUFFER_STATE SAM_scan_bytes  (yyconst char * yybytes, int  _yybytes_len )
+YY_BUFFER_STATE SAM_scan_bytes  (const char * yybytes, int  _yybytes_len )
 {
 	YY_BUFFER_STATE b;
 	char *buf;
@@ -16419,7 +16502,7 @@ YY_BUFFER_STATE SAM_scan_bytes  (yyconst char * yybytes, int  _yybytes_len )
 	int i;
     
 	/* Get memory for full buffer, including space for trailing EOB's. */
-	n = _yybytes_len + 2;
+	n = (yy_size_t) (_yybytes_len + 2);
 	buf = (char *) SAMalloc(n  );
 	if ( ! buf )
 		YY_FATAL_ERROR( "out of dynamic memory in SAM_scan_bytes()" );
@@ -16445,9 +16528,9 @@ YY_BUFFER_STATE SAM_scan_bytes  (yyconst char * yybytes, int  _yybytes_len )
 #define YY_EXIT_FAILURE 2
 #endif
 
-static void yy_fatal_error (yyconst char* msg )
+static void yynoreturn yy_fatal_error (const char* msg )
 {
-    	(void) fprintf( stderr, "%s\n", msg );
+			(void) fprintf( stderr, "%s\n", msg );
 	exit( YY_EXIT_FAILURE );
 }
 
@@ -16475,7 +16558,7 @@ static void yy_fatal_error (yyconst char* msg )
  */
 int SAMget_lineno  (void)
 {
-        
+    
     return SAMlineno;
 }
 
@@ -16513,29 +16596,29 @@ char *SAMget_text  (void)
 }
 
 /** Set the current line number.
- * @param line_number
+ * @param _line_number line number
  * 
  */
-void SAMset_lineno (int  line_number )
+void SAMset_lineno (int  _line_number )
 {
     
-    SAMlineno = line_number;
+    SAMlineno = _line_number;
 }
 
 /** Set the input stream. This does not discard the current
  * input buffer.
- * @param in_str A readable stream.
+ * @param _in_str A readable stream.
  * 
  * @see SAM_switch_to_buffer
  */
-void SAMset_in (FILE *  in_str )
+void SAMset_in (FILE *  _in_str )
 {
-        SAMin = in_str ;
+        SAMin = _in_str ;
 }
 
-void SAMset_out (FILE *  out_str )
+void SAMset_out (FILE *  _out_str )
 {
-        SAMout = out_str ;
+        SAMout = _out_str ;
 }
 
 int SAMget_debug  (void)
@@ -16543,9 +16626,9 @@ int SAMget_debug  (void)
         return SAM_flex_debug;
 }
 
-void SAMset_debug (int  bdebug )
+void SAMset_debug (int  _bdebug )
 {
-        SAM_flex_debug = bdebug ;
+        SAM_flex_debug = _bdebug ;
 }
 
 static int yy_init_globals (void)
@@ -16557,10 +16640,10 @@ static int yy_init_globals (void)
     /* We do not touch SAMlineno unless the option is enabled. */
     SAMlineno =  1;
     
-    (yy_buffer_stack) = 0;
+    (yy_buffer_stack) = NULL;
     (yy_buffer_stack_top) = 0;
     (yy_buffer_stack_max) = 0;
-    (yy_c_buf_p) = (char *) 0;
+    (yy_c_buf_p) = NULL;
     (yy_init) = 0;
     (yy_start) = 0;
 
@@ -16569,8 +16652,8 @@ static int yy_init_globals (void)
     SAMin = stdin;
     SAMout = stdout;
 #else
-    SAMin = (FILE *) 0;
-    SAMout = (FILE *) 0;
+    SAMin = NULL;
+    SAMout = NULL;
 #endif
 
     /* For future reference: Set errno on error, since we are called by
@@ -16606,18 +16689,19 @@ int SAMlex_destroy  (void)
  */
 
 #ifndef yytext_ptr
-static void yy_flex_strncpy (char* s1, yyconst char * s2, int n )
+static void yy_flex_strncpy (char* s1, const char * s2, int n )
 {
-	register int i;
+		
+	int i;
 	for ( i = 0; i < n; ++i )
 		s1[i] = s2[i];
 }
 #endif
 
 #ifdef YY_NEED_STRLEN
-static int yy_flex_strlen (yyconst char * s )
+static int yy_flex_strlen (const char * s )
 {
-	register int n;
+	int n;
 	for ( n = 0; s[n]; ++n )
 		;
 
@@ -16627,11 +16711,12 @@ static int yy_flex_strlen (yyconst char * s )
 
 void *SAMalloc (yy_size_t  size )
 {
-	return (void *) malloc( size );
+			return malloc(size);
 }
 
 void *SAMrealloc  (void * ptr, yy_size_t  size )
 {
+		
 	/* The cast to (char *) in the following accommodates both
 	 * implementations that use char* generic pointers, and those
 	 * that use void* generic pointers.  It works with the latter
@@ -16639,41 +16724,56 @@ void *SAMrealloc  (void * ptr, yy_size_t  size )
 	 * any pointer type to void*, and deal with argument conversions
 	 * as though doing an assignment.
 	 */
-	return (void *) realloc( (char *) ptr, size );
+	return realloc(ptr, size);
 }
 
 void SAMfree (void * ptr )
 {
-	free( (char *) ptr );	/* see SAMrealloc() for (char *) cast */
+			free( (char *) ptr );	/* see SAMrealloc() for (char *) cast */
 }
 
 #define YYTABLES_NAME "yytables"
 
-#line 118 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
+#line 121 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 
 
+#if YY_FLEX_MAJOR_VERSION == 2 && YY_FLEX_MINOR_VERSION < 6
+#error "Flex version should be >= 2.6.X"
+#endif
 
-bool SAM_parsebegin(Extractor * state)
+
+rc_t SAM_parsebegin(Extractor * state)
 {
+    DBG("parsebegin");
     globstate=state;
-    return true;
+    return 0;
 }
 
-void SAM_parseend(Extractor * state)
+rc_t SAM_parseend(Extractor * state)
 {
+    DBG("parseend");
     free(lexbuf);
     lexbuf=NULL;
+    return 0;
 }
 
-int SAM_parsebuffer(Extractor * state, char * str, size_t size)
+rc_t SAM_parsebuffer(Extractor * state, char * str, size_t size)
 {
-    DBG("Parsing");
+    DBG("Parsingbuffer");
+    state->rc=0;
     if (size > 4096) fprintf(stderr,"big buf %zd\n",size);
     lexbuf=realloc(lexbuf,size+2);
+    if (lexbuf==NULL)
+    {
+        ERR("out of memory");
+        rc_t rc=RC(rcAlign,rcFile,rcReading,rcMemory,rcExhausted);
+        state->rc=rc;
+        return rc;
+    }
     memmove(lexbuf,str,size);
     lexbuf[size]='\0';
-    SAMparse(&state);
-    return 0;
+    SAMparse(state);
+    return state->rc;
 }
 
 int moredata(char * buf, int * numbytes, size_t maxbytes)

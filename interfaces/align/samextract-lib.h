@@ -55,6 +55,7 @@ typedef struct Extractor
     char * tags; // Space delimited tags seen in current line
     char * seqnames;
     char * ids;
+    rc_t rc;
 } Extractor;
 
 typedef struct tagvalue
