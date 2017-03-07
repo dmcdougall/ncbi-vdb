@@ -86,21 +86,20 @@
     #include <align/samextract-lib.h>
     #include "samextract-tokens.h"
 
-    #define YYDEBUG 1
+//    #define YYDEBUG 1
 /*    #define SAMdebug 1 */
 
     size_t alignfields=2; // 1 based, QNAME is #1
 
-    int SAMerror(Extractor * extractor, const char * s)
+    int SAMerror(Extractor * state, const char * s)
     {
         ERR("Bison error: %s",s);
         rc_t rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
-        globstate->rc=rc;
-        extractor->rc=rc;
+        state->rc=rc;
         return rc;
     }
 
-    void * myalloc(size_t sz)
+    void * myalloc(Extractor * state,size_t sz)
     {
         void * buf=malloc(sz);
         if (buf==NULL) 
@@ -109,29 +108,29 @@
             return NULL;
         }
         memset(buf,0,sz);
-        VectorAppend(&globstate->allocs,NULL,buf);
+        VectorAppend(&state->allocs,NULL,buf);
         return buf;
     }
 
-    void * mystrdup(const char * str)
+    void * mystrdup(Extractor * state,const char * str)
     {
         size_t len=strlen(str)+1;
-        void * buf=myalloc(len);
+        void * buf=myalloc(state,len);
         memmove(buf,str,len);
         return buf;
     }
 /*
     void * myrealloc(void * ptr, size_t sz)
     {
-        for (u32 i=0; i!=VectorLength(&globstate->allocs); ++i)
+        for (u32 i=0; i!=VectorLength(&state->allocs); ++i)
         {
-            void * p=VectorGet(&globstate->allocs,i);
+            void * p=VectorGet(&state->allocs,i);
             if (p==ptr) ...
 
     }
 */
     // Returns 1 if match found
-    int regexcheck(const char *regex, const char * value)
+    int regexcheck(Extractor * state, const char *regex, const char * value)
     {
         regex_t preg;
 
@@ -159,7 +158,7 @@
     }
 
     // Returns 1 if OK
-    int validate(const char * tag, const char * value)
+    int validate(Extractor * state, const char * tag, const char * value)
     {
         /* Pair of TAG, regexp: "/..." TODO: or integer range "1-12345" */
         const char * validations[] =
@@ -210,7 +209,7 @@
             {
                 if (valval[0]=='/')
                 {
-                    ok=regexcheck(valval+1, value);
+                    ok=regexcheck(state,valval+1, value);
                     break;
                 } else
                 {
@@ -224,19 +223,19 @@
         return ok;
     }
 
-    rc_t check_required_tag(const char * tags, const char * tag)
+    rc_t check_required_tag(Extractor * state, const char * tags, const char * tag)
     {
         if (!strstr(tags,tag))
         {
             ERR("%s tag not seen in header", tag);
             rc_t rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
-            globstate->rc=rc;
+            state->rc=rc;
             return rc;
         }
         return 0;
     }
 
-    rc_t checkopttagtype(const char * optfield)
+    rc_t checkopttagtype(Extractor * state,const char * optfield)
     {
         const char *opttypes="AMi ASi BCZ BQZ CCZ CMi COZ CPi CQZ CSZ CTZ E2Z FIi FSZ FZZ H0i H1i H2i HIi IHi LBZ MCZ MDZ MQi NHi NMi OCZ OPi OQZ PGZ PQi PTZ PUZ QTZ Q2Z R2Z RGZ RTZ SAZ SMi TCi U2Z UQi";
         const char type=optfield[3];
@@ -257,20 +256,20 @@
         {
             ERR("tag %s should have type %c, not %c", tag, p[2], type);
             rc_t rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
-            globstate->rc=rc;
+            state->rc=rc;
             return rc;
         }
 
         return 0;
     }
 
-    rc_t process_tagvalue(const char * tag, const char * value)
+    rc_t process_tagvalue(Extractor * state, const char * tag, const char * value)
     {
         if (strlen(tag)!=2)
         {
             ERR("tag '%s' must be 2 characters", tag);
             rc_t rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
-            globstate->rc=rc;
+            state->rc=rc;
             return rc;
         }
 
@@ -280,15 +279,15 @@
             DBG("optional tag");
         } else
         {
-            if (!validate(tag, value))
+            if (!validate(state, tag, value))
             {
                 ERR("Tag validataion %s failed",tag);
                 rc_t rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
-                globstate->rc=rc;
+                state->rc=rc;
                 return rc;
             }
-            globstate->tags=realloc(globstate->tags, strlen(globstate->tags) + strlen(tag) + 1 + 1);
-            strcat(globstate->tags,tag); strcat(globstate->tags," ");
+            state->tags=realloc(state->tags, strlen(state->tags) + strlen(tag) + 1 + 1);
+            strcat(state->tags,tag); strcat(state->tags," ");
 
             if (!strcmp(tag,"SN"))
             {
@@ -297,27 +296,27 @@
                 {
                     ERR("out of memory");
                     rc_t rc=RC(rcAlign, rcRow,rcConstructing,rcMemory,rcExhausted);
-                    globstate->rc=rc;
+                    state->rc=rc;
                     return rc;
                     }
                 strcpy(s,value);
                 strcat(s," ");
-                if (strstr(globstate->seqnames,s))
+                if (strstr(state->seqnames,s))
                 {
                     ERR("duplicate sequence %s", value);
                     rc_t rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
-                    globstate->rc=rc;
+                    state->rc=rc;
                     return rc;
                 }
-                globstate->seqnames=realloc(globstate->seqnames,strlen(globstate->seqnames) + strlen(value) + 1 + 1);
-                if (globstate->seqnames==NULL) 
+                state->seqnames=realloc(state->seqnames,strlen(state->seqnames) + strlen(value) + 1 + 1);
+                if (state->seqnames==NULL) 
                 {
                     ERR("out of memory");
                     rc_t rc=RC(rcAlign, rcRow,rcConstructing,rcMemory,rcExhausted);
-                    globstate->rc=rc;
+                    state->rc=rc;
                     return rc;
                 }
-                strcat(globstate->seqnames,s);
+                strcat(state->seqnames,s);
                 free(s);
             }
             if (!strcmp(tag,"ID"))
@@ -327,86 +326,86 @@
                 {
                     ERR("out of memory");
                     rc_t rc=RC(rcAlign, rcRow,rcConstructing,rcMemory,rcExhausted);
-                    globstate->rc=rc;
+                    state->rc=rc;
                     return rc;
                 }
                 strcpy(s,value);
                 strcat(s," ");
-                if (strstr(globstate->ids,s))
+                if (strstr(state->ids,s))
                 {
                     ERR("duplicate id %s", value);
                     rc_t rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
-                    globstate->rc=rc;
+                    state->rc=rc;
                     return rc;
                 }
-                globstate->ids=realloc(globstate->ids,strlen(globstate->ids) + strlen(value) + 1 + 1);
-                if (globstate->ids==NULL) 
+                state->ids=realloc(state->ids,strlen(state->ids) + strlen(value) + 1 + 1);
+                if (state->ids==NULL) 
                 {
                     ERR("out of memory");
                     rc_t rc=RC(rcAlign, rcRow,rcConstructing,rcMemory,rcExhausted);
-                    globstate->rc=rc;
+                    state->rc=rc;
                     return rc;
                 }
-                strcat(globstate->ids,s);
+                strcat(state->ids,s);
                 free(s);
             }
         }
 
-        TagValue * tv=myalloc(sizeof(TagValue));
+        TagValue * tv=myalloc(state,sizeof(TagValue));
         if (tv==NULL) 
         {
             ERR("out of memory");
             rc_t rc=RC(rcAlign, rcRow,rcConstructing,rcMemory,rcExhausted);
-            globstate->rc=rc;
+            state->rc=rc;
             return rc;
         }
-        tv->tag=mystrdup(tag);
+        tv->tag=mystrdup(state,tag);
         if (tv->tag==NULL) 
         {
             ERR("out of memory");
             rc_t rc=RC(rcAlign, rcRow,rcConstructing,rcMemory,rcExhausted);
-            globstate->rc=rc;
+            state->rc=rc;
             return rc;
         }
-        tv->value=mystrdup(value);
+        tv->value=mystrdup(state,value);
         if (tv->value==NULL) 
         {
             ERR("out of memory");
             rc_t rc=RC(rcAlign, rcRow,rcConstructing,rcMemory,rcExhausted);
-            globstate->rc=rc;
+            state->rc=rc;
             return rc;
         }
-        VectorAppend(&globstate->tagvalues,NULL,tv);
-        u32 block=VectorBlock(&globstate->tagvalues);
+        VectorAppend(&state->tagvalues,NULL,tv);
+        u32 block=VectorBlock(&state->tagvalues);
         DBG("block is %d",block);
-        DBG("Appending %d",VectorLength(&globstate->tagvalues));
+        DBG("Appending %d",VectorLength(&state->tagvalues));
         return 0;
     }
 
-    rc_t mark_headers(const char * type)
+    rc_t mark_headers(Extractor * state, const char * type)
     {
         DBG("mark_headers");
-        Header * hdr=(Header *)myalloc(sizeof(Header));
+        Header * hdr=(Header *)myalloc(state,sizeof(Header));
         if (hdr==NULL) 
         {
             ERR("out of memory");
             rc_t rc=RC(rcAlign, rcRow,rcConstructing,rcMemory,rcExhausted);
-            globstate->rc=rc;
+            state->rc=rc;
             return rc;
         }
         hdr->headercode=type;
-        VectorCopy(&globstate->tagvalues,&hdr->tagvalues);
-        VectorAppend(&globstate->headers,NULL,hdr);
-        VectorWhack(&globstate->tagvalues,NULL,NULL);
+        VectorCopy(&state->tagvalues,&hdr->tagvalues);
+        VectorAppend(&state->headers,NULL,hdr);
+        VectorWhack(&state->tagvalues,NULL,NULL);
         return 0;
     }
 
-    rc_t process_align(const char *field)
+    rc_t process_align(Extractor * state, const char *field)
     {
         rc_t rc=0;
         const char * opt="(required)";
         if (alignfields>=12) opt="(optional)";
-        DBG("rc=%d", globstate->rc);
+        DBG("rc=%d", state->rc);
         DBG("alignvalue #%zu%s: %s", alignfields, opt, field);
         switch (alignfields)
         {
@@ -419,7 +418,7 @@
                 {
                     ERR("error parsing FLAG: %s", field);
                     rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
-                    globstate->rc=rc;
+                    state->rc=rc;
                     return rc;
                 }
                 DBG("flag is %d",flag);
@@ -428,20 +427,20 @@
             case 3: // RNAME
             {
                 const char * rname=field;
-                if (!regexcheck("\\*|[!-)+-<>-~][!-~]*",rname))
+                if (!regexcheck(state,"\\*|[!-)+-<>-~][!-~]*",rname))
                 {
                     ERR("error parsing RNAME");
                     rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
-                    globstate->rc=rc;
+                    state->rc=rc;
                     return rc;
                 }
                 DBG("rname is %s",rname);
-                globstate->rname=mystrdup(rname);
-                if (globstate->rname==NULL) 
+                state->rname=mystrdup(state,rname);
+                if (state->rname==NULL) 
                 {
                     ERR("NULL rname");
                     rc=RC(rcAlign, rcRow,rcConstructing,rcMemory,rcExhausted);
-                    globstate->rc=rc;
+                    state->rc=rc;
                     return rc;
                 }
                 break;
@@ -455,11 +454,11 @@
                 {
                     ERR("error parsing POS: %s", field);
                     rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
-                    globstate->rc=rc;
+                    state->rc=rc;
                     return rc;
                 }
                 DBG("pos is %d",pos);
-                globstate->pos=pos;
+                state->pos=pos;
                 break;
             }
             case 5: // MAPQ
@@ -471,7 +470,7 @@
                 {
                     ERR("error parsing MAPQ: %s", field);
                     rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
-                    globstate->rc=rc;
+                    state->rc=rc;
                     return rc;
                 }
                 DBG("mapq is %d", mapq);
@@ -480,20 +479,20 @@
             case 6: // CIGAR
             {
                 const char * cigar=field;
-                if (!regexcheck("\\*|([0-9]+[MIDNSHPX=])+",cigar))
+                if (!regexcheck(state,"\\*|([0-9]+[MIDNSHPX=])+",cigar))
                 {
                     ERR("error parsing cigar");
                     rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
-                    globstate->rc=rc;
+                    state->rc=rc;
                     return rc;
                 }
                 DBG("cigar is %s",cigar);
-                globstate->cigar=mystrdup(cigar);
-                if (globstate->cigar==NULL) 
+                state->cigar=mystrdup(state,cigar);
+                if (state->cigar==NULL) 
                 {
                     ERR("out of memory");
                     rc=RC(rcAlign, rcRow,rcConstructing,rcMemory,rcExhausted);
-                    globstate->rc=rc;
+                    state->rc=rc;
                     return rc;
                 }
                 break;
@@ -501,11 +500,11 @@
             case 7: // RNEXT
             {
                 const char * rnext=field;
-                if (!regexcheck("\\*|=|[!-)+-<>-~][!-~]*",rnext))
+                if (!regexcheck(state,"\\*|=|[!-)+-<>-~][!-~]*",rnext))
                 {
                     ERR("error parsing rnext");
                     rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
-                    globstate->rc=rc;
+                    state->rc=rc;
                     return rc;
                 }
                 DBG("rnext is %s",rnext);
@@ -520,7 +519,7 @@
                 {
                     ERR("error parsing PNEXT: %s", field);
                     rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
-                    globstate->rc=rc;
+                    state->rc=rc;
                     return rc;
                 }
                 DBG("pnext is %d",pnext);
@@ -535,7 +534,7 @@
                 {
                     ERR("error parsing TLEN: %s", field);
                     rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
-                    globstate->rc=rc;
+                    state->rc=rc;
                     return rc;
                 }
                 DBG("tlen is %d", tlen);
@@ -544,20 +543,20 @@
             case 10: // SEQ
             {
                 const char * seq=field;
-                if (!regexcheck("\\*|[A-Za-z=.]+",seq))
+                if (!regexcheck(state,"\\*|[A-Za-z=.]+",seq))
                 {
                     ERR("error parsing seq");
                     rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
-                    globstate->rc=rc;
+                    state->rc=rc;
                     return rc;
                 }
                 DBG("seq is %s",seq);
-                globstate->read=mystrdup(seq);
-                if (globstate->read==NULL) 
+                state->read=mystrdup(state,seq);
+                if (state->read==NULL) 
                 {
                     ERR("out of memory");
                     rc=RC(rcAlign, rcRow,rcConstructing,rcMemory,rcExhausted);
-                    globstate->rc=rc;
+                    state->rc=rc;
                     return rc;
                 }
                 break;
@@ -565,15 +564,15 @@
             case 11: // QUAL
             {
                 const char * qual=field;
-                if (!regexcheck("[!-~]+",qual))
+                if (!regexcheck(state,"[!-~]+",qual))
                 {
                     ERR("error parsing qual");
                     rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
-                    globstate->rc=rc;
+                    state->rc=rc;
                     return rc;
                 }
                 DBG("qual is %s", qual);
-                DBG("rc=%d", globstate->rc);
+                DBG("rc=%d", state->rc);
                 break;
             }
             default: // Optional
@@ -586,11 +585,11 @@
                   {
                     ERR("invald tagtypevalue:%s", field);
                     rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
-                    globstate->rc=rc;
+                    state->rc=rc;
                     return rc;
                   }
                 const char type=field[3];
-                if (checkopttagtype(field))
+                if (checkopttagtype(state,field))
                 {
                     ERR("Optional field tag %s doesn't match type", field);
                     WARN("Optional field tag %s doesn't match type", field);
@@ -599,56 +598,56 @@
                 switch (type)
                 {
                     case 'A':
-                        if (!regexcheck("[!-~]", value))
+                        if (!regexcheck(state,"[!-~]", value))
                         {
                             ERR("value doesn't match A type:%s",value);
                             rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
-                            globstate->rc=rc;
+                            state->rc=rc;
                             return rc;
                             }
                         break;
                     case 'i':
-                        if (!regexcheck("[-+]?[0-9]+", value))
+                        if (!regexcheck(state,"[-+]?[0-9]+", value))
                         {
                             ERR("value doesn't match i type:%s",value);
                             rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
-                            globstate->rc=rc;
+                            state->rc=rc;
                             return rc;
                         }
                         break;
                     case 'f':
-                        if (!regexcheck("[-+]?[0-9]*\\.?[0-9]+([eE][-+]?[0-9]+)?", value))
+                        if (!regexcheck(state,"[-+]?[0-9]*\\.?[0-9]+([eE][-+]?[0-9]+)?", value))
                         {
                             ERR("value doesn't match f type:%s",value);
                             rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
-                            globstate->rc=rc;
+                            state->rc=rc;
                             return rc;
                         }
                         break;
                     case 'Z':
-                        if (!regexcheck("[ !-~]*", value))
+                        if (!regexcheck(state,"[ !-~]*", value))
                         {
                             ERR("value doesn't match Z type:%s",value);
                             rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
-                            globstate->rc=rc;
+                            state->rc=rc;
                             return rc;
                         }
                         break;
                     case 'H':
-                        if (!regexcheck("([0-9A-F][0-9A-F])*", value))
+                        if (!regexcheck(state,"([0-9A-F][0-9A-F])*", value))
                         {
                             ERR("value doesn't match H type:%s",value);
                             rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
-                            globstate->rc=rc;
+                            state->rc=rc;
                             return rc;
                         }
                         break;
                     case 'B':
-                        if (!regexcheck("[cCsSiIf](,[-+]?[0-9]*\\.?[0-9]+(eE][-+]?[0-9]+)?)+", value))
+                        if (!regexcheck(state,"[cCsSiIf](,[-+]?[0-9]*\\.?[0-9]+(eE][-+]?[0-9]+)?)+", value))
                         {
                             ERR("value doesn't match B type:%s",value);
                             rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
-                            globstate->rc=rc;
+                            state->rc=rc;
                             return rc;
                         }
                         break;
@@ -664,7 +663,7 @@
     }
 
 
-#line 668 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:339  */
+#line 667 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:339  */
 
 # ifndef YY_NULLPTR
 #  if defined __cplusplus && 201103L <= __cplusplus
@@ -721,13 +720,13 @@ extern int SAMdebug;
 
 union YYSTYPE
 {
-#line 632 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:355  */
+#line 631 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:355  */
 
  int intval;
  char * strval;
  double floatval;
 
-#line 731 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:355  */
+#line 730 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:355  */
 };
 
 typedef union YYSTYPE YYSTYPE;
@@ -744,7 +743,7 @@ int SAMparse (Extractor * state);
 
 /* Copy the second part of user declarations.  */
 
-#line 748 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:358  */
+#line 747 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:358  */
 
 #ifdef short
 # undef short
@@ -1043,9 +1042,9 @@ static const yytype_uint8 yytranslate[] =
   /* YYRLINE[YYN] -- Source line where rule number YYN was defined.  */
 static const yytype_uint16 yyrline[] =
 {
-       0,   665,   665,   666,   670,   671,   676,   677,   678,   679,
-     680,   681,   685,   691,   709,   722,   735,   746,   747,   750,
-     758,   764,   770,   774,   778,   800,   801,   807
+       0,   664,   664,   665,   669,   670,   675,   676,   677,   678,
+     679,   680,   684,   690,   708,   721,   734,   745,   746,   749,
+     757,   763,   769,   773,   777,   799,   800,   804
 };
 #endif
 
@@ -1841,230 +1840,228 @@ yyreduce:
   switch (yyn)
     {
         case 5:
-#line 671 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+#line 670 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     { ERR("CONTROLCHAR"); 
                    rc_t rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
-                   globstate->rc=rc;
+                   state->rc=rc;
                    return rc;
    }
-#line 1851 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 1850 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
   case 6:
-#line 676 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+#line 675 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     { DBG("comment"); }
-#line 1857 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 1856 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
   case 7:
-#line 677 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+#line 676 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     { DBG("header"); }
-#line 1863 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 1862 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
   case 8:
-#line 678 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+#line 677 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     { DBG("sequence"); }
-#line 1869 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 1868 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
   case 9:
-#line 679 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+#line 678 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     { DBG("program"); }
-#line 1875 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 1874 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
   case 10:
-#line 680 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+#line 679 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     { DBG("readgroup"); }
-#line 1881 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 1880 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
   case 11:
-#line 681 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+#line 680 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     { DBG("alignment"); }
-#line 1887 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 1886 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
   case 12:
-#line 685 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+#line 684 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
-        mark_headers("CO");
+        mark_headers(state,"CO");
     }
-#line 1895 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 1894 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
   case 13:
-#line 692 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+#line 691 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
         DBG("header tagvaluelist");
-        check_required_tag(globstate->tags,"VN");
-        if (!strcmp(globstate->tags,"SO ") &&
-            !strcmp(globstate->tags,"GO "))
+        check_required_tag(state,state->tags,"VN");
+        if (!strcmp(state->tags,"SO ") &&
+            !strcmp(state->tags,"GO "))
            WARN("Both SO and GO tags present");
-        if (!(strcmp(globstate->tags,"SO ") ||
-              strcmp(globstate->tags,"GO ")))
+        if (!(strcmp(state->tags,"SO ") ||
+              strcmp(state->tags,"GO ")))
            WARN("neither SO or GO tags present");
-        free(globstate->tags);
-        globstate->tags=strdup("");
+        free(state->tags);
+        state->tags=strdup("");
 
-        mark_headers("HD");
+        mark_headers(state,"HD");
     }
-#line 1914 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 1913 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
   case 14:
-#line 710 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+#line 709 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
         DBG("sequence");
-        DBG(" sequences were: %s", globstate->seqnames);
-        check_required_tag(globstate->tags,"SN");
-        check_required_tag(globstate->tags,"LN");
-        free(globstate->tags);
-        globstate->tags=strdup("");
-        mark_headers("SQ");
+        DBG(" sequences were: %s", state->seqnames);
+        check_required_tag(state,state->tags,"SN");
+        check_required_tag(state,state->tags,"LN");
+        free(state->tags);
+        state->tags=strdup("");
+        mark_headers(state,"SQ");
     }
-#line 1928 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 1927 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
   case 15:
-#line 723 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+#line 722 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
-        DBG("ids were: %s", globstate->ids);
+        DBG("ids were: %s", state->ids);
         DBG("program");
-        check_required_tag(globstate->tags,"ID");
-        free(globstate->tags);
-        globstate->tags=strdup("");
-        mark_headers("PG");
+        check_required_tag(state,state->tags,"ID");
+        free(state->tags);
+        state->tags=strdup("");
+        mark_headers(state,"PG");
      }
-#line 1941 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 1940 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
   case 16:
-#line 736 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+#line 735 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
         DBG("readgroup");
-        DBG("ids were: %s", globstate->ids);
-        check_required_tag(globstate->tags,"ID");
-        free(globstate->tags);
-        globstate->tags=strdup("");
-        mark_headers("RG");
+        DBG("ids were: %s", state->ids);
+        check_required_tag(state,state->tags,"ID");
+        free(state->tags);
+        state->tags=strdup("");
+        mark_headers(state,"RG");
      }
-#line 1954 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 1953 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
   case 17:
-#line 746 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+#line 745 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     { DBG(" one tagvaluelist"); }
-#line 1960 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 1959 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
   case 18:
-#line 747 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+#line 746 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     { DBG(" many tagvaluelist"); }
-#line 1966 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 1965 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
   case 19:
-#line 750 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+#line 749 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
         DBG("tagvalue:%s=%s", (yyvsp[-2].strval), (yyvsp[0].strval));
         const char * tag=(yyvsp[-2].strval);
         const char * value=(yyvsp[0].strval);
-        process_tagvalue(tag,value);
+        process_tagvalue(state,tag,value);
         free((yyvsp[-2].strval));
         free((yyvsp[0].strval));
         }
-#line 1979 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 1978 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
   case 20:
-#line 758 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+#line 757 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     { 
         ERR("two tabs"); 
         rc_t rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
-        globstate->rc=rc;
+        state->rc=rc;
         return rc;
   }
-#line 1990 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 1989 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
   case 21:
-#line 764 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+#line 763 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     { 
         ERR("empty tags"); 
         rc_t rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
-        globstate->rc=rc;
+        state->rc=rc;
         return rc;
   }
-#line 2001 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 2000 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
   case 22:
-#line 770 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+#line 769 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
         const char * tag=(yyvsp[-1].strval);
         WARN("malformed TAG:VALUE 'TAB %s(NOT COLON)...'", tag);
         }
-#line 2010 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 2009 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
   case 23:
-#line 774 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+#line 773 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     { WARN("empty tags"); }
-#line 2016 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 2015 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
   case 24:
-#line 779 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+#line 778 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
         DBG(" avlist qname:%s fields=%zu", (yyvsp[-1].strval), alignfields);
         alignfields=2;
-        Alignment * align=myalloc(sizeof(Alignment));
+        Alignment * align=myalloc(state,sizeof(Alignment));
         if (align==NULL) 
         {
             ERR("out of memory");
             rc_t rc=RC(rcAlign, rcRow,rcConstructing,rcMemory,rcExhausted);
-            globstate->rc=rc;
+            state->rc=rc;
             return rc;
         }
-        align->read=globstate->read;
-        align->cigar=globstate->cigar;
-        align->rname=globstate->rname;
-        align->pos=globstate->pos;
-        VectorAppend(&globstate->alignments,NULL,align);
+        align->read=state->read;
+        align->cigar=state->cigar;
+        align->rname=state->rname;
+        align->pos=state->pos;
+        VectorAppend(&state->alignments,NULL,align);
         free((yyvsp[-1].strval));
     }
-#line 2039 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 2038 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
   case 25:
-#line 800 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+#line 799 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     { DBG(" one av"); }
-#line 2045 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 2044 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
   case 26:
-#line 801 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
-    {
-           // TODO"bison: many avlist");
-            }
-#line 2053 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 800 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+    { DBG("bison: many avlist"); }
+#line 2050 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
   case 27:
-#line 808 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+#line 805 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
         const char * field=(yyvsp[0].strval);
-        rc_t rc=process_align(field);
-        globstate->rc=rc;
+        rc_t rc=process_align(state,field);
+        state->rc=rc;
         free((yyvsp[0].strval));
     }
-#line 2064 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 2061 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
 
-#line 2068 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 2065 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
       default: break;
     }
   /* User semantic actions sometimes alter yychar, and that requires
@@ -2292,7 +2289,7 @@ yyreturn:
 #endif
   return yyresult;
 }
-#line 816 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1906  */
+#line 813 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1906  */
 
 
 

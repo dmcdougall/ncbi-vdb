@@ -94,6 +94,7 @@ rc_t CC KMain(int argc, char *argv[])
         // Do stuff with headers
         }
         SAMExtractorInvalidateHeaders(extractor);
+        VectorWhack(&headers,NULL,NULL);
 
 
         fprintf(stderr,"Alignments\n");

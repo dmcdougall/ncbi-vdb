@@ -197,6 +197,7 @@ void logmsg (const char * fname, int line, const char * func, const char * sever
     size_t r=fwrite(buf, bufsize, 1, stderr);
     if (r!=1) fprintf(stderr,"previous %zd log message truncated\n", bufsize);
     free(buf);
+    buf=NULL;
     fflush(stderr);
     if (!strcmp(severity,"Error")) abort();
 }
@@ -370,6 +371,7 @@ rc_t blocker(const KThread * kt, void * in)
         if (!cv.getbytes(name,l_name)) return 1;
         DBG("%d: reference name %s",i, name);
         free(name); // TODO, persist?
+        name=NULL;
         i32 l_ref;
         if (!cv.getbytes(&l_ref,4)) return 1;
         DBG("length of reference sequence %d=%d",i,l_ref);
@@ -450,6 +452,7 @@ rc_t blocker(const KThread * kt, void * in)
             j+=1;
         }
         free(seqbytes);
+        seqbytes=NULL;
 
         char *qual=(char*)calloc(1,align.l_seq);
         if (!cv.getbytes(qual,align.l_seq)) return 1;
@@ -461,7 +464,7 @@ rc_t blocker(const KThread * kt, void * in)
 
         int remain=align.block_size-(sizeof(align)+l_read_name+n_cigar_op*4+bytesofseq+align.l_seq)+4; // TODO
         DBG("%d bytes remaining for ttvs",remain);
-        char * ttvs=(char*)calloc(1,remain); // TODO: alloca? check <64K guarantee
+        char * ttvs=(char*)calloc(1,remain);
         if (!cv.getbytes(ttvs,remain)) return 1;
         char * cur=ttvs;
         while (cur<ttvs+remain)
@@ -542,6 +545,7 @@ rc_t blocker(const KThread * kt, void * in)
         }
         DBG("no more ttvs");
         free(ttvs);
+        ttvs=NULL;
     }
 
 
@@ -844,7 +848,6 @@ LIB_EXPORT rc_t CC SAMExtractorMake(Extractor **state, const char * fname, uint3
 LIB_EXPORT rc_t CC SAMExtractorRelease(Extractor *s)
 {
     DBG("release_Extractor");
-    // TODO: invalidate
     SAM_parseend(s);
 
     SAMExtractorInvalidateAlignments(s);
@@ -879,24 +882,25 @@ LIB_EXPORT rc_t CC SAMExtractorGetHeaders(Extractor *s, Vector *headers)
 LIB_EXPORT rc_t CC SAMExtractorInvalidateHeaders(Extractor *s)
 {
     DBG("invalidate_headers");
-    return 0; //TODO
     for (u32 i=0; i!=VectorLength(&s->headers); ++i)
     {
         Header * hdr=(Header *)VectorGet(&s->headers,i);
 
-        free((void*)hdr->headercode);
         hdr->headercode=NULL;
 
         Vector * tvs=&hdr->tagvalues;
         for (u32 j=0; j!=VectorLength(tvs); ++j)
         {
             TagValue * tv=(TagValue *)VectorGet(tvs,j);
-            free((void*)tv->tag);
-            free((void*)tv->value);
+//            free((void*)tv->tag);
+            tv->tag=NULL;
+//            free((void*)tv->value);
+            tv->value=NULL;
         }
         VectorWhack(tvs,NULL,NULL);
 
-        free(hdr);
+        //free(hdr);
+        hdr=NULL;
     }
     VectorWhack(&s->tagvalues,NULL,NULL);
     VectorWhack(&s->headers,NULL,NULL);
@@ -954,6 +958,7 @@ LIB_EXPORT rc_t CC SAMExtractorInvalidateAlignments(Extractor *s)
     for (uint32_t i=0; i!=VectorLength(&s->allocs); ++i)
     {
         free(VectorGet(&s->allocs,i));
+        VectorSet(&s->allocs,i,NULL);
     }
     VectorWhack(&s->alignments,NULL,NULL);
     VectorWhack(&s->allocs,NULL,NULL);

@@ -52,7 +52,7 @@
 
 /* #define YY_NO_INPUT */
 char * lexbuf=NULL;
-Extractor * globstate=NULL;
+size_t lexbuf_sz=0;
 int moredata(char * buf, int * numbytes, size_t maxbytes);
 #define YY_INPUT(buf,numbytes,maxbytes) moredata(buf,&numbytes,maxbytes)
 
@@ -127,7 +127,6 @@ qname [!-?A-~][!-~]{0,253}
 rc_t SAM_parsebegin(Extractor * state)
 {
     DBG("parsebegin");
-    globstate=state;
     return 0;
 }
 
@@ -136,6 +135,8 @@ rc_t SAM_parseend(Extractor * state)
     DBG("parseend");
     free(lexbuf);
     lexbuf=NULL;
+    lexbuf_sz=0;
+    SAMlex_destroy();
     return 0;
 }
 
@@ -143,14 +144,17 @@ rc_t SAM_parsebuffer(Extractor * state, char * str, size_t size)
 {
     DBG("Parsingbuffer");
     state->rc=0;
-    if (size > 4096) fprintf(stderr,"big buf %zd\n",size);
-    lexbuf=realloc(lexbuf,size+2);
-    if (lexbuf==NULL)
+    if (lexbuf==NULL || size > lexbuf_sz)
     {
-        ERR("out of memory");
-        rc_t rc=RC(rcAlign,rcFile,rcReading,rcMemory,rcExhausted);
-        state->rc=rc;
-        return rc;
+        lexbuf=realloc(lexbuf,size+2);
+        lexbuf_sz=size+2;
+        if (lexbuf==NULL)
+        {
+            ERR("out of memory");
+            rc_t rc=RC(rcAlign,rcFile,rcReading,rcMemory,rcExhausted);
+            state->rc=rc;
+            return rc;
+        }
     }
     memmove(lexbuf,str,size);
     lexbuf[size]='\0';

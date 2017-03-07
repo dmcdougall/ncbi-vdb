@@ -78,7 +78,6 @@ extern "C" {
     extern rc_t SAM_parsebuffer(Extractor * state, char * str, size_t size);
     extern rc_t SAM_parseend(Extractor * state);
 
-    extern Extractor * globstate;
 #ifdef __cplusplus
 }
 #endif
