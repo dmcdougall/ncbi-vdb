@@ -84,7 +84,7 @@ qname [!-?A-~][!-~]{0,253}
 %option noinput
  /* Not a TTY */
 %option never-interactive
-%option yylineno
+ /* %option yylineno */
 %option nounistd
 /* %option reentrant */
 /* %option bison-bridge */

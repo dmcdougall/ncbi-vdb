@@ -267,27 +267,8 @@ extern FILE *SAMin, *SAMout;
 #define EOB_ACT_END_OF_FILE 1
 #define EOB_ACT_LAST_MATCH 2
     
-    /* Note: We specifically omit the test for yy_rule_can_match_eol because it requires
-     *       access to the local variable yy_act. Since yyless() is a macro, it would break
-     *       existing scanners that call yyless() from OUTSIDE SAMlex.
-     *       One obvious solution it to make yy_act a global. I tried that, and saw
-     *       a 5% performance hit in a non-SAMlineno scanner, because yy_act is
-     *       normally declared as a register variable-- so it is not worth it.
-     */
-    #define  YY_LESS_LINENO(n) \
-            do { \
-                int yyl;\
-                for ( yyl = n; yyl < SAMleng; ++yyl )\
-                    if ( SAMtext[yyl] == '\n' )\
-                        --SAMlineno;\
-            }while(0)
-    #define YY_LINENO_REWIND_TO(dst) \
-            do {\
-                const char *p;\
-                for ( p = yy_cp-1; p >= (dst); --p)\
-                    if ( *p == '\n' )\
-                        --SAMlineno;\
-            }while(0)
+    #define YY_LESS_LINENO(n)
+    #define YY_LINENO_REWIND_TO(ptr)
     
 /* Return all but the first "n" matched characters back to the input stream. */
 #define yyless(n) \
@@ -15334,11 +15315,6 @@ static const struct yy_trans_info *yy_start_state_list[7] =
 
     } ;
 
-/* Table of booleans, true if rule could match eol. */
-static const flex_int32_t yy_rule_can_match_eol[17] =
-    {   0,
-0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0,     };
-
 static yy_state_type yy_last_accepting_state;
 static char *yy_last_accepting_cpos;
 
@@ -15404,13 +15380,14 @@ char *SAMtext;
  /* Don't use these functions */
 #define YY_NO_INPUT 1
  /* Not a TTY */
+ /* %option yylineno */
 #define YY_NO_UNISTD_H 1
 /* %option reentrant */
 /* %option bison-bridge */
  /* Start states */
 
 
-#line 15413 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.c"
+#line 15390 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.c"
 
 #define INITIAL 0
 #define INALIGNMENT 1
@@ -15617,7 +15594,7 @@ YY_DECL
 #line 97 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 
  /* rules */
-#line 15620 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.c"
+#line 15597 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.c"
 
 	while ( /*CONSTCOND*/1 )		/* loops until end-of-file is reached */
 		{
@@ -15657,16 +15634,6 @@ yy_find_action:
 		yy_act = yy_current_state[-1].yy_nxt;
 
 		YY_DO_BEFORE_ACTION;
-
-		if ( yy_act != YY_END_OF_BUFFER && yy_rule_can_match_eol[yy_act] )
-			{
-			int yyl;
-			for ( yyl = 0; yyl < SAMleng; ++yyl )
-				if ( SAMtext[yyl] == '\n' )
-					
-    SAMlineno++;
-;
-			}
 
 do_action:	/* This label is used only to access EOF actions. */
 
@@ -15765,7 +15732,7 @@ YY_RULE_SETUP
 #line 121 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 YY_FATAL_ERROR( "flex scanner jammed" );
 	YY_BREAK
-#line 15768 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.c"
+#line 15735 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.c"
 case YY_STATE_EOF(INITIAL):
 case YY_STATE_EOF(INALIGNMENT):
 case YY_STATE_EOF(AFTERCOLON):
@@ -16166,10 +16133,6 @@ static int yy_get_next_buffer (void)
 	(yy_hold_char) = *++(yy_c_buf_p);
 
 	YY_CURRENT_BUFFER_LVALUE->yy_at_bol = (c == '\n');
-	if ( YY_CURRENT_BUFFER_LVALUE->yy_at_bol )
-		
-    SAMlineno++;
-;
 
 	return c;
 }
@@ -16637,9 +16600,6 @@ static int yy_init_globals (void)
      * This function is called from SAMlex_destroy(), so don't allocate here.
      */
 
-    /* We do not touch SAMlineno unless the option is enabled. */
-    SAMlineno =  1;
-    
     (yy_buffer_stack) = NULL;
     (yy_buffer_stack_top) = 0;
     (yy_buffer_stack_max) = 0;
