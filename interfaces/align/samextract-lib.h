@@ -35,57 +35,60 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-typedef struct Extractor
-{
-    char *mmapbuf;
-    off_t mmapbuf_sz;
-    char *mmapbuf_cur;
+    typedef struct Extractor
+    {
+        char *mmapbuf;
+        off_t mmapbuf_sz;
+        char *mmapbuf_cur;
 
-    Vector headers;
-    Vector alignments;
-    Vector tagvalues; // temp
+        Vector headers;
+        Vector alignments;
+        Vector tagvalues; // temp
 
-    Vector allocs;
+        Vector allocs;
 
-    char * read;
-    char * cigar;
-    char * rname;
-    uint32_t pos;
+        Vector * prev_headers;
+        Vector * prev_aligns;
 
-    char * tags; // Space delimited tags seen in current line
-    char * seqnames;
-    char * ids;
-    rc_t rc;
-} Extractor;
+        char * read;
+        char * cigar;
+        char * rname;
+        uint32_t pos;
 
-typedef struct tagvalue
-{
-    const char * tag; // VN, SN, LN, ID, ...
-    const char * value;
-} TagValue;
+        char * tags; // Space delimited tags seen in current line
+        char * seqnames;
+        char * ids;
+        rc_t rc;
+    } Extractor;
 
-typedef struct Header
-{
-    const char * headercode; // HD, SQ, RG, PG, CO
-    Vector tagvalues;
-} Header;
+    typedef struct tagvalue
+    {
+        const char * tag; // VN, SN, LN, ID, ...
+        const char * value;
+    } TagValue;
 
-typedef struct Alignment
-{
-    const char * read;
-    const char * cigar;
-    const char * rname;
-    uint32_t pos;
-} Alignment;
+    typedef struct Header
+    {
+        const char * headercode; // HD, SQ, RG, PG, CO
+        Vector tagvalues;
+    } Header;
 
-ALIGN_EXTERN rc_t CC SAMExtractorMake(Extractor **state, const char * fname, uint32_t num_threads);
-ALIGN_EXTERN rc_t CC SAMExtractorRelease(Extractor *state); // dtor
+    typedef struct Alignment
+    {
+        const char * read;
+        const char * cigar;
+        const char * rname;
+        uint32_t pos;
+    } Alignment;
 
-ALIGN_EXTERN rc_t CC SAMExtractorGetHeaders(Extractor *state, Vector *headers);
-ALIGN_EXTERN rc_t CC SAMExtractorInvalidateHeaders(Extractor *state);
+    ALIGN_EXTERN rc_t CC SAMExtractorMake(Extractor **state, const char * fname, uint32_t num_threads);
+    ALIGN_EXTERN rc_t CC SAMExtractorRelease(Extractor *state); // dtor
 
-ALIGN_EXTERN rc_t CC SAMExtractorGetAlignments(Extractor *state, Vector *alignments);
-ALIGN_EXTERN rc_t CC SAMExtractorInvalidateAlignments(Extractor *state);
+    ALIGN_EXTERN rc_t CC SAMExtractorGetHeaders(Extractor *state, Vector *headers);
+    ALIGN_EXTERN rc_t CC SAMExtractorInvalidateHeaders(Extractor *state);
+
+    ALIGN_EXTERN rc_t CC SAMExtractorGetAlignments(Extractor *state, Vector *alignments);
+    ALIGN_EXTERN rc_t CC SAMExtractorInvalidateAlignments(Extractor *state);
 
 #ifdef __cplusplus
 }

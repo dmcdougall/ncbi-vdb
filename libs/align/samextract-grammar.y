@@ -43,7 +43,6 @@
     #include <sys/types.h>
     #include <regex.h>
     #include <stdint.h>
-
     #include <klib/rc.h>
     #include "samextract.h"
     #include <align/samextract-lib.h>
@@ -52,9 +51,9 @@
 //    #define YYDEBUG 1
 /*    #define SAMdebug 1 */
 
-    size_t alignfields=2; // 1 based, QNAME is #1
+size_t alignfields=2; // 1 based, QNAME is #1
 
-    int SAMerror(Extractor * state, const char * s)
+int SAMerror(Extractor * state, const char * s)
     {
         ERR("Bison error: %s",s);
         rc_t rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
@@ -62,10 +61,10 @@
         return rc;
     }
 
-    void * myalloc(Extractor * state,size_t sz)
+void * myalloc(Extractor * state,size_t sz)
     {
         void * buf=malloc(sz);
-        if (buf==NULL) 
+        if (buf==NULL)
         {
             ERR("out of memory");
             return NULL;
@@ -75,7 +74,7 @@
         return buf;
     }
 
-    void * mystrdup(Extractor * state,const char * str)
+void * mystrdup(Extractor * state,const char * str)
     {
         size_t len=strlen(str)+1;
         void * buf=myalloc(state,len);
@@ -90,14 +89,14 @@
             void * p=VectorGet(&state->allocs,i);
             if (p==ptr) ...
 
-    }
+}
 */
     // Returns 1 if match found
     int regexcheck(Extractor * state, const char *regex, const char * value)
     {
         regex_t preg;
 
-        int result=regcomp(&preg, regex, REG_EXTENDED);
+int result=regcomp(&preg, regex, REG_EXTENDED);
         if (result)
         {
             size_t s=regerror(result, &preg, NULL, 0);
@@ -109,7 +108,7 @@
             return 0;
         }
 
-        regmatch_t matches[1];
+regmatch_t matches[1];
         if (regexec(&preg, value, 1, matches, 0))
         {
             ERR("Value: '%s' doesn't match regex '%s'", value, regex);
@@ -120,7 +119,7 @@
         return 1;
     }
 
-    // Returns 1 if OK
+// Returns 1 if OK
     int validate(Extractor * state, const char * tag, const char * value)
     {
         /* Pair of TAG, regexp: "/..." TODO: or integer range "1-12345" */
@@ -156,9 +155,9 @@
             "\0", "\0"
         };
 
-        int ok=0;
+int ok=0;
 
-        for (size_t i=0;;++i)
+for (size_t i=0;;++i)
         {
             const char *valtag=validations[i*2];
             const char *valval=validations[i*2+1];
@@ -183,10 +182,10 @@
             }
         }
 
-        return ok;
+return ok;
     }
 
-    rc_t check_required_tag(Extractor * state, const char * tags, const char * tag)
+rc_t check_required_tag(Extractor * state, const char * tags, const char * tag)
     {
         if (!strstr(tags,tag))
         {
@@ -198,24 +197,24 @@
         return 0;
     }
 
-    rc_t checkopttagtype(Extractor * state,const char * optfield)
+rc_t checkopttagtype(Extractor * state,const char * optfield)
     {
         const char *opttypes="AMi ASi BCZ BQZ CCZ CMi COZ CPi CQZ CSZ CTZ E2Z FIi FSZ FZZ H0i H1i H2i HIi IHi LBZ MCZ MDZ MQi NHi NMi OCZ OPi OQZ PGZ PQi PTZ PUZ QTZ Q2Z R2Z RGZ RTZ SAZ SMi TCi U2Z UQi";
         const char type=optfield[3];
         char tag[3];
 
-        tag[0]=optfield[0];
+tag[0]=optfield[0];
         tag[1]=optfield[1];
         tag[2]='\0';
 
-        if (tag[0]=='X' ||
+if (tag[0]=='X' ||
             tag[0]=='Y' ||
             tag[0]=='Z') return 0;
 
-        const char *p=strstr(opttypes,tag);
+const char *p=strstr(opttypes,tag);
         if (p==NULL) return 0;
 
-        if (p[2]!=type)
+if (p[2]!=type)
         {
             ERR("tag %s should have type %c, not %c", tag, p[2], type);
             rc_t rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
@@ -223,10 +222,10 @@
             return rc;
         }
 
-        return 0;
+return 0;
     }
 
-    rc_t process_tagvalue(Extractor * state, const char * tag, const char * value)
+rc_t process_tagvalue(Extractor * state, const char * tag, const char * value)
     {
         if (strlen(tag)!=2)
         {
@@ -236,7 +235,7 @@
             return rc;
         }
 
-        if (islower(tag[0] &&
+if (islower(tag[0] &&
             islower(tag[1])))
         {
             DBG("optional tag");
@@ -252,10 +251,10 @@
             state->tags=realloc(state->tags, strlen(state->tags) + strlen(tag) + 1 + 1);
             strcat(state->tags,tag); strcat(state->tags," ");
 
-            if (!strcmp(tag,"SN"))
+if (!strcmp(tag,"SN"))
             {
                 char * s=malloc(strlen(value)+2);
-                if (s==NULL) 
+                if (s==NULL)
                 {
                     ERR("out of memory");
                     rc_t rc=RC(rcAlign, rcRow,rcConstructing,rcMemory,rcExhausted);
@@ -272,7 +271,7 @@
                     return rc;
                 }
                 state->seqnames=realloc(state->seqnames,strlen(state->seqnames) + strlen(value) + 1 + 1);
-                if (state->seqnames==NULL) 
+                if (state->seqnames==NULL)
                 {
                     ERR("out of memory");
                     rc_t rc=RC(rcAlign, rcRow,rcConstructing,rcMemory,rcExhausted);
@@ -285,7 +284,7 @@
             if (!strcmp(tag,"ID"))
             {
                 char * s=malloc(strlen(value)+2);
-                if (s==NULL) 
+                if (s==NULL)
                 {
                     ERR("out of memory");
                     rc_t rc=RC(rcAlign, rcRow,rcConstructing,rcMemory,rcExhausted);
@@ -302,7 +301,7 @@
                     return rc;
                 }
                 state->ids=realloc(state->ids,strlen(state->ids) + strlen(value) + 1 + 1);
-                if (state->ids==NULL) 
+                if (state->ids==NULL)
                 {
                     ERR("out of memory");
                     rc_t rc=RC(rcAlign, rcRow,rcConstructing,rcMemory,rcExhausted);
@@ -314,8 +313,8 @@
             }
         }
 
-        TagValue * tv=myalloc(state,sizeof(TagValue));
-        if (tv==NULL) 
+TagValue * tv=myalloc(state,sizeof(TagValue));
+        if (tv==NULL)
         {
             ERR("out of memory");
             rc_t rc=RC(rcAlign, rcRow,rcConstructing,rcMemory,rcExhausted);
@@ -323,7 +322,7 @@
             return rc;
         }
         tv->tag=mystrdup(state,tag);
-        if (tv->tag==NULL) 
+        if (tv->tag==NULL)
         {
             ERR("out of memory");
             rc_t rc=RC(rcAlign, rcRow,rcConstructing,rcMemory,rcExhausted);
@@ -331,7 +330,7 @@
             return rc;
         }
         tv->value=mystrdup(state,value);
-        if (tv->value==NULL) 
+        if (tv->value==NULL)
         {
             ERR("out of memory");
             rc_t rc=RC(rcAlign, rcRow,rcConstructing,rcMemory,rcExhausted);
@@ -345,11 +344,11 @@
         return 0;
     }
 
-    rc_t mark_headers(Extractor * state, const char * type)
+rc_t mark_headers(Extractor * state, const char * type)
     {
         DBG("mark_headers");
         Header * hdr=(Header *)myalloc(state,sizeof(Header));
-        if (hdr==NULL) 
+        if (hdr==NULL)
         {
             ERR("out of memory");
             rc_t rc=RC(rcAlign, rcRow,rcConstructing,rcMemory,rcExhausted);
@@ -363,7 +362,7 @@
         return 0;
     }
 
-    rc_t process_align(Extractor * state, const char *field)
+rc_t process_align(Extractor * state, const char *field)
     {
         rc_t rc=0;
         const char * opt="(required)";
@@ -399,7 +398,7 @@
                 }
                 DBG("rname is %s",rname);
                 state->rname=mystrdup(state,rname);
-                if (state->rname==NULL) 
+                if (state->rname==NULL)
                 {
                     ERR("NULL rname");
                     rc=RC(rcAlign, rcRow,rcConstructing,rcMemory,rcExhausted);
@@ -451,7 +450,7 @@
                 }
                 DBG("cigar is %s",cigar);
                 state->cigar=mystrdup(state,cigar);
-                if (state->cigar==NULL) 
+                if (state->cigar==NULL)
                 {
                     ERR("out of memory");
                     rc=RC(rcAlign, rcRow,rcConstructing,rcMemory,rcExhausted);
@@ -515,7 +514,7 @@
                 }
                 DBG("seq is %s",seq);
                 state->read=mystrdup(state,seq);
-                if (state->read==NULL) 
+                if (state->read==NULL)
                 {
                     ERR("out of memory");
                     rc=RC(rcAlign, rcRow,rcConstructing,rcMemory,rcExhausted);
@@ -666,8 +665,8 @@ sam: /* beginning of input */
    ;
 
 line:
-   EOL /* Spec is unclear about empty lines, accept for now */
-   | CONTROLCHAR { ERR("CONTROLCHAR"); 
+    EOL /* Spec is unclear about empty lines, accept for now */
+   | CONTROLCHAR { ERR("CONTROLCHAR");
                    rc_t rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
                    state->rc=rc;
                    return rc;
@@ -681,13 +680,13 @@ line:
    ;
 
 comment:
-    COMMENT {
+       COMMENT {
         mark_headers(state,"CO");
     }
     ;
 
 header:
-    HEADER tagvaluelist
+      HEADER tagvaluelist
     {
         DBG("header tagvaluelist");
         check_required_tag(state,state->tags,"VN");
@@ -700,12 +699,12 @@ header:
         free(state->tags);
         state->tags=strdup("");
 
-        mark_headers(state,"HD");
+mark_headers(state,"HD");
     }
     ;
 
 sequence:
-    SEQUENCE tagvaluelist
+        SEQUENCE tagvaluelist
     {
         DBG("sequence");
         DBG(" sequences were: %s", state->seqnames);
@@ -718,7 +717,7 @@ sequence:
     ;
 
 program:
-     PROGRAM tagvaluelist
+       PROGRAM tagvaluelist
      {
         DBG("ids were: %s", state->ids);
         DBG("program");
@@ -731,7 +730,7 @@ program:
 
 
 readgroup:
-     READGROUP tagvaluelist
+         READGROUP tagvaluelist
      {
         DBG("readgroup");
         DBG("ids were: %s", state->ids);
@@ -743,7 +742,7 @@ readgroup:
      ;
 
 tagvaluelist: tagvalue { DBG(" one tagvaluelist"); }
-  | tagvaluelist tagvalue { DBG(" many tagvaluelist"); }
+            | tagvaluelist tagvalue { DBG(" many tagvaluelist"); }
   ;
 
 tagvalue: TAB TAG COLON VALUE {
@@ -754,14 +753,14 @@ tagvalue: TAB TAG COLON VALUE {
         free($2);
         free($4);
         };
-  | TAB TAB TAG COLON VALUE { 
-        ERR("two tabs"); 
+  | TAB TAB TAG COLON VALUE {
+        ERR("two tabs");
         rc_t rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
         state->rc=rc;
         return rc;
   }
-  | TAB TAB EOL { 
-        ERR("empty tags"); 
+  | TAB TAB EOL {
+        ERR("empty tags");
         rc_t rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
         state->rc=rc;
         return rc;
@@ -774,12 +773,12 @@ tagvalue: TAB TAG COLON VALUE {
   ;
 
 alignment:
-    QNAME avlist
+         QNAME avlist
     {
         DBG(" avlist qname:%s fields=%zu", $1, alignfields);
         alignfields=2;
         Alignment * align=myalloc(state,sizeof(Alignment));
-        if (align==NULL) 
+        if (align==NULL)
         {
             ERR("out of memory");
             rc_t rc=RC(rcAlign, rcRow,rcConstructing,rcMemory,rcExhausted);
@@ -801,7 +800,7 @@ avlist:
     ;
 
 av:
-    TAB ALIGNVALUE
+  TAB ALIGNVALUE
     {
         const char * field=$2;
         rc_t rc=process_align(state,field);
@@ -813,5 +812,5 @@ av:
 %%
 
 
- /* Epilogue */
+/* Epilogue */
 
