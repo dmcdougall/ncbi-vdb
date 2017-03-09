@@ -1,2 +1,4 @@
 *.def
+*.d
+*.o
 samextract-grammar.output

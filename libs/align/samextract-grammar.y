@@ -48,6 +48,7 @@
     #include <align/samextract-lib.h>
     #include "samextract-tokens.h"
 
+extern int SAMlex (Extractor *);
 
 size_t alignfields=2; // 1 based, QNAME is #1
 
