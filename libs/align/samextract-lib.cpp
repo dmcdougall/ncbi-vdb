@@ -67,21 +67,19 @@ class chunkview
       // __HAS_RVALUE_REFERENCES, ...
       // __HAS_METHOD_DELETE, ...
       // __has_cpp_attribute
+      // __CPPVER=98,11,14,..
 #ifndef __cplusplus
       // C++98
       chunkview(const chunkview &);
 #elif __cplusplus <= 199711L
       // C++98
       chunkview(const chunkview &);
-#elif __cplusplus <= 201103L
-      // C++11
+#elif __cplusplus >= 201103L
+      // C++11, C++14
       chunkview(const chunkview &) = delete; // No copy ctor
       chunkview & operator=(const chunkview &) = delete; // No assignment
-#else
-      // C++14, 201402L
       chunkview(const chunkview &&) = delete; // No move ctor
-      chunkview & operator=(const chunkview &) = delete;
-      chunkview & operator=(const chunkview &&) = delete;
+      chunkview & operator=(const chunkview &&) = delete; // No move assignment
 #endif
 
   private:
@@ -874,6 +872,7 @@ extern "C" {
         s->seqnames=NULL;
         free(s->ids);
         s->ids=NULL;
+        memset(s,0,sizeof(Extractor));
         free(s);
 
         return 0;
@@ -885,7 +884,6 @@ extern "C" {
         VectorInit(headers,0,0);
         VectorCopy(&s->headers,headers);
         s->prev_headers=headers;
-        VectorWhack(&s->headers,NULL,NULL);
         return 0;
     }
 
@@ -902,18 +900,14 @@ extern "C" {
             for (u32 j=0; j!=VectorLength(tvs); ++j)
             {
                 TagValue * tv=(TagValue *)VectorGet(tvs,j);
-                //            free((void*)tv->tag);
                 tv->tag=NULL;
-                //            free((void*)tv->value);
                 tv->value=NULL;
             }
-            VectorWhack(tvs,NULL,NULL);
-
-            //free(hdr);
+            VectorWhack(&hdr->tagvalues,NULL,NULL);
             hdr=NULL;
         }
-        VectorWhack(&s->tagvalues,NULL,NULL);
         VectorWhack(&s->headers,NULL,NULL);
+        VectorWhack(&s->tagvalues,NULL,NULL);
         VectorWhack(s->prev_headers,NULL,NULL);
         s->prev_headers=NULL;
         return 0;
@@ -973,28 +967,10 @@ extern "C" {
             free(VectorGet(&s->allocs,i));
             VectorSet(&s->allocs,i,NULL);
         }
-        VectorWhack(&s->alignments,NULL,NULL);
         VectorWhack(&s->allocs,NULL,NULL);
+        VectorWhack(&s->alignments,NULL,NULL);
         VectorWhack(s->prev_aligns,NULL,NULL);
         s->prev_aligns=NULL;
-        return 0;
-
-
-        for (uint32_t i=0; i!=VectorLength(&s->alignments); ++i)
-        {
-            Alignment * align=(Alignment *)VectorGet(&s->alignments,i);
-            free((void*)align->read);
-            align->read=NULL;
-            free((void*)align->cigar);
-            align->cigar=NULL;
-            free((void*)align->rname);
-            align->rname=NULL;
-            align->pos=0;
-            free(align);
-            align=NULL;
-            //        VectorSet(&s->alignments,i,align);
-        }
-        VectorWhack(&s->alignments,NULL,NULL);
 
         return 0;
     }
