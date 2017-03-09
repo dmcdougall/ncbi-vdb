@@ -857,6 +857,7 @@ extern "C" {
         DBG("release_Extractor");
         SAM_parseend(s);
 
+        SAMExtractorInvalidateHeaders(s);
         SAMExtractorInvalidateAlignments(s);
 
         munmap(s->mmapbuf,s->mmapbuf_sz);
