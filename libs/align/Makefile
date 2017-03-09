@@ -38,7 +38,7 @@ INT_LIBS = \
 ALL_LIBS = \
 	$(INT_LIBS)
 
-OBJFILES =              \
+OBJFILES =            \
 	$(BAM_OBJ)          \
 	$(ALIGN_ACCESS_OBJ) \
 	$(ALIGN_READER_OBJ) \
@@ -180,21 +180,21 @@ SAM_EXTRACT_OBJ = \
 
 SAM_EXTRACT_LIB =
 
-#$(SRCDIR)/samextract-grammar.$(LOBX): $(SRCDIR)/samextract-grammar.c
-
-#$(SRCDIR)/samextract-tokens.h $(SRCDIR)/samextract-grammar.c: $(SRCDIR)/samextract-grammar.y
 bison:
-	bison -Werror=all -o $(SRCDIR)/samextract-grammar.c --defines=$(SRCDIR)/samextract-tokens.h -v -Wall $(SRCDIR)/samextract-grammar.y
+	bison -g -r all -Werror=all \
+		-o $(SRCDIR)/samextract-grammar.c \
+	--defines=$(SRCDIR)/samextract-tokens.h \
+	-v -Wall \
+	$(SRCDIR)/samextract-grammar.y
 
 ifeq (dbg,$(BUILD))
   FLEX_DEBUG=-d
 endif
 
-#$(SRCDIR)/samextract-lex: $(SRCDIR)/samextract-lex.l $(SRCDIR)/samextract-grammar.c $(SRCDIR)/samextract-tokens.h
-
-#$(SRCDIR)/samextract-lex.c: $(SRCDIR)/samextract-lex.l $(SRCDIR)/samextract-tokens.h
 flex:
-	flex --fast -v -p $(FLEX_DEBUG) -o $(SRCDIR)/samextract-lex.c $(SRCDIR)/samextract-lex.l
+	flex --fast -v -p $(FLEX_DEBUG) \
+		-o $(SRCDIR)/samextract-lex.c \
+		$(SRCDIR)/samextract-lex.l
 
 $(ILIBDIR)/libsam-extract.$(LIBX): $(SAM_EXTRACT_OBJ)
 	$(LD) --slib -o $@ $^ $(SAM_EXTRACT_LIB)
