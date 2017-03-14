@@ -43,7 +43,7 @@ extern "C" {
 
         Vector headers;
         Vector alignments;
-        Vector tagvalues; // temp
+        Vector tagvalues; /* temp */
 
         Vector allocs;
 
@@ -55,7 +55,7 @@ extern "C" {
         char * rname;
         uint32_t pos;
 
-        char * tags; // Space delimited tags seen in current line
+        char * tags; /* Space delimited tags seen in current line */
         char * seqnames;
         char * ids;
         rc_t rc;
@@ -63,13 +63,13 @@ extern "C" {
 
     typedef struct tagvalue
     {
-        const char * tag; // VN, SN, LN, ID, ...
+        const char * tag; /* VN, SN, LN, ID, ... */
         const char * value;
     } TagValue;
 
     typedef struct Header
     {
-        const char * headercode; // HD, SQ, RG, PG, CO
+        const char * headercode; /* HD, SQ, RG, PG, CO */
         Vector tagvalues;
     } Header;
 
@@ -82,7 +82,7 @@ extern "C" {
     } Alignment;
 
     ALIGN_EXTERN rc_t CC SAMExtractorMake(Extractor **state, const char * fname, uint32_t num_threads);
-    ALIGN_EXTERN rc_t CC SAMExtractorRelease(Extractor *state); // dtor
+    ALIGN_EXTERN rc_t CC SAMExtractorRelease(Extractor *state); /* dtor */
 
     ALIGN_EXTERN rc_t CC SAMExtractorGetHeaders(Extractor *state, Vector *headers);
     ALIGN_EXTERN rc_t CC SAMExtractorInvalidateHeaders(Extractor *state);
@@ -93,5 +93,5 @@ extern "C" {
 #ifdef __cplusplus
 }
 #endif
-#endif // __h_sam_extract_lib_
+#endif /* __h_sam_extract_lib_ */
 

@@ -88,7 +88,7 @@
 
 extern int SAMlex (Extractor *);
 
-size_t alignfields=2; // 1 based, QNAME is #1
+size_t alignfields=2; /* 1 based, QNAME is #1 */
 
 typedef struct Regcomp
 {
@@ -106,7 +106,7 @@ int SAMerror(Extractor * state, const char * s)
     return rc;
 }
 
-//TODO: Replace with pool allocator.
+/*TODO: Replace with pool allocator. */
 static void * myalloc(Extractor * state,size_t sz)
 {
     void * buf=malloc(sz);
@@ -143,11 +143,11 @@ static regex_t * regcomp_cache(const char * regex)
         r=(Regcomp *)VectorGet(regcache,i);
         if (r->regex==regex)
         {
-            return &r->preg; // Hit
+            return &r->preg; /* Hit */
         }
     }
-    // Miss
-//    DBG("miss on %s",regex);
+
+    /* Miss */
     r=calloc(1,sizeof(Regcomp));
     r->regex=regex;
     int result=regcomp(&r->preg, regex, REG_EXTENDED);
@@ -181,7 +181,7 @@ void regcomp_cache_clear(void)
     regcache=NULL;
 }
 
-// Returns 1 if match found
+/* Returns 1 if match found */
 static int regexcheck(Extractor * state, const char *regex, const char * value)
 {
     regex_t * preg;
@@ -199,20 +199,20 @@ static int regexcheck(Extractor * state, const char *regex, const char * value)
     return 1;
 }
 
-// Returns 1 if OK
+/* Returns 1 if OK */
 static int validate(Extractor * state, const char * tag, const char * value)
 {
     /* Pair of TAG, regexp: "/..." TODO: or integer range "1-12345" */
     const char * validations[] =
     {
-        "VN", "/.*", // @PG also has "/[0-9]+\\.[0-9]+",
+        "VN", "/.*", /* @PG also has "/[0-9]+\\.[0-9]+", */
         "SO", "/unknown|unsorted|queryname|coordinate",
         "GO", "/none|query|reference",
         "SN", "/[!-)+-<>-~][!-~]*",
-        "LN", "/[0]*[1-9][0-9]{0,10}", // TODO: range check 1..2**31-1
+        "LN", "/[0]*[1-9][0-9]{0,10}", /* TODO: range check 1..2**31-1 */
         "AS", "/.*",
-        "MD", "/[0-9A-Z\\*]{32}", // bam.c treats same as M5
-        "M5", "/[0-9A-Za-z\\*]{32}", // TODO: lowercase acceptable?
+        "MD", "/[0-9A-Z\\*]{32}", /* bam.c treats same as M5 */
+        "M5", "/[0-9A-Za-z\\*]{32}", /* TODO: lowercase acceptable? */
         "SP", "/.*",
         "UR", "/.*",
         "ID", "/.*",
@@ -255,7 +255,7 @@ static int validate(Extractor * state, const char * tag, const char * value)
                     break;
                 } else
                 {
-                // Parse integer range
+                /* Parse integer range */
                     WARN("range not implemented");
                     ok=1;
                 }
@@ -455,7 +455,7 @@ static rc_t process_align(Extractor * state, const char *field)
     DBG("alignvalue #%zu%s: %s", alignfields, opt, field);
     switch (alignfields)
     {
-        case 2: // FLAG
+        case 2: /* FLAG */
         {
             errno = 0;
             int flag=strtoi32(field, NULL, 10);
@@ -471,7 +471,7 @@ static rc_t process_align(Extractor * state, const char *field)
             DBG("flag is %d",flag);
             break;
         }
-        case 3: // RNAME
+        case 3: /* RNAME */
         {
             const char * rname=field;
             if (!regexcheck(state,"\\*|[!-)+-<>-~][!-~]*",rname))
@@ -492,7 +492,7 @@ static rc_t process_align(Extractor * state, const char *field)
             }
             break;
         }
-        case 4: // POS
+        case 4: /* POS */
         {
             errno = 0;
             int pos=strtoi32(field, NULL, 10);
@@ -509,7 +509,7 @@ static rc_t process_align(Extractor * state, const char *field)
             state->pos=pos;
             break;
         }
-        case 5: // MAPQ
+        case 5: /* MAPQ */
         {
             errno = 0;
             int mapq=strtoi32(field, NULL, 10);
@@ -525,7 +525,7 @@ static rc_t process_align(Extractor * state, const char *field)
             DBG("mapq is %d", mapq);
             break;
         }
-        case 6: // CIGAR
+        case 6: /* CIGAR */
         {
             const char * cigar=field;
             if (!regexcheck(state,"\\*|([0-9]+[MIDNSHPX=])+",cigar))
@@ -546,7 +546,7 @@ static rc_t process_align(Extractor * state, const char *field)
             }
             break;
         }
-        case 7: // RNEXT
+        case 7: /* RNEXT */
         {
             const char * rnext=field;
             if (!regexcheck(state,"\\*|=|[!-)+-<>-~][!-~]*",rnext))
@@ -559,7 +559,7 @@ static rc_t process_align(Extractor * state, const char *field)
             DBG("rnext is %s",rnext);
             break;
         }
-        case 8: // PNEXT
+        case 8: /* PNEXT */
         {
             errno = 0;
             int pnext=strtoi32(field, NULL, 10);
@@ -575,7 +575,7 @@ static rc_t process_align(Extractor * state, const char *field)
             DBG("pnext is %d",pnext);
             break;
         }
-        case 9: // TLEN
+        case 9: /* TLEN */
         {
             errno = 0;
             int tlen=strtoi32(field, NULL, 10);
@@ -591,7 +591,7 @@ static rc_t process_align(Extractor * state, const char *field)
             DBG("tlen is %d", tlen);
             break;
         }
-        case 10: // SEQ
+        case 10: /* SEQ */
         {
             const char * seq=field;
             if (!regexcheck(state,"\\*|[A-Za-z=.]+",seq))
@@ -612,7 +612,7 @@ static rc_t process_align(Extractor * state, const char *field)
             }
             break;
         }
-        case 11: // QUAL
+        case 11: /* QUAL */
         {
             const char * qual=field;
             if (!regexcheck(state,"[!-~]+",qual))
@@ -626,10 +626,10 @@ static rc_t process_align(Extractor * state, const char *field)
             DBG("rc=%d", state->rc);
             break;
         }
-        default: // Optional
+        default: /* Optional */
         {
         DBG("optional");
-//               /TT:t:
+/*               /TT:t: */
             if ((strlen(field)<5) ||
                 field[2]!=':' ||
                 field[4]!=':')
