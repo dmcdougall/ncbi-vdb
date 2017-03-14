@@ -70,7 +70,7 @@ typedef struct bamalign
 extern "C" {
 #endif
     int moredata(char * buf, int * numbytes, size_t maxbytes);
-    int SAMerror(Extractor *, const char *);
+    int SAMerror(Extractor * state, const char * TODOmsg);
     void logmsg (const char * fname, int line, const char * func, const char * severity, const char * fmt, ...);
     void samload(char const path[]);
     extern rc_t SAM_parsebegin(Extractor * state);

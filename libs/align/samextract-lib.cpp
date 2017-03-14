@@ -137,7 +137,7 @@ class chunkview
           return true;
       }
   public:
-      bool getbytes(void * dest, uInt len)
+      bool getbytes(void * dest, u8 len)
       {
           char * where=(char *)dest;
           while (len)
@@ -202,7 +202,7 @@ extern "C" {
     }
 
 
-    rc_t inflater(const KThread * kt, void * in)
+    static rc_t inflater(const KThread * kt, void * in)
     {
         KQueue *inflatequeue=(KQueue *)in;
         struct timeout_t tm;
@@ -311,7 +311,7 @@ extern "C" {
     }
 
 
-    rc_t blocker(const KThread * kt, void * in)
+    static rc_t blocker(const KThread * kt, void * in)
     {
         KQueue *blockqueue=(KQueue *)in;
 
@@ -407,8 +407,8 @@ extern "C" {
             }
             DBG("align.bin_mq_nl=%d",align.bin_mq_nl);
             u16 bin=align.bin_mq_nl >> 16;
-            uint8_t mapq=(align.bin_mq_nl >> 8) & 0xff;
-            uint8_t l_read_name=align.bin_mq_nl & 0xff;
+            u8 mapq=(align.bin_mq_nl >> 8) & 0xff;
+            u8 l_read_name=align.bin_mq_nl & 0xff;
             DBG("bin=%d mapq=%d l_read_name=%d", bin, mapq, l_read_name);
 
             u16 flag=align.flag_nc >> 16;
@@ -432,7 +432,7 @@ extern "C" {
             static const char seqmap[]="=ACMGRSVTWYHKDBN";
             char * seq=(char *)calloc(1,align.l_seq+1);
             int bytesofseq=(align.l_seq+1)/2;
-            uint8_t * seqbytes=(uint8_t *)calloc(1,bytesofseq);
+            u8 * seqbytes=(u8 *)calloc(1,bytesofseq);
             if (!cv.getbytes(seqbytes,bytesofseq)) return 1;
             int i=0;
             int j=0;
@@ -552,7 +552,7 @@ extern "C" {
     }
 
 
-    void waitforthreads(Vector * threads)
+    static void waitforthreads(Vector * threads)
     {
         for (u32 i=0; i!=VectorLength(threads); ++i)
         {
@@ -563,7 +563,7 @@ extern "C" {
         INFO("all threads completed");
     }
 
-    void releasethreads(Vector * threads)
+    static void releasethreads(Vector * threads)
     {
         INFO("Release threads");
         for (u32 i=0; i!=VectorLength(threads); ++i)
@@ -572,7 +572,7 @@ extern "C" {
         }
     }
 
-    rc_t threadinflate(Extractor * state, int numthreads)
+    static rc_t threadinflate(Extractor * state, int numthreads)
     {
         rc_t rc;
         struct timeout_t tm;
@@ -641,7 +641,7 @@ extern "C" {
             }
 
             gz_header head;
-            uint8_t extra[256];
+            u8 extra[256];
             memset(&head,0,sizeof head);
             head.extra=extra;
             head.extra_max=sizeof(extra);
@@ -752,7 +752,7 @@ extern "C" {
 
     LIB_EXPORT rc_t CC SAMExtractorMake(Extractor **state, const char * fname, uint32_t num_threads=-1)
     {
-        Extractor * s=(Extractor *)calloc(1,sizeof(Extractor));
+        Extractor * s=(Extractor *)calloc(1,sizeof(*s));
         *state=s;
 
         s->mmapbuf=NULL;
@@ -805,7 +805,7 @@ extern "C" {
             ERR("Cannot mmap %s:%s", fname, strerror(errno));
             return RC(rcAlign,rcFile,rcReading,rcFile,rcNotFound);
         }
-
+//TODO: If file < 3 bytes, don't attempt magic
         if (!memcmp(s->mmapbuf,"\x1f\x8b\x08",3))
         {
             DBG("gzip file");
@@ -816,7 +816,10 @@ extern "C" {
 
             rc_t rc=SAM_parsebegin(s);
             DBG("begin=%d",rc);
-            if (rc) return rc;
+            if (rc)
+            {
+                return rc;
+            }
             while (1)
             {
                 ssize_t remain=s->mmapbuf_sz-(s->mmapbuf_cur-s->mmapbuf);
@@ -830,6 +833,8 @@ extern "C" {
                     DBG("out of headers");
                     break;
                 }
+                // TODO: Process much more than a line at a time.
+                // Preferably YY_BUF_SIZE=16777216
                 char * nl=(char *)memchr(s->mmapbuf_cur, '\x0a', remain);
                 if (nl)
                 {
@@ -837,7 +842,10 @@ extern "C" {
                     size_t linesize=nl-s->mmapbuf_cur;
                     DBG("linesize=%d",linesize);
                     rc=SAM_parsebuffer(s,s->mmapbuf_cur,linesize);
-                    if (rc) return rc;
+                    if (rc)
+                    {
+                        return rc;
+                    }
                     s->mmapbuf_cur+=linesize;
                 } else
                 {
@@ -941,7 +949,11 @@ extern "C" {
                 size_t linesize=nl-s->mmapbuf_cur;
                 DBG("alignment #%d linesize=%d",numaligns,linesize);
                 rc_t rc=SAM_parsebuffer(s,s->mmapbuf_cur,linesize);
-                if (rc) { fprintf(stderr,"parsebuffer rc\n"); return rc; }
+                if (rc)
+                {
+                    fprintf(stderr,"parsebuffer rc\n");
+                    return rc;
+                }
                 s->mmapbuf_cur+=linesize;
             } else
             {
@@ -963,7 +975,7 @@ extern "C" {
     LIB_EXPORT rc_t CC SAMExtractorInvalidateAlignments(Extractor *s)
     {
         DBG("invalidate_alignments");
-        for (uint32_t i=0; i!=VectorLength(&s->allocs); ++i)
+        for (u32 i=0; i!=VectorLength(&s->allocs); ++i)
         {
             free(VectorGet(&s->allocs,i));
             VectorSet(&s->allocs,i,NULL);

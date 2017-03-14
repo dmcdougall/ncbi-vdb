@@ -67,7 +67,7 @@ extern int SAMdebug;
 
 union YYSTYPE
 {
-#line 622 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1909  */
+#line 665 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1909  */
 
  int intval;
  char * strval;

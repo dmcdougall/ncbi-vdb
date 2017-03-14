@@ -194,6 +194,7 @@ endif
 flex:
 	flex --fast -v -p $(FLEX_DEBUG) \
 		-o $(SRCDIR)/samextract-lex.c \
+		-DYY_BUF_SIZE=16777216 \
 		$(SRCDIR)/samextract-lex.l
 
 $(ILIBDIR)/libsam-extract.$(LIBX): $(SAM_EXTRACT_OBJ)

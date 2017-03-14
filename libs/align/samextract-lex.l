@@ -47,12 +47,11 @@
 #include "samextract.h"
 #include "samextract-tokens.h"
 
-/* #define YYSTYPE char data type for llval */
 #define LEXDEBUG 0
 
-/* #define YY_NO_INPUT */
 char * lexbuf=NULL;
 size_t lexbuf_sz=0;
+
 int moredata(char * buf, int * numbytes, size_t maxbytes);
 #define YY_INPUT(buf,numbytes,maxbytes) moredata(buf,&numbytes,maxbytes)
 
@@ -71,9 +70,8 @@ tag [A-Za-z][A-Za-z0-9]
  /* No @ in first, to distinguish from headers */
 qname [!-?A-~][!-~]{0,253}
 
+ /* See bison's lex-param/parse-param */
 %option prefix="SAM"
- /* See also bison's lex-param/parse-param */
-/*%option extra-type="Extractor *" */
  /* stop after first EOF */
 %option noyywrap
 %option nodefault
@@ -86,8 +84,6 @@ qname [!-?A-~][!-~]{0,253}
 %option never-interactive
  /* %option yylineno */
 %option nounistd
-/* %option reentrant */
-/* %option bison-bridge */
 
  /* Start states */
 %x INALIGNMENT

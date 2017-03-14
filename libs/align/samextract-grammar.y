@@ -46,11 +46,18 @@
     #include <klib/rc.h>
     #include "samextract.h"
     #include <align/samextract-lib.h>
-    #include "samextract-tokens.h"
 
 extern int SAMlex (Extractor *);
 
 size_t alignfields=2; // 1 based, QNAME is #1
+
+typedef struct Regcomp
+{
+    const char * regex;
+    regex_t preg;
+} Regcomp;
+
+static Vector * regcache=NULL;
 
 int SAMerror(Extractor * state, const char * s)
 {
@@ -61,7 +68,7 @@ int SAMerror(Extractor * state, const char * s)
 }
 
 //TODO: Replace with pool allocator.
-void * myalloc(Extractor * state,size_t sz)
+static void * myalloc(Extractor * state,size_t sz)
 {
     void * buf=malloc(sz);
     if (buf==NULL)
@@ -74,7 +81,7 @@ void * myalloc(Extractor * state,size_t sz)
     return buf;
 }
 
-void * mystrdup(Extractor * state,const char * str)
+static void * mystrdup(Extractor * state,const char * str)
 {
     size_t len=strlen(str)+1;
     void * buf=myalloc(state,len);
@@ -82,36 +89,69 @@ void * mystrdup(Extractor * state,const char * str)
     return buf;
 }
 
-// Returns 1 if match found
-int regexcheck(Extractor * state, const char *regex, const char * value)
+static regex_t * regcomp_cache(const char * regex)
 {
-    regex_t preg;
+    u32 i;
+    Regcomp * r=NULL;
+    if (!regcache)
+    {
+        regcache=calloc(1,sizeof(Vector));
+        VectorInit(regcache,0,0);
+    }
 
-    int result=regcomp(&preg, regex, REG_EXTENDED);
+    for (i=0; i!=VectorLength(regcache); ++i)
+    {
+        r=(Regcomp *)VectorGet(regcache,i);
+        if (r->regex==regex)
+        {
+            return &r->preg; // Hit
+        }
+    }
+    // Miss
+//    DBG("miss on %s",regex);
+    r=calloc(1,sizeof(Regcomp));
+    r->regex=regex;
+    int result=regcomp(&r->preg, regex, REG_EXTENDED);
     if (result)
     {
-        size_t s=regerror(result, &preg, NULL, 0);
+        size_t s=regerror(result, &r->preg, NULL, 0);
         char *errmsg=malloc(s);
-        regerror(result, &preg, errmsg, s);
+        regerror(result, &r->preg, errmsg, s);
         ERR("regcomp error on '%s': %s", regex, errmsg);
         free(errmsg);
-        regfree(&preg);
-        return 0;
+        regfree(&r->preg);
+        return NULL;
     }
+    VectorAppend(regcache,NULL,r);
+    return &r->preg;
+}
+
+static void regcomp_clear(void)
+{
+// TODO
+}
+
+// Returns 1 if match found
+static int regexcheck(Extractor * state, const char *regex, const char * value)
+{
+    regex_t * preg;
+
+    if (!strcmp(regex,"/.*")) return 1;
+
+    // TODO: Cache these
+    preg=regcomp_cache(regex);
 
     regmatch_t matches[1];
-    if (regexec(&preg, value, 1, matches, 0))
+    if (regexec(preg, value, 1, matches, 0))
     {
         ERR("Value: '%s' doesn't match regex '%s'", value, regex);
-        regfree(&preg);
         return 0;
     }
-    regfree(&preg);
     return 1;
 }
 
 // Returns 1 if OK
-int validate(Extractor * state, const char * tag, const char * value)
+static int validate(Extractor * state, const char * tag, const char * value)
 {
     /* Pair of TAG, regexp: "/..." TODO: or integer range "1-12345" */
     const char * validations[] =
@@ -176,7 +216,7 @@ int validate(Extractor * state, const char * tag, const char * value)
     return ok;
 }
 
-rc_t check_required_tag(Extractor * state, const char * tags, const char * tag)
+static rc_t check_required_tag(Extractor * state, const char * tags, const char * tag)
 {
     if (!strstr(tags,tag))
     {
@@ -188,9 +228,12 @@ rc_t check_required_tag(Extractor * state, const char * tags, const char * tag)
     return 0;
 }
 
-rc_t checkopttagtype(Extractor * state,const char * optfield)
+static rc_t checkopttagtype(Extractor * state,const char * optfield)
 {
-    const char *opttypes="AMi ASi BCZ BQZ CCZ CMi COZ CPi CQZ CSZ CTZ E2Z FIi FSZ FZZ H0i H1i H2i HIi IHi LBZ MCZ MDZ MQi NHi NMi OCZ OPi OQZ PGZ PQi PTZ PUZ QTZ Q2Z R2Z RGZ RTZ SAZ SMi TCi U2Z UQi";
+    const char *opttypes=
+    "AMi ASi BCZ BQZ CCZ CMi COZ CPi CQZ CSZ CTZ "
+    "E2Z FIi FSZ FZZ H0i H1i H2i HIi IHi LBZ MCZ MDZ MQi NHi NMi "
+    "OCZ OPi OQZ PGZ PQi PTZ PUZ QTZ Q2Z R2Z RGZ RTZ SAZ SMi TCi U2Z UQi";
     const char type=optfield[3];
     char tag[3];
 
@@ -216,7 +259,7 @@ rc_t checkopttagtype(Extractor * state,const char * optfield)
     return 0;
 }
 
-rc_t process_tagvalue(Extractor * state, const char * tag, const char * value)
+static rc_t process_tagvalue(Extractor * state, const char * tag, const char * value)
 {
     if (strlen(tag)!=2)
     {
@@ -336,7 +379,7 @@ rc_t process_tagvalue(Extractor * state, const char * tag, const char * value)
     return 0;
 }
 
-rc_t mark_headers(Extractor * state, const char * type)
+static rc_t mark_headers(Extractor * state, const char * type)
 {
     DBG("mark_headers");
     Header * hdr=(Header *)myalloc(state,sizeof(Header));
@@ -354,7 +397,7 @@ rc_t mark_headers(Extractor * state, const char * type)
     return 0;
 }
 
-rc_t process_align(Extractor * state, const char *field)
+static rc_t process_align(Extractor * state, const char *field)
 {
     rc_t rc=0;
     const char * opt="(required)";
@@ -626,9 +669,6 @@ rc_t process_align(Extractor * state, const char *field)
 }
 
 %name-prefix "SAM"
-/* %define api.pure // was pure-parser */
-/* %lex-param   { Extractor * state } */
-/* %parse-param { Extractor * state } */
 %param { Extractor * state}
 %require "3.0"
 %define parse.error verbose
@@ -648,7 +688,6 @@ rc_t process_align(Extractor * state, const char *field)
 %token EOL
 %token END 0 "end of file"
 
-
 %%
 
  /* Bison grammar rules */
@@ -665,7 +704,7 @@ line:
                    return rc;
    }
    | comment { DBG("comment"); }
-   | header EOL { DBG("header"); }
+   | header { DBG("header"); }
    | sequence { DBG("sequence"); }
    | program { DBG("program"); }
    | readgroup { DBG("readgroup"); }
@@ -747,7 +786,7 @@ tagvalue: TAB TAG COLON VALUE {
         free($4);
         };
   | TAB TAB TAG COLON VALUE {
-        ERR("two tabs");
+        ERR("two tabs"); /* TODO: Handle >2 tabs in a row */
         rc_t rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
         state->rc=rc;
         return rc;
@@ -803,7 +842,4 @@ av:
     ;
 
 %%
-
-
-/* Epilogue */
 
