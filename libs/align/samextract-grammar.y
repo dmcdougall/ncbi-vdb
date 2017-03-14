@@ -46,6 +46,8 @@
     #include <klib/rc.h>
     #include "samextract.h"
     #include <align/samextract-lib.h>
+    #include <errno.h>
+    #include <strtol.h>
 
 extern int SAMlex (Extractor *);
 
@@ -126,9 +128,20 @@ static regex_t * regcomp_cache(const char * regex)
     return &r->preg;
 }
 
-static void regcomp_clear(void)
+void regcomp_cache_clear(void)
 {
-// TODO
+    if (!regcache) return;
+
+    for (u32 i=0; i!=VectorLength(regcache); ++i)
+    {
+        Regcomp * r=VectorGet(regcache,i);
+        regfree(&r->preg);
+        free(r);
+    }
+
+    VectorWhack(regcache,NULL,NULL);
+    free(regcache);
+    regcache=NULL;
 }
 
 // Returns 1 if match found
@@ -138,7 +151,6 @@ static int regexcheck(Extractor * state, const char *regex, const char * value)
 
     if (!strcmp(regex,"/.*")) return 1;
 
-    // TODO: Cache these
     preg=regcomp_cache(regex);
 
     regmatch_t matches[1];
@@ -408,8 +420,9 @@ static rc_t process_align(Extractor * state, const char *field)
     {
         case 2: // FLAG
         {
-            int flag;
-            if (sscanf(field, "%d", &flag)!=1 ||
+            errno = 0;
+            int flag=strtoi32(field, NULL, 10);
+            if (errno ||
                 flag < 0 ||
                 flag > 4095)
             {
@@ -444,8 +457,9 @@ static rc_t process_align(Extractor * state, const char *field)
         }
         case 4: // POS
         {
-            int pos;
-            if (sscanf(field, "%d", &pos)!=1 ||
+            errno = 0;
+            int pos=strtoi32(field, NULL, 10);
+            if (errno ||
                 pos < 0 ||
                 pos > INT32_MAX)
             {
@@ -460,8 +474,9 @@ static rc_t process_align(Extractor * state, const char *field)
         }
         case 5: // MAPQ
         {
-            int mapq;
-            if (sscanf(field, "%d", &mapq)!=1 ||
+            errno = 0;
+            int mapq=strtoi32(field, NULL, 10);
+            if (errno ||
                 mapq < 0 ||
                 mapq > UINT8_MAX)
             {
@@ -509,8 +524,9 @@ static rc_t process_align(Extractor * state, const char *field)
         }
         case 8: // PNEXT
         {
-            int pnext;
-            if (sscanf(field, "%d", &pnext)!=1 ||
+            errno = 0;
+            int pnext=strtoi32(field, NULL, 10);
+            if (errno ||
                 pnext < 0 ||
                 pnext > INT32_MAX)
             {
@@ -524,8 +540,9 @@ static rc_t process_align(Extractor * state, const char *field)
         }
         case 9: // TLEN
         {
-            int tlen;
-            if (sscanf(field, "%d", &tlen)!=1 ||
+            errno = 0;
+            int tlen=strtoi32(field, NULL, 10);
+            if (errno ||
                 tlen < INT32_MIN ||
                 tlen > INT32_MAX)
             {

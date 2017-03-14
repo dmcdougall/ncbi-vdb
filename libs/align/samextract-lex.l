@@ -133,6 +133,7 @@ rc_t SAM_parseend(Extractor * state)
     lexbuf=NULL;
     lexbuf_sz=0;
     SAMlex_destroy();
+    regcomp_cache_clear();
     return 0;
 }
 

@@ -73,6 +73,7 @@ extern "C" {
     int SAMerror(Extractor * state, const char * TODOmsg);
     void logmsg (const char * fname, int line, const char * func, const char * severity, const char * fmt, ...);
     void samload(char const path[]);
+    void regcomp_cache_clear(void);
     extern rc_t SAM_parsebegin(Extractor * state);
     extern rc_t SAM_parsestring(Extractor * state, char * str);
     extern rc_t SAM_parsebuffer(Extractor * state, char * str, size_t size);
