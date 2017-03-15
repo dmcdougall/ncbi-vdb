@@ -225,7 +225,6 @@ extern "C" {
                 {
                     ERR("Inflater bad state");
                     return RC(rcAlign,rcFile,rcReading,rcData,rcInvalid);
-                    return 1;
                 }
 
                 memset(&strm,0,sizeof strm);
@@ -237,19 +236,15 @@ extern "C" {
                   case Z_MEM_ERROR:
                       ERR("Out of memory in zlib");
                       return RC(rcAlign,rcFile,rcReading,rcMemory,rcExhausted);
-                      break;
                   case Z_VERSION_ERROR:
                       ERR("zlib version is not compatible; need version %s but have %s", ZLIB_VERSION,zlibVersion());
-                      break;
                       return RC(rcAlign,rcFile,rcConstructing,rcNoObj,rcUnexpected);
                   case Z_STREAM_ERROR:
                       ERR("zlib stream error");
                       return RC(rcAlign,rcFile,rcConstructing,rcNoObj,rcUnexpected);
-                      break;
                   default:
                       ERR("zlib error %s",strm.msg);
                       return RC(rcAlign,rcFile,rcConstructing,rcNoObj,rcUnexpected);
-                      break;
                 }
                 strm.next_in=c->in;
                 strm.avail_in=c->insize;
@@ -267,23 +262,18 @@ extern "C" {
                   case Z_MEM_ERROR:
                       ERR("error: Out of memory in zlib");
                       return RC(rcAlign,rcFile,rcReading,rcMemory,rcExhausted);
-                      break;
                   case Z_VERSION_ERROR:
                       ERR("zlib version is not compatible; need version %s but have %s", ZLIB_VERSION,zlibVersion());
                       return RC(rcAlign,rcFile,rcConstructing,rcNoObj,rcUnexpected);
-                      break;
                   case Z_STREAM_ERROR:
                       ERR("zlib stream error %s",strm.msg);
                       return RC(rcAlign,rcFile,rcConstructing,rcNoObj,rcUnexpected);
-                      break;
                   case Z_STREAM_END:
                       ERR("zlib stream end%s",strm.msg);
                       return RC(rcAlign,rcFile,rcConstructing,rcNoObj,rcUnexpected);
-                      break;
                   default:
                       ERR("inflate error %d %s",zrc, strm.msg);
                       return RC(rcAlign,rcFile,rcConstructing,rcNoObj,rcUnexpected);
-                      break;
                 }
                 inflateEnd(&strm);
             } else if ((int)GetRCObject(rc)== rcTimeout)
@@ -546,9 +536,6 @@ extern "C" {
             free(ttvs);
             ttvs=NULL;
         }
-
-
-        return 0;
     }
 
 
@@ -578,7 +565,7 @@ extern "C" {
         struct timeout_t tm;
         z_stream strm;
 
-        if (numthreads==-1)
+        if (numthreads<=-1)
             numthreads=sysconf(_SC_NPROCESSORS_ONLN) - 1;
         KQueue * inflatequeue;
         KQueue * blockqueue;
@@ -625,19 +612,15 @@ extern "C" {
               case Z_MEM_ERROR:
                   ERR("error: Out of memory in zlib");
                   return RC(rcAlign,rcFile,rcReading,rcMemory,rcExhausted);
-                  break;
               case Z_VERSION_ERROR:
                   ERR("zlib version is not compatible; need version %s but have %s", ZLIB_VERSION,zlibVersion());
                   return RC(rcAlign,rcFile,rcConstructing,rcNoObj,rcUnexpected);
-                  break;
               case Z_STREAM_ERROR:
                   ERR("zlib stream error");
                   return RC(rcAlign,rcFile,rcConstructing,rcNoObj,rcUnexpected);
-                  break;
               default:
                   ERR("zlib error");
                   return RC(rcAlign,rcFile,rcConstructing,rcNoObj,rcUnexpected);
-                  break;
             }
 
             gz_header head;

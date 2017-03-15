@@ -51,7 +51,7 @@
 
 extern int SAMlex (Extractor *);
 
-size_t alignfields=2; /* 1 based, QNAME is #1 */
+static size_t alignfields=2; /* 1 based, QNAME is #1 */
 
 typedef struct Regcomp
 {
@@ -61,12 +61,12 @@ typedef struct Regcomp
 
 static Vector * regcache=NULL;
 
-int SAMerror(Extractor * state, const char * s)
+void SAMerror(Extractor * state, const char * s)
 {
     ERR("Bison error: %s",s);
     rc_t rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
     state->rc=rc;
-    return rc;
+    return;
 }
 
 /*TODO: Replace with pool allocator. */
@@ -145,11 +145,10 @@ void regcomp_cache_clear(void)
 }
 
 /* Returns 1 if match found */
-static int regexcheck(Extractor * state, const char *regex, const char * value)
+static int regexcheck(const char *regex, const char * value)
 {
     regex_t * preg;
-
-    if (!strcmp(regex,"/.*")) return 1;
+    if (!strcmp(regex,".*")) return 1;
 
     preg=regcomp_cache(regex);
 
@@ -168,21 +167,21 @@ static int validate(Extractor * state, const char * tag, const char * value)
     /* Pair of TAG, regexp: "/..." TODO: or integer range "1-12345" */
     const char * validations[] =
     {
-        "VN", "/.*", /* @PG also has "/[0-9]+\\.[0-9]+", */
         "SO", "/unknown|unsorted|queryname|coordinate",
         "GO", "/none|query|reference",
         "SN", "/[!-)+-<>-~][!-~]*",
         "LN", "/[0]*[1-9][0-9]{0,10}", /* TODO: range check 1..2**31-1 */
-        "AS", "/.*",
         "MD", "/[0-9A-Z\\*]{32}", /* bam.c treats same as M5 */
         "M5", "/[0-9A-Za-z\\*]{32}", /* TODO: lowercase acceptable? */
+        "FO", "/\\*|[ACMGRSVTWYHKDBN]+",
+        "VN", "/.*", /* @PG also has "/[0-9]+\\.[0-9]+", */
+        "AS", "/.*",
         "SP", "/.*",
         "UR", "/.*",
         "ID", "/.*",
         "CN", "/.*",
         "DS", "/.*",
         "DT", "/.*",
-        "FO", "/\\*|[ACMGRSVTWYHKDBN]+",
         "KS", "/.*",
         "LB", "/.*",
         "PG", "/.*",
@@ -214,7 +213,7 @@ static int validate(Extractor * state, const char * tag, const char * value)
             {
                 if (valval[0]=='/')
                 {
-                    ok=regexcheck(state,valval+1, value);
+                    ok=regexcheck(valval+1, value);
                     break;
                 } else
                 {
@@ -409,6 +408,42 @@ static rc_t mark_headers(Extractor * state, const char * type)
     return 0;
 }
 
+static int issequence(const char * str)
+{
+    size_t i;
+    size_t len=strlen(str);
+    if (len==1 && str[0]=='*') return 1;
+    for (i=0; i!=len; ++i)
+    {
+        if (!(isalpha(str[i]) ||
+            str[i]=='=' ||
+            str[i]=='.')) return 0;
+    }
+    return 1;
+}
+
+static int isqual(const char * str)
+{
+    size_t i;
+    size_t len=strlen(str);
+    for (i=0; i!=len; ++i)
+    {
+        if (!isgraph(str[i])) return 0;
+    }
+    return 1;
+}
+
+static int isprintable(const char * str)
+{
+    size_t i;
+    size_t len=strlen(str);
+    for (i=0; i!=len; ++i)
+    {
+        if (!isprint(str[i])) return 0;
+    }
+    return 1;
+}
+
 static rc_t process_align(Extractor * state, const char *field)
 {
     rc_t rc=0;
@@ -420,7 +455,8 @@ static rc_t process_align(Extractor * state, const char *field)
     {
         case 2: /* FLAG */
         {
-            errno = 0;
+            errno = 0; // Note: errno is thread-local
+            //TODO: String_to_I64() faster?
             int flag=strtoi32(field, NULL, 10);
             if (errno ||
                 flag < 0 ||
@@ -437,7 +473,7 @@ static rc_t process_align(Extractor * state, const char *field)
         case 3: /* RNAME */
         {
             const char * rname=field;
-            if (!regexcheck(state,"\\*|[!-)+-<>-~][!-~]*",rname))
+            if (!regexcheck("\\*|[!-)+-<>-~][!-~]*",rname))
             {
                 ERR("error parsing RNAME");
                 rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
@@ -469,7 +505,7 @@ static rc_t process_align(Extractor * state, const char *field)
                 return rc;
             }
             DBG("pos is %d",pos);
-            state->pos=pos;
+            state->pos=(u32)pos;
             break;
         }
         case 5: /* MAPQ */
@@ -491,7 +527,7 @@ static rc_t process_align(Extractor * state, const char *field)
         case 6: /* CIGAR */
         {
             const char * cigar=field;
-            if (!regexcheck(state,"\\*|([0-9]+[MIDNSHPX=])+",cigar))
+            if (!regexcheck("\\*|([0-9]+[MIDNSHPX=])+",cigar))
             {
                 ERR("error parsing cigar");
                 rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
@@ -512,7 +548,7 @@ static rc_t process_align(Extractor * state, const char *field)
         case 7: /* RNEXT */
         {
             const char * rnext=field;
-            if (!regexcheck(state,"\\*|=|[!-)+-<>-~][!-~]*",rnext))
+            if (!regexcheck("\\*|=|[!-)+-<>-~][!-~]*",rnext))
             {
                 ERR("error parsing rnext");
                 rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
@@ -557,7 +593,8 @@ static rc_t process_align(Extractor * state, const char *field)
         case 10: /* SEQ */
         {
             const char * seq=field;
-            if (!regexcheck(state,"\\*|[A-Za-z=.]+",seq))
+            if (!issequence(seq))
+//            if (!regexcheck("\\*|[A-Za-z=.]+",seq))
             {
                 ERR("error parsing seq");
                 rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
@@ -578,7 +615,8 @@ static rc_t process_align(Extractor * state, const char *field)
         case 11: /* QUAL */
         {
             const char * qual=field;
-            if (!regexcheck(state,"[!-~]+",qual))
+           if (!isqual(qual))
+//            if (!regexcheck("[!-~]+",qual))
             {
                 ERR("error parsing qual");
                 rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
@@ -612,7 +650,7 @@ static rc_t process_align(Extractor * state, const char *field)
             switch (type)
             {
                 case 'A':
-                    if (!regexcheck(state,"[!-~]", value))
+                    if (!regexcheck("[!-~]", value))
                     {
                         ERR("value doesn't match A type:%s",value);
                         rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
@@ -621,7 +659,7 @@ static rc_t process_align(Extractor * state, const char *field)
                         }
                     break;
                 case 'i':
-                    if (!regexcheck(state,"[-+]?[0-9]+", value))
+                    if (!regexcheck("[-+]?[0-9]+", value))
                     {
                         ERR("value doesn't match i type:%s",value);
                         rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
@@ -630,7 +668,7 @@ static rc_t process_align(Extractor * state, const char *field)
                     }
                     break;
                 case 'f':
-                    if (!regexcheck(state,"[-+]?[0-9]*\\.?[0-9]+([eE][-+]?[0-9]+)?", value))
+                    if (!regexcheck("[-+]?[0-9]*\\.?[0-9]+([eE][-+]?[0-9]+)?", value))
                     {
                         ERR("value doesn't match f type:%s",value);
                         rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
@@ -639,7 +677,8 @@ static rc_t process_align(Extractor * state, const char *field)
                     }
                     break;
                 case 'Z':
-                    if (!regexcheck(state,"[ !-~]*", value))
+                    if (!isprintable(value))
+                    //if (!regexcheck("[ !-~]*", value))
                     {
                         ERR("value doesn't match Z type:%s",value);
                         rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
@@ -648,7 +687,7 @@ static rc_t process_align(Extractor * state, const char *field)
                     }
                     break;
                 case 'H':
-                    if (!regexcheck(state,"([0-9A-F][0-9A-F])*", value))
+                    if (!regexcheck("([0-9A-F][0-9A-F])*", value))
                     {
                         ERR("value doesn't match H type:%s",value);
                         rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
@@ -657,7 +696,7 @@ static rc_t process_align(Extractor * state, const char *field)
                     }
                     break;
                 case 'B':
-                    if (!regexcheck(state,"[cCsSiIf](,[-+]?[0-9]*\\.?[0-9]+(eE][-+]?[0-9]+)?)+", value))
+                    if (!regexcheck("[cCsSiIf](,[-+]?[0-9]*\\.?[0-9]+(eE][-+]?[0-9]+)?)+", value))
                     {
                         ERR("value doesn't match B type:%s",value);
                         rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
@@ -718,7 +757,6 @@ line:
    | CONTROLCHAR { ERR("CONTROLCHAR");
                    rc_t rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
                    state->rc=rc;
-                   return rc;
    }
    | comment { DBG("comment"); }
    | header { DBG("header"); }
@@ -806,13 +844,11 @@ tagvalue: TAB TAG COLON VALUE {
         ERR("two tabs"); /* TODO: Handle >2 tabs in a row */
         rc_t rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
         state->rc=rc;
-        return rc;
   }
   | TAB TAB EOL {
         ERR("empty tags");
         rc_t rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
         state->rc=rc;
-        return rc;
   }
   | TAB TAG TAG {
         const char * tag=$2;
@@ -832,7 +868,6 @@ alignment:
             ERR("out of memory");
             rc_t rc=RC(rcAlign, rcRow,rcConstructing,rcMemory,rcExhausted);
             state->rc=rc;
-            return rc;
         }
         align->read=state->read;
         align->cigar=state->cigar;

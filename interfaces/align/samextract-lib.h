@@ -53,12 +53,12 @@ extern "C" {
         char * read;
         char * cigar;
         char * rname;
-        uint32_t pos;
 
         char * tags; /* Space delimited tags seen in current line */
         char * seqnames;
         char * ids;
         rc_t rc;
+        uint32_t pos;
     } Extractor;
 
     typedef struct tagvalue
