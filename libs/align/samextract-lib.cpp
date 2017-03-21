@@ -776,6 +776,11 @@ extern "C" {
         }
         s->mmapbuf_sz=st.st_size;
         DBG("stat_sz = %ld", s->mmapbuf_sz);
+        if (s->mmapbuf_sz < 10)
+        {
+            ERR("File too small");
+            return RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
+        }
 
         s->mmapbuf=(char *)mmap(NULL, (size_t)s->mmapbuf_sz, PROT_READ, MAP_PRIVATE, fd, 0);
         s->mmapbuf_cur=s->mmapbuf;
@@ -788,13 +793,16 @@ extern "C" {
             ERR("Cannot mmap %s:%s", fname, strerror(errno));
             return RC(rcAlign,rcFile,rcReading,rcFile,rcNotFound);
         }
-//TODO: If file < 3 bytes, don't attempt magic
+
+        // TODO: Move to getheaders?
+
         if (!memcmp(s->mmapbuf,"\x1f\x8b\x08",3))
         {
             DBG("gzip file");
             threadinflate(s,num_threads);
         } else if (s->mmapbuf[0]=='@')
         {
+            // TODO: Move to function
             DBG("SAM file");
 
             rc_t rc=SAM_parsebegin(s);

@@ -52,9 +52,7 @@
 char * lexbuf=NULL;
 size_t lexbuf_sz=0;
 
-int moredata(char * buf, int * numbytes, size_t maxbytes);
 #define YY_INPUT(buf,numbytes,maxbytes) moredata(buf,&numbytes,maxbytes)
-
 
   }
 
@@ -137,7 +135,7 @@ rc_t SAM_parseend(Extractor * state)
     return 0;
 }
 
-rc_t SAM_parsebuffer(Extractor * state, char * str, size_t size)
+rc_t SAM_parsebuffer(Extractor * state, const char * str, size_t size)
 {
     DBG("Parsingbuffer");
     state->rc=0;

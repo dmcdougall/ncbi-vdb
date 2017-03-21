@@ -75,8 +75,7 @@ extern "C" {
     void samload(char const path[]);
     void regcomp_cache_clear(void);
     extern rc_t SAM_parsebegin(Extractor * state);
-    extern rc_t SAM_parsestring(Extractor * state, char * str);
-    extern rc_t SAM_parsebuffer(Extractor * state, char * str, size_t size);
+    extern rc_t SAM_parsebuffer(Extractor * state, const char * str, size_t size);
     extern rc_t SAM_parseend(Extractor * state);
 
 #ifdef __cplusplus
