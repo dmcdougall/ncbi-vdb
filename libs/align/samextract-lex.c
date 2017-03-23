@@ -11988,8 +11988,8 @@ char *SAMtext;
     HWI-...
   */
 
+ /* %top */
  /* definitions */
- /* tag [A-Za-z][A-Za-z0-9] */
  /* qname=No @ in first, to distinguish from headers */
  /* rname=No * or = in first */
  /* See bison's lex-param/parse-param */
@@ -12516,10 +12516,10 @@ YY_RULE_SETUP
     return VALUE;
  }
 	YY_BREAK
-/* Program */
+/* Programs */
 case 37:
 YY_RULE_SETUP
-#line 202 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
+#line 203 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 {
     BEGIN INPG;
     DBG("PROGRAM");
@@ -12528,37 +12528,37 @@ YY_RULE_SETUP
 	YY_BREAK
 case 38:
 YY_RULE_SETUP
-#line 207 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
+#line 208 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 { SAMlval.strval="ID"; return PGID; }
 	YY_BREAK
 case 39:
 YY_RULE_SETUP
-#line 208 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
+#line 209 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 { SAMlval.strval="PN"; return PGPN; }
 	YY_BREAK
 case 40:
 YY_RULE_SETUP
-#line 209 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
+#line 210 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 { SAMlval.strval="CL"; return PGCL; }
 	YY_BREAK
 case 41:
 YY_RULE_SETUP
-#line 210 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
+#line 211 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 { SAMlval.strval="PP"; return PGPP; }
 	YY_BREAK
 case 42:
 YY_RULE_SETUP
-#line 211 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
+#line 212 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 { SAMlval.strval="DS"; return PGDS; }
 	YY_BREAK
 case 43:
 YY_RULE_SETUP
-#line 212 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
+#line 213 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 { SAMlval.strval="VN"; return PGVN; }
 	YY_BREAK
 case 44:
 YY_RULE_SETUP
-#line 213 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
+#line 214 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 {
     SAMlval.strval=strdup(yytext);
     DBG("program value:%s",yytext);
@@ -12569,13 +12569,13 @@ YY_RULE_SETUP
 case 45:
 /* rule 45 can match eol */
 YY_RULE_SETUP
-#line 221 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
+#line 222 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 { DBG( " Comment"); return COMMENT; }
 	YY_BREAK
 /* Alignments */
 case 46:
 YY_RULE_SETUP
-#line 224 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
+#line 226 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 {
     BEGIN ALIGNQNAME;
     SAMlval.strval=strdup(yytext+1);
@@ -12584,7 +12584,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 47:
 YY_RULE_SETUP
-#line 229 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
+#line 231 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 {
     BEGIN ALIGNFLAG;
     SAMlval.strval=strdup(yytext+1);
@@ -12593,7 +12593,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 48:
 YY_RULE_SETUP
-#line 234 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
+#line 236 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 {
     BEGIN ALIGNRNAME;
     SAMlval.strval=strdup(yytext+1);
@@ -12602,7 +12602,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 49:
 YY_RULE_SETUP
-#line 239 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
+#line 241 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 {
     BEGIN ALIGNPOS;
     SAMlval.strval=strdup(yytext+1);
@@ -12611,7 +12611,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 50:
 YY_RULE_SETUP
-#line 244 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
+#line 246 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 {
     BEGIN ALIGNMAPQ;
     SAMlval.strval=strdup(yytext+1);
@@ -12620,7 +12620,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 51:
 YY_RULE_SETUP
-#line 249 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
+#line 251 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 {
     BEGIN ALIGNCIGAR;
     SAMlval.strval=strdup(yytext+1);
@@ -12629,7 +12629,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 52:
 YY_RULE_SETUP
-#line 254 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
+#line 256 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 {
     BEGIN ALIGNRNEXT;
     SAMlval.strval=strdup(yytext+1);
@@ -12638,7 +12638,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 53:
 YY_RULE_SETUP
-#line 259 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
+#line 261 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 {
     BEGIN ALIGNPNEXT;
     SAMlval.strval=strdup(yytext+1);
@@ -12647,7 +12647,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 54:
 YY_RULE_SETUP
-#line 264 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
+#line 266 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 {
     BEGIN ALIGNTLEN;
     SAMlval.strval=strdup(yytext+1);
@@ -12656,7 +12656,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 55:
 YY_RULE_SETUP
-#line 269 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
+#line 271 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 {
     BEGIN ALIGNSEQ;
     SAMlval.strval=strdup(yytext+1);
@@ -12665,7 +12665,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 56:
 YY_RULE_SETUP
-#line 274 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
+#line 276 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 {
     BEGIN ALIGNOPT;
     SAMlval.strval=strdup(yytext+1);
@@ -12676,7 +12676,7 @@ YY_RULE_SETUP
 /* Reserved and Locally defined tags */
 case 57:
 YY_RULE_SETUP
-#line 282 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
+#line 284 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 {
     BEGIN ALIGNOPTTYPE;
     SAMlval.strval=strdup(yytext+1);
@@ -12685,7 +12685,7 @@ YY_RULE_SETUP
 /* Only types iZB have optioanl standardized tags */
 case 58:
 YY_RULE_SETUP
-#line 288 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
+#line 290 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 {
     BEGIN ALIGNOPTTYPE;
     SAMlval.strval=strdup(yytext+1);
@@ -12694,7 +12694,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 59:
 YY_RULE_SETUP
-#line 294 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
+#line 296 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 {
     BEGIN ALIGNOPTTYPE;
     SAMlval.strval=strdup(yytext+1);
@@ -12703,7 +12703,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 60:
 YY_RULE_SETUP
-#line 300 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
+#line 302 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 {
     BEGIN ALIGNOPTTYPE;
     SAMlval.strval=strdup(yytext+1);
@@ -12712,7 +12712,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 61:
 YY_RULE_SETUP
-#line 306 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
+#line 308 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 {
     BEGIN ALIGNOPTTYPE;
     SAMlval.strval=strdup(yytext+1);
@@ -12721,7 +12721,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 62:
 YY_RULE_SETUP
-#line 312 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
+#line 314 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 {
     BEGIN ALIGNOPTAVALUE;
     SAMlval.strval="A";
@@ -12729,7 +12729,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 63:
 YY_RULE_SETUP
-#line 316 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
+#line 318 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 {
     BEGIN ALIGNOPTIVALUE;
     SAMlval.strval="i";
@@ -12737,7 +12737,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 64:
 YY_RULE_SETUP
-#line 320 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
+#line 322 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 {
     BEGIN ALIGNOPTFVALUE;
     SAMlval.strval="f";
@@ -12745,7 +12745,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 65:
 YY_RULE_SETUP
-#line 324 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
+#line 326 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 {
     BEGIN ALIGNOPTZVALUE;
     SAMlval.strval="Z";
@@ -12753,7 +12753,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 66:
 YY_RULE_SETUP
-#line 328 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
+#line 330 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 {
     BEGIN ALIGNOPTHVALUE;
     SAMlval.strval="H";
@@ -12761,7 +12761,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 67:
 YY_RULE_SETUP
-#line 332 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
+#line 334 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 {
     BEGIN ALIGNOPTBVALUE;
     SAMlval.strval="B";
@@ -12769,7 +12769,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 68:
 YY_RULE_SETUP
-#line 337 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
+#line 339 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 {
     BEGIN ALIGNOPT;
     SAMlval.strval=strdup(yytext);
@@ -12777,7 +12777,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 69:
 YY_RULE_SETUP
-#line 341 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
+#line 343 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 {
     BEGIN ALIGNOPT;
     SAMlval.strval=strdup(yytext);
@@ -12785,7 +12785,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 70:
 YY_RULE_SETUP
-#line 345 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
+#line 347 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 {
     BEGIN ALIGNOPT;
     SAMlval.strval=strdup(yytext);
@@ -12793,7 +12793,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 71:
 YY_RULE_SETUP
-#line 349 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
+#line 351 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 {
     BEGIN ALIGNOPT;
     SAMlval.strval=strdup(yytext);
@@ -12801,7 +12801,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 72:
 YY_RULE_SETUP
-#line 353 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
+#line 355 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 {
     BEGIN ALIGNOPT;
     SAMlval.strval=strdup(yytext);
@@ -12809,7 +12809,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 73:
 YY_RULE_SETUP
-#line 357 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
+#line 359 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 {
     BEGIN ALIGNOPT;
     SAMlval.strval=strdup(yytext);
@@ -12818,7 +12818,7 @@ YY_RULE_SETUP
 case 74:
 /* rule 74 can match eol */
 YY_RULE_SETUP
-#line 363 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
+#line 365 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 DBG("DEFAULT '%c' ", *yytext);
 	YY_BREAK
 case YY_STATE_EOF(INITIAL):
@@ -12844,12 +12844,12 @@ case YY_STATE_EOF(ALIGNOPTFVALUE):
 case YY_STATE_EOF(ALIGNOPTZVALUE):
 case YY_STATE_EOF(ALIGNOPTHVALUE):
 case YY_STATE_EOF(ALIGNOPTBVALUE):
-#line 364 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
+#line 366 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 { DBG("EOF"); yyterminate(); }
 	YY_BREAK
 case 75:
 YY_RULE_SETUP
-#line 365 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
+#line 367 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 YY_FATAL_ERROR( "flex scanner jammed" );
 	YY_BREAK
 #line 12855 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.c"
@@ -13810,7 +13810,7 @@ void SAMfree (void * ptr )
 
 #define YYTABLES_NAME "yytables"
 
-#line 365 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
+#line 367 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 
 
 #if YY_FLEX_MAJOR_VERSION == 2 && YY_FLEX_MINOR_VERSION < 6

@@ -799,7 +799,7 @@ extern "C" {
             return RC(rcAlign,rcFile,rcReading,rcFile,rcNotFound);
         }
 
-        // TODO: Move to getheaders?
+        // TODO: Move to getheaders
 
         if (!memcmp(s->mmapbuf,"\x1f\x8b\x08",3))
         {

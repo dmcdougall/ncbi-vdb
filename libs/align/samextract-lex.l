@@ -54,7 +54,8 @@ size_t lexbuf_sz=0;
 
 #define YY_INPUT(buf,numbytes,maxbytes) moredata(buf,&numbytes,maxbytes)
 
-  }
+ }
+ /* %top */
 
  /* definitions */
 digits [[:digit:]]+
@@ -64,7 +65,6 @@ float  [-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?
 eol    (\r\n|\r|\n)
 controlchar [\x00-\x08\x0b-\x0c\x0e-\x1f]
 
- /* tag [A-Za-z][A-Za-z0-9] */
 
  /* qname=No @ in first, to distinguish from headers */
 qname [!-?A-~][!-~]{0,253}
@@ -197,7 +197,8 @@ opttag [A-Za-z][A-Za-z0-9]
     return VALUE;
  }
 
- /* Program */
+
+ /* Programs */
 <INITIAL>^@PG {
     BEGIN INPG;
     DBG("PROGRAM");
@@ -218,6 +219,7 @@ opttag [A-Za-z][A-Za-z0-9]
 
  /* Comments */
 <INITIAL>^@CO.*{eol} { DBG( " Comment"); return COMMENT; }
+
 
  /* Alignments */
 <INITIAL>^{qname} {
