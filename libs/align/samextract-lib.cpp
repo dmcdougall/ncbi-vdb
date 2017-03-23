@@ -24,6 +24,7 @@
  *
  */
 
+#define __STDC_LIMIT_MACROS
 #include <kapp/args.h>
 #include <kapp/main.h>
 #include <kfs/file.h>
@@ -43,11 +44,11 @@
 #include <sys/stat.h>
 #include <sys/mman.h>
 #include <regex.h>
-#include <stdint.h>
 #include <unistd.h>
 #include <asm-generic/mman-common.h> // Needed for MADV_HUGEPAGE
 #include "samextract.h"
 #include <align/samextract-lib.h>
+#include <stdint.h>
 
 
 class chunkview
@@ -755,9 +756,13 @@ extern "C" {
         s->rname=NULL;
         s->pos=0;
 
-        s->tags=strdup("");
-        s->seqnames=strdup("");
-        s->ids=strdup("");
+        s->hashdvn=false;
+        s->hashdso=false;
+        s->hashdgo=false;
+        s->hassqsn=false;
+        s->hassqln=false;
+        s->hasrgid=false;
+        s->haspgid=false;
 
         s->rc=0;
 
@@ -866,12 +871,6 @@ extern "C" {
 
         VectorWhack(&s->headers,NULL,NULL);
 
-        free(s->tags);
-        s->tags=NULL;
-        free(s->seqnames);
-        s->seqnames=NULL;
-        free(s->ids);
-        s->ids=NULL;
         memset(s,0,sizeof(Extractor));
         free(s);
 
@@ -938,7 +937,7 @@ extern "C" {
             {
                 ++nl;
                 size_t linesize=nl-s->mmapbuf_cur;
-                DBG("alignment #%d linesize=%d",numaligns,linesize);
+                DBG("alignment #%d linesize=%d",20-numaligns,linesize);
                 rc_t rc=SAM_parsebuffer(s,s->mmapbuf_cur,linesize);
                 if (rc)
                 {

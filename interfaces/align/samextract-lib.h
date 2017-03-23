@@ -43,10 +43,10 @@ extern "C" {
 
         Vector headers;
         Vector alignments;
-        Vector tagvalues; /* temp */
 
         Vector allocs;
 
+        Vector tagvalues;
         Vector * prev_headers;
         Vector * prev_aligns;
 
@@ -54,11 +54,15 @@ extern "C" {
         char * cigar;
         char * rname;
 
-        char * tags; /* Space delimited tags seen in current line */
-        char * seqnames;
-        char * ids;
-        rc_t rc;
         uint32_t pos;
+        rc_t rc;
+        bool hashdvn;
+        bool hashdso;
+        bool hashdgo;
+        bool hassqsn;
+        bool hassqln;
+        bool hasrgid;
+        bool haspgid;
     } Extractor;
 
     typedef struct tagvalue
@@ -79,6 +83,7 @@ extern "C" {
         const char * cigar;
         const char * rname;
         uint32_t pos;
+        uint16_t flags;
     } Alignment;
 
     ALIGN_EXTERN rc_t CC SAMExtractorMake(Extractor **state, const char * fname, uint32_t num_threads);

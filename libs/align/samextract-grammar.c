@@ -79,28 +79,17 @@
     #include <sys/stat.h>
     #include <sys/types.h>
     #include <regex.h>
-    #include <stdint.h>
     #include <klib/rc.h>
     #include "samextract.h"
     #include <align/samextract-lib.h>
     #include <errno.h>
     #include <strtol.h>
 
-extern int SAMlex (Extractor *);
-
-static size_t alignfields=2; /* 1 based, QNAME is #1 */
-
-typedef struct Regcomp
-{
-    const char * regex;
-    regex_t preg;
-} Regcomp;
-
-static Vector * regcache=NULL;
+int SAMlex (Extractor *);
 
 void SAMerror(Extractor * state, const char * s)
 {
-    ERR("Bison error: %s",s);
+    ERR(" Parsing error: %s",s);
     rc_t rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
     state->rc=rc;
     return;
@@ -128,187 +117,65 @@ static void * mystrdup(Extractor * state,const char * str)
     return buf;
 }
 
-static regex_t * regcomp_cache(const char * regex)
+/* low<=str<=high */
+static bool inrange(const char * str, i64 low, i64 high)
 {
-    u32 i;
-    Regcomp * r=NULL;
-    if (!regcache)
-    {
-        regcache=calloc(1,sizeof(Vector));
-        VectorInit(regcache,0,0);
-    }
-
-    for (i=0; i!=VectorLength(regcache); ++i)
-    {
-        r=(Regcomp *)VectorGet(regcache,i);
-        if (r->regex==regex)
-        {
-            return &r->preg; /* Hit */
-        }
-    }
-
-    /* Miss */
-    r=calloc(1,sizeof(Regcomp));
-    r->regex=regex;
-    int result=regcomp(&r->preg, regex, REG_EXTENDED);
-    if (result)
-    {
-        size_t s=regerror(result, &r->preg, NULL, 0);
-        char *errmsg=malloc(s);
-        regerror(result, &r->preg, errmsg, s);
-        ERR("regcomp error on '%s': %s", regex, errmsg);
-        free(errmsg);
-        regfree(&r->preg);
-        return NULL;
-    }
-    VectorAppend(regcache,NULL,r);
-    return &r->preg;
+    i64 i=strtoi64(str, NULL, 10);
+    if (errno) return false;
+    if (i<low || i>high) return false;
+    return true;
 }
 
-void regcomp_cache_clear(void)
+/* Avoiding handling this as flex token because so many other ReadGroup values
+ * could end up looking like flow orders.
+ */
+static bool isfloworder(const char * str)
 {
-    if (!regcache) return;
+  size_t i;
+  size_t len=strlen(str);
 
-    for (u32 i=0; i!=VectorLength(regcache); ++i)
+  if (len==1 && str[0]=='*') return true;
+  for (i=0; i!=len; ++i)
+  {
+    switch(str[i])
     {
-        Regcomp * r=VectorGet(regcache,i);
-        regfree(&r->preg);
-        free(r);
+        case 'A':
+        case 'C':
+        case 'M':
+        case 'G':
+        case 'R':
+        case 'S':
+        case 'V':
+        case 'T':
+        case 'W':
+        case 'Y':
+        case 'H':
+        case 'K':
+        case 'D':
+        case 'B':
+        case 'N':
+            continue;
+        default:
+            return false;
     }
-
-    VectorWhack(regcache,NULL,NULL);
-    free(regcache);
-    regcache=NULL;
+  }
+  return true;
 }
 
-/* Returns 1 if match found */
-static int regexcheck(const char *regex, const char * value)
+static rc_t process_header(Extractor * state, const char * type, const char * tag, const char * value)
 {
-    regex_t * preg;
-    if (!strcmp(regex,".*")) return 1;
-
-    preg=regcomp_cache(regex);
-
-    regmatch_t matches[1];
-    if (regexec(preg, value, 1, matches, 0))
+    DBG("processing type %s tag %s value %s", type, tag, value);
+    if (strcmp(type,"HD") &&
+        strcmp(type,"SQ") &&
+        strcmp(type,"RG") &&
+        strcmp(type,"PG"))
     {
-        ERR("Value: '%s' doesn't match regex '%s'", value, regex);
-        return 0;
-    }
-    return 1;
-}
-
-/* Returns 1 if OK */
-static int validate(Extractor * state, const char * tag, const char * value)
-{
-    /* Pair of TAG, regexp: "/..." TODO: or integer range "1-12345" */
-    const char * validations[] =
-    {
-        "SO", "/unknown|unsorted|queryname|coordinate",
-        "GO", "/none|query|reference",
-        "SN", "/[!-)+-<>-~][!-~]*",
-        "LN", "/[0]*[1-9][0-9]{0,10}", /* TODO: range check 1..2**31-1 */
-        "MD", "/[0-9A-Z\\*]{32}", /* bam.c treats same as M5 */
-        "M5", "/[0-9A-Za-z\\*]{32}", /* TODO: lowercase acceptable? */
-        "FO", "/\\*|[ACMGRSVTWYHKDBN]+",
-        "VN", "/.*", /* @PG also has "/[0-9]+\\.[0-9]+", */
-        "AS", "/.*",
-        "SP", "/.*",
-        "UR", "/.*",
-        "ID", "/.*",
-        "CN", "/.*",
-        "DS", "/.*",
-        "DT", "/.*",
-        "KS", "/.*",
-        "LB", "/.*",
-        "PG", "/.*",
-        "PI", "/.*",
-        "PL", "/.*",
-        "PM", "/.*",
-        "PU", "/.*",
-        "SM", "/.*",
-        "PN", "/.*",
-        "CL", "/.*",
-        "PP", "/.*",
-        "DS", "/.*",
-        "\0", "\0"
-    };
-
-    int ok=0;
-
-    for (size_t i=0;;++i)
-        {
-            const char *valtag=validations[i*2];
-            const char *valval=validations[i*2+1];
-            if (*valtag=='\0')
-            {
-                WARN("No validation for tag %s", tag);
-                ok=1;
-                break;
-            }
-            if (!strcmp(tag, valtag))
-            {
-                if (valval[0]=='/')
-                {
-                    ok=regexcheck(valval+1, value);
-                    break;
-                } else
-                {
-                /* Parse integer range */
-                    WARN("range not implemented");
-                    ok=1;
-                }
-            }
-        }
-
-    return ok;
-}
-
-static rc_t check_required_tag(Extractor * state, const char * tags, const char * tag)
-{
-    if (!strstr(tags,tag))
-    {
-        ERR("%s tag not seen in header", tag);
-        rc_t rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
-        state->rc=rc;
-        return rc;
-    }
-    return 0;
-}
-
-static rc_t checkopttagtype(Extractor * state,const char * optfield)
-{
-    const char *opttypes=
-    "AMi ASi BCZ BQZ CCZ CMi COZ CPi CQZ CSZ CTZ "
-    "E2Z FIi FSZ FZZ H0i H1i H2i HIi IHi LBZ MCZ MDZ MQi NHi NMi "
-    "OCZ OPi OQZ PGZ PQi PTZ PUZ QTZ Q2Z R2Z RGZ RTZ SAZ SMi TCi U2Z UQi";
-    const char type=optfield[3];
-    char tag[3];
-
-    tag[0]=optfield[0];
-    tag[1]=optfield[1];
-    tag[2]='\0';
-
-    if (tag[0]=='X' ||
-        tag[0]=='Y' ||
-        tag[0]=='Z') return 0;
-
-    const char *p=strstr(opttypes,tag);
-    if (p==NULL) return 0;
-
-    if (p[2]!=type)
-    {
-        ERR("tag %s should have type %c, not %c", tag, p[2], type);
+        ERR("record '%s' must be HD, SQ, RG or PG", type);
         rc_t rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
         state->rc=rc;
         return rc;
     }
 
-    return 0;
-}
-
-static rc_t process_tagvalue(Extractor * state, const char * tag, const char * value)
-{
     if (strlen(tag)!=2)
     {
         ERR("tag '%s' must be 2 characters", tag);
@@ -321,78 +188,6 @@ static rc_t process_tagvalue(Extractor * state, const char * tag, const char * v
         islower(tag[1])))
     {
         DBG("optional tag");
-    } else
-    {
-        if (!validate(state, tag, value))
-        {
-            ERR("Tag validataion %s failed",tag);
-            rc_t rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
-            state->rc=rc;
-            return rc;
-        }
-        state->tags=realloc(state->tags, strlen(state->tags) + strlen(tag) + 1 + 1);
-        strcat(state->tags,tag); strcat(state->tags," ");
-
-        if (!strcmp(tag,"SN"))
-        {
-            char * s=malloc(strlen(value)+2);
-            if (s==NULL)
-            {
-                ERR("out of memory");
-                rc_t rc=RC(rcAlign, rcRow,rcConstructing,rcMemory,rcExhausted);
-                state->rc=rc;
-                return rc;
-                }
-            strcpy(s,value);
-            strcat(s," ");
-            if (strstr(state->seqnames,s))
-            {
-                ERR("duplicate sequence %s", value);
-                rc_t rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
-                state->rc=rc;
-                return rc;
-            }
-            state->seqnames=realloc(state->seqnames,strlen(state->seqnames) + strlen(value) + 1 + 1);
-            if (state->seqnames==NULL)
-            {
-                ERR("out of memory");
-                rc_t rc=RC(rcAlign, rcRow,rcConstructing,rcMemory,rcExhausted);
-                state->rc=rc;
-                return rc;
-            }
-            strcat(state->seqnames,s);
-            free(s);
-        }
-        if (!strcmp(tag,"ID"))
-        {
-            char * s=malloc(strlen(value)+2);
-            if (s==NULL)
-            {
-                ERR("out of memory");
-                rc_t rc=RC(rcAlign, rcRow,rcConstructing,rcMemory,rcExhausted);
-                state->rc=rc;
-                return rc;
-            }
-            strcpy(s,value);
-            strcat(s," ");
-            if (strstr(state->ids,s))
-            {
-                ERR("duplicate id %s", value);
-                rc_t rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
-                state->rc=rc;
-                return rc;
-            }
-            state->ids=realloc(state->ids,strlen(state->ids) + strlen(value) + 1 + 1);
-            if (state->ids==NULL)
-            {
-                ERR("out of memory");
-                rc_t rc=RC(rcAlign, rcRow,rcConstructing,rcMemory,rcExhausted);
-                state->rc=rc;
-                return rc;
-            }
-            strcat(state->ids,s);
-            free(s);
-        }
     }
 
     TagValue * tv=myalloc(state,sizeof(TagValue));
@@ -420,9 +215,6 @@ static rc_t process_tagvalue(Extractor * state, const char * tag, const char * v
         return rc;
     }
     VectorAppend(&state->tagvalues,NULL,tv);
-    u32 block=VectorBlock(&state->tagvalues);
-    DBG("block is %d",block);
-    DBG("Appending %d",VectorLength(&state->tagvalues));
 
     return 0;
 }
@@ -445,315 +237,8 @@ static rc_t mark_headers(Extractor * state, const char * type)
     return 0;
 }
 
-static int issequence(const char * str)
-{
-    size_t i;
-    size_t len=strlen(str);
-    if (len==1 && str[0]=='*') return 1;
-    for (i=0; i!=len; ++i)
-    {
-        if (!(isalpha(str[i]) ||
-            str[i]=='=' ||
-            str[i]=='.')) return 0;
-    }
-    return 1;
-}
 
-static int isqual(const char * str)
-{
-    size_t i;
-    size_t len=strlen(str);
-    for (i=0; i!=len; ++i)
-    {
-        if (!isgraph(str[i])) return 0;
-    }
-    return 1;
-}
-
-static int isprintable(const char * str)
-{
-    size_t i;
-    size_t len=strlen(str);
-    for (i=0; i!=len; ++i)
-    {
-        if (!isprint(str[i])) return 0;
-    }
-    return 1;
-}
-
-static rc_t process_align(Extractor * state, const char *field)
-{
-    rc_t rc=0;
-    const char * opt="(required)";
-    if (alignfields>=12) opt="(optional)";
-    DBG("rc=%d", state->rc);
-    DBG("alignvalue #%zu%s: %s", alignfields, opt, field);
-    switch (alignfields)
-    {
-        case 2: /* FLAG */
-        {
-            errno = 0; // Note: errno is thread-local
-            //TODO: String_to_I64() faster?
-            int flag=strtoi32(field, NULL, 10);
-            if (errno ||
-                flag < 0 ||
-                flag > 4095)
-            {
-                ERR("error parsing FLAG: %s", field);
-                rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
-                state->rc=rc;
-                return rc;
-            }
-            DBG("flag is %d",flag);
-            break;
-        }
-        case 3: /* RNAME */
-        {
-            const char * rname=field;
-            if (!regexcheck("\\*|[!-)+-<>-~][!-~]*",rname))
-            {
-                ERR("error parsing RNAME");
-                rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
-                state->rc=rc;
-                return rc;
-            }
-            DBG("rname is %s",rname);
-            state->rname=mystrdup(state,rname);
-            if (state->rname==NULL)
-            {
-                ERR("NULL rname");
-                rc=RC(rcAlign, rcRow,rcConstructing,rcMemory,rcExhausted);
-                state->rc=rc;
-                return rc;
-            }
-            break;
-        }
-        case 4: /* POS */
-        {
-            errno = 0;
-            int pos=strtoi32(field, NULL, 10);
-            if (errno ||
-                pos < 0 ||
-                pos > INT32_MAX)
-            {
-                ERR("error parsing POS: %s", field);
-                rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
-                state->rc=rc;
-                return rc;
-            }
-            DBG("pos is %d",pos);
-            state->pos=(u32)pos;
-            break;
-        }
-        case 5: /* MAPQ */
-        {
-            errno = 0;
-            int mapq=strtoi32(field, NULL, 10);
-            if (errno ||
-                mapq < 0 ||
-                mapq > UINT8_MAX)
-            {
-                ERR("error parsing MAPQ: %s", field);
-                rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
-                state->rc=rc;
-                return rc;
-            }
-            DBG("mapq is %d", mapq);
-            break;
-        }
-        case 6: /* CIGAR */
-        {
-            const char * cigar=field;
-            if (!regexcheck("\\*|([0-9]+[MIDNSHPX=])+",cigar))
-            {
-                ERR("error parsing cigar");
-                rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
-                state->rc=rc;
-                return rc;
-            }
-            DBG("cigar is %s",cigar);
-            state->cigar=mystrdup(state,cigar);
-            if (state->cigar==NULL)
-            {
-                ERR("out of memory");
-                rc=RC(rcAlign, rcRow,rcConstructing,rcMemory,rcExhausted);
-                state->rc=rc;
-                return rc;
-            }
-            break;
-        }
-        case 7: /* RNEXT */
-        {
-            const char * rnext=field;
-            if (!regexcheck("\\*|=|[!-)+-<>-~][!-~]*",rnext))
-            {
-                ERR("error parsing rnext");
-                rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
-                state->rc=rc;
-                return rc;
-            }
-            DBG("rnext is %s",rnext);
-            break;
-        }
-        case 8: /* PNEXT */
-        {
-            errno = 0;
-            int pnext=strtoi32(field, NULL, 10);
-            if (errno ||
-                pnext < 0 ||
-                pnext > INT32_MAX)
-            {
-                ERR("error parsing PNEXT: %s", field);
-                rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
-                state->rc=rc;
-                return rc;
-            }
-            DBG("pnext is %d",pnext);
-            break;
-        }
-        case 9: /* TLEN */
-        {
-            errno = 0;
-            int tlen=strtoi32(field, NULL, 10);
-            if (errno ||
-                tlen < INT32_MIN ||
-                tlen > INT32_MAX)
-            {
-                ERR("error parsing TLEN: %s", field);
-                rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
-                state->rc=rc;
-                return rc;
-            }
-            DBG("tlen is %d", tlen);
-            break;
-        }
-        case 10: /* SEQ */
-        {
-            const char * seq=field;
-            if (!issequence(seq))
-//            if (!regexcheck("\\*|[A-Za-z=.]+",seq))
-            {
-                ERR("error parsing seq");
-                rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
-                state->rc=rc;
-                return rc;
-            }
-            DBG("seq is %s",seq);
-            state->read=mystrdup(state,seq);
-            if (state->read==NULL)
-            {
-                ERR("out of memory");
-                rc=RC(rcAlign, rcRow,rcConstructing,rcMemory,rcExhausted);
-                state->rc=rc;
-                return rc;
-            }
-            break;
-        }
-        case 11: /* QUAL */
-        {
-            const char * qual=field;
-           if (!isqual(qual))
-//            if (!regexcheck("[!-~]+",qual))
-            {
-                ERR("error parsing qual");
-                rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
-                state->rc=rc;
-                return rc;
-            }
-            DBG("qual is %s", qual);
-            DBG("rc=%d", state->rc);
-            break;
-        }
-        default: /* Optional */
-        {
-        DBG("optional");
-/*               /TT:t: */
-            if ((strlen(field)<5) ||
-                field[2]!=':' ||
-                field[4]!=':')
-                {
-                ERR("invald tagtypevalue:%s", field);
-                rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
-                state->rc=rc;
-                return rc;
-                }
-            const char type=field[3];
-            if (checkopttagtype(state,field))
-            {
-                ERR("Optional field tag %s doesn't match type", field);
-                WARN("Optional field tag %s doesn't match type", field);
-            }
-            const char * value=&field[5];
-            switch (type)
-            {
-                case 'A':
-                    if (!regexcheck("[!-~]", value))
-                    {
-                        ERR("value doesn't match A type:%s",value);
-                        rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
-                        state->rc=rc;
-                        return rc;
-                        }
-                    break;
-                case 'i':
-                    if (!regexcheck("[-+]?[0-9]+", value))
-                    {
-                        ERR("value doesn't match i type:%s",value);
-                        rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
-                        state->rc=rc;
-                        return rc;
-                    }
-                    break;
-                case 'f':
-                    if (!regexcheck("[-+]?[0-9]*\\.?[0-9]+([eE][-+]?[0-9]+)?", value))
-                    {
-                        ERR("value doesn't match f type:%s",value);
-                        rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
-                        state->rc=rc;
-                        return rc;
-                    }
-                    break;
-                case 'Z':
-                    if (!isprintable(value))
-                    //if (!regexcheck("[ !-~]*", value))
-                    {
-                        ERR("value doesn't match Z type:%s",value);
-                        rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
-                        state->rc=rc;
-                        return rc;
-                    }
-                    break;
-                case 'H':
-                    if (!regexcheck("([0-9A-F][0-9A-F])*", value))
-                    {
-                        ERR("value doesn't match H type:%s",value);
-                        rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
-                        state->rc=rc;
-                        return rc;
-                    }
-                    break;
-                case 'B':
-                    if (!regexcheck("[cCsSiIf](,[-+]?[0-9]*\\.?[0-9]+(eE][-+]?[0-9]+)?)+", value))
-                    {
-                        ERR("value doesn't match B type:%s",value);
-                        rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
-                        state->rc=rc;
-                        return rc;
-                    }
-                    break;
-                default:
-                    break;
-            }
-            DBG("optional field:%s", field);
-            break;
-        }
-    }
-    ++alignfields;
-    return 0;
-}
-
-
-#line 757 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:339  */
+#line 242 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:339  */
 
 # ifndef YY_NULLPTR
 #  if defined __cplusplus && 201103L <= __cplusplus
@@ -794,14 +279,67 @@ extern int SAMdebug;
     READGROUP = 260,
     PROGRAM = 261,
     COMMENT = 262,
-    TAG = 263,
-    VALUE = 264,
-    ALIGNVALUE = 265,
-    QNAME = 266,
-    COLON = 267,
-    TAB = 268,
-    CONTROLCHAR = 269,
-    EOL = 270
+    VALUE = 263,
+    QNAME = 264,
+    FLAG = 265,
+    RNAME = 266,
+    POS = 267,
+    MAPQ = 268,
+    CIGAR = 269,
+    RNEXT = 270,
+    PNEXT = 271,
+    TLEN = 272,
+    SEQ = 273,
+    QUAL = 274,
+    OPTTAG = 275,
+    OPTITAG = 276,
+    OPTZTAG = 277,
+    OPTBTAG = 278,
+    OPTATYPE = 279,
+    OPTITYPE = 280,
+    OPTFTYPE = 281,
+    OPTZTYPE = 282,
+    OPTHTYPE = 283,
+    OPTBTYPE = 284,
+    OPTAVALUE = 285,
+    OPTIVALUE = 286,
+    OPTFVALUE = 287,
+    OPTZVALUE = 288,
+    OPTHVALUE = 289,
+    OPTBVALUE = 290,
+    HDVN = 291,
+    HDSO = 292,
+    HDGO = 293,
+    RGID = 294,
+    RGCN = 295,
+    RGDS = 296,
+    RGDT = 297,
+    RGFO = 298,
+    RGKS = 299,
+    RGLB = 300,
+    RGPG = 301,
+    RGPI = 302,
+    RGPL = 303,
+    RGPM = 304,
+    RGPU = 305,
+    RGSM = 306,
+    PLATFORM = 307,
+    PGID = 308,
+    PGPN = 309,
+    PGCL = 310,
+    PGPP = 311,
+    PGDS = 312,
+    PGVN = 313,
+    SQSN = 314,
+    SQLN = 315,
+    SQAS = 316,
+    SQM5 = 317,
+    SQSP = 318,
+    SQUR = 319,
+    COLON = 320,
+    TAB = 321,
+    CONTROLCHAR = 322,
+    EOL = 323
   };
 #endif
 
@@ -810,13 +348,11 @@ extern int SAMdebug;
 
 union YYSTYPE
 {
-#line 721 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:355  */
+#line 206 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:355  */
 
- int intval;
  char * strval;
- double floatval;
 
-#line 820 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:355  */
+#line 356 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:355  */
 };
 
 typedef union YYSTYPE YYSTYPE;
@@ -833,7 +369,7 @@ int SAMparse (Extractor * state);
 
 /* Copy the second part of user declarations.  */
 
-#line 837 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:358  */
+#line 373 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:358  */
 
 #ifdef short
 # undef short
@@ -1075,21 +611,21 @@ union yyalloc
 /* YYFINAL -- State number of the termination state.  */
 #define YYFINAL  2
 /* YYLAST -- Last index in YYTABLE.  */
-#define YYLAST   29
+#define YYLAST   164
 
 /* YYNTOKENS -- Number of terminals.  */
-#define YYNTOKENS  16
+#define YYNTOKENS  69
 /* YYNNTS -- Number of nonterminals.  */
-#define YYNNTS  13
+#define YYNNTS  19
 /* YYNRULES -- Number of rules.  */
-#define YYNRULES  27
+#define YYNRULES  70
 /* YYNSTATES -- Number of states.  */
-#define YYNSTATES  40
+#define YYNSTATES  133
 
 /* YYTRANSLATE[YYX] -- Symbol number corresponding to YYX as returned
    by yylex, with out-of-bounds checking.  */
 #define YYUNDEFTOK  2
-#define YYMAXUTOK   270
+#define YYMAXUTOK   323
 
 #define YYTRANSLATE(YYX)                                                \
   ((unsigned int) (YYX) <= YYMAXUTOK ? yytranslate[YYX] : YYUNDEFTOK)
@@ -1125,16 +661,26 @@ static const yytype_uint8 yytranslate[] =
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     1,     2,     3,     4,
        5,     6,     7,     8,     9,    10,    11,    12,    13,    14,
-      15
+      15,    16,    17,    18,    19,    20,    21,    22,    23,    24,
+      25,    26,    27,    28,    29,    30,    31,    32,    33,    34,
+      35,    36,    37,    38,    39,    40,    41,    42,    43,    44,
+      45,    46,    47,    48,    49,    50,    51,    52,    53,    54,
+      55,    56,    57,    58,    59,    60,    61,    62,    63,    64,
+      65,    66,    67,    68
 };
 
 #if YYDEBUG
   /* YYRLINE[YYN] -- Source line where rule number YYN was defined.  */
 static const yytype_uint16 yyrline[] =
 {
-       0,   751,   751,   752,   756,   757,   761,   762,   763,   764,
-     765,   766,   770,   776,   794,   807,   820,   831,   832,   835,
-     843,   848,   853,   857,   861,   882,   883,   887
+       0,   299,   299,   300,   304,   305,   309,   310,   311,   312,
+     313,   314,   318,   324,   343,   344,   347,   352,   357,   362,
+     367,   373,   392,   393,   397,   401,   411,   414,   417,   420,
+     425,   438,   439,   443,   447,   450,   453,   456,   459,   465,
+     479,   480,   483,   487,   490,   493,   496,   501,   504,   507,
+     510,   513,   516,   520,   523,   526,   529,   533,   537,   543,
+     601,   602,   606,   611,   616,   621,   626,   631,   636,   641,
+     646
 };
 #endif
 
@@ -1144,10 +690,18 @@ static const yytype_uint16 yyrline[] =
 static const char *const yytname[] =
 {
   "\"end of file\"", "error", "$undefined", "HEADER", "SEQUENCE",
-  "READGROUP", "PROGRAM", "COMMENT", "TAG", "VALUE", "ALIGNVALUE", "QNAME",
-  "COLON", "TAB", "CONTROLCHAR", "EOL", "$accept", "sam", "line",
-  "comment", "header", "sequence", "program", "readgroup", "tagvaluelist",
-  "tagvalue", "alignment", "avlist", "av", YY_NULLPTR
+  "READGROUP", "PROGRAM", "COMMENT", "VALUE", "QNAME", "FLAG", "RNAME",
+  "POS", "MAPQ", "CIGAR", "RNEXT", "PNEXT", "TLEN", "SEQ", "QUAL",
+  "OPTTAG", "OPTITAG", "OPTZTAG", "OPTBTAG", "OPTATYPE", "OPTITYPE",
+  "OPTFTYPE", "OPTZTYPE", "OPTHTYPE", "OPTBTYPE", "OPTAVALUE", "OPTIVALUE",
+  "OPTFVALUE", "OPTZVALUE", "OPTHVALUE", "OPTBVALUE", "HDVN", "HDSO",
+  "HDGO", "RGID", "RGCN", "RGDS", "RGDT", "RGFO", "RGKS", "RGLB", "RGPG",
+  "RGPI", "RGPL", "RGPM", "RGPU", "RGSM", "PLATFORM", "PGID", "PGPN",
+  "PGCL", "PGPP", "PGDS", "PGVN", "SQSN", "SQLN", "SQAS", "SQM5", "SQSP",
+  "SQUR", "COLON", "TAB", "CONTROLCHAR", "EOL", "$accept", "sam", "line",
+  "comment", "header", "headerlist", "hdr", "sequence", "sequencelist",
+  "sq", "program", "programlist", "pg", "readgroup", "readgrouplist", "rg",
+  "alignment", "optlist", "opt", YY_NULLPTR
 };
 #endif
 
@@ -1157,14 +711,19 @@ static const char *const yytname[] =
 static const yytype_uint16 yytoknum[] =
 {
        0,   256,   257,   258,   259,   260,   261,   262,   263,   264,
-     265,   266,   267,   268,   269,   270
+     265,   266,   267,   268,   269,   270,   271,   272,   273,   274,
+     275,   276,   277,   278,   279,   280,   281,   282,   283,   284,
+     285,   286,   287,   288,   289,   290,   291,   292,   293,   294,
+     295,   296,   297,   298,   299,   300,   301,   302,   303,   304,
+     305,   306,   307,   308,   309,   310,   311,   312,   313,   314,
+     315,   316,   317,   318,   319,   320,   321,   322,   323
 };
 # endif
 
-#define YYPACT_NINF -12
+#define YYPACT_NINF -59
 
 #define yypact_value_is_default(Yystate) \
-  (!!((Yystate) == (-12)))
+  (!!((Yystate) == (-59)))
 
 #define YYTABLE_NINF -1
 
@@ -1173,12 +732,22 @@ static const yytype_uint16 yytoknum[] =
 
   /* YYPACT[STATE-NUM] -- Index in YYTABLE of the portion describing
      STATE-NUM.  */
-static const yytype_int8 yypact[] =
+static const yytype_int16 yypact[] =
 {
-     -12,     0,   -12,   -11,   -11,   -11,   -11,   -12,    -3,   -12,
-     -12,   -12,   -12,   -12,   -12,   -12,   -12,   -12,     4,   -11,
-     -12,   -11,   -11,   -11,     6,    -3,   -12,     1,    -7,   -12,
-     -12,   -12,   -12,   -12,    17,    15,   -12,   -12,    20,   -12
+     -59,     0,   -59,   -19,     1,    30,    -1,   -59,    -8,   -59,
+     -59,   -59,   -59,   -59,   -59,   -59,   -59,   -59,    12,    26,
+      27,   -58,   -22,   -59,    34,    35,    41,    51,    58,    81,
+      23,   -59,    95,    96,    97,    98,    99,   100,   101,   102,
+     103,    -7,   104,   105,   106,    22,   -18,   -59,   107,   108,
+     109,   110,   111,   112,   -17,   -59,   113,   -59,   -59,   -59,
+     -59,   -59,   -59,   -59,   -59,   -59,   -59,   -59,   -59,   -59,
+     -59,   -59,   -59,   -59,   -59,   -59,   -59,   -59,   -59,   -59,
+     -59,   -59,   -59,   -59,   -59,    53,   -59,   -59,   -59,   -59,
+     -59,   -59,   -59,   -59,   -59,   -59,   -59,   114,   -59,   115,
+     116,   117,   118,   119,   120,   121,    72,    73,   122,   123,
+      93,   -10,   -59,   124,    92,   125,    94,    91,   126,   127,
+     129,   128,   -59,   -59,   -59,   -59,   -59,   -59,   -59,   -59,
+     -59,   -59,   -59
 };
 
   /* YYDEFACT[STATE-NUM] -- Default reduction number in state STATE-NUM.
@@ -1187,23 +756,33 @@ static const yytype_int8 yypact[] =
 static const yytype_uint8 yydefact[] =
 {
        2,     0,     1,     0,     0,     0,     0,    12,     0,     5,
-       4,     3,     6,     7,     8,     9,    10,    11,     0,    13,
-      17,    14,    16,    15,     0,    24,    25,     0,     0,    23,
-      18,    27,    26,    22,     0,     0,    21,    19,     0,    20
+       4,     3,     6,     7,     8,     9,    10,    11,     0,     0,
+       0,    20,     0,    14,     0,     0,     0,     0,     0,     0,
+       0,    22,     0,     0,     0,     0,     0,     0,     0,     0,
+       0,     0,     0,     0,     0,     0,     0,    40,     0,     0,
+       0,     0,     0,     0,     0,    31,     0,    16,    17,    18,
+      19,    13,    15,    24,    25,    26,    27,    28,    29,    21,
+      23,    42,    43,    44,    45,    46,    47,    48,    49,    50,
+      52,    51,    53,    54,    55,    56,    58,    39,    41,    33,
+      34,    35,    36,    37,    38,    30,    32,     0,    57,     0,
+       0,     0,     0,     0,     0,     0,     0,     0,     0,     0,
+       0,     0,    60,     0,     0,     0,     0,     0,     0,     0,
+       0,     0,    59,    61,    62,    63,    64,    65,    66,    67,
+      68,    69,    70
 };
 
   /* YYPGOTO[NTERM-NUM].  */
-static const yytype_int8 yypgoto[] =
+static const yytype_int16 yypgoto[] =
 {
-     -12,   -12,   -12,   -12,   -12,   -12,   -12,   -12,    19,    -1,
-     -12,   -12,     3
+     -59,   -59,   -59,   -59,   -59,   -59,   130,   -59,   -59,   134,
+     -59,   -59,    75,   -59,   -59,    85,   -59,   -59,    24
 };
 
   /* YYDEFGOTO[NTERM-NUM].  */
 static const yytype_int8 yydefgoto[] =
 {
-      -1,     1,    11,    12,    13,    14,    15,    16,    19,    20,
-      17,    25,    26
+      -1,     1,    11,    12,    13,    22,    23,    14,    30,    31,
+      15,    54,    55,    16,    46,    47,    17,   111,   112
 };
 
   /* YYTABLE[YYPACT[STATE-NUM]] -- What to do in state STATE-NUM.  If
@@ -1211,42 +790,90 @@ static const yytype_int8 yydefgoto[] =
      number is the opposite.  If YYTABLE_NINF, syntax error.  */
 static const yytype_uint8 yytable[] =
 {
-       2,    35,    18,     3,     4,     5,     6,     7,    36,    33,
-      24,     8,    27,    34,     9,    10,    31,    28,    30,    29,
-      30,    30,    30,    21,    22,    23,    37,    38,    32,    39
+       2,    80,    56,     3,     4,     5,     6,     7,    60,     8,
+     107,   108,   109,   110,    18,    19,    20,    18,    19,    20,
+      57,    32,    33,    34,    35,    36,    37,    38,    39,    40,
+      41,    42,    43,    44,    58,    59,    48,    49,    50,    51,
+      52,    53,    63,    64,    21,    81,    61,    21,    45,    65,
+      87,    95,    48,    49,    50,    51,    52,    53,   122,    66,
+      24,    25,    26,    27,    28,    29,    67,     9,    10,    32,
+      33,    34,    35,    36,    37,    38,    39,    40,    41,    42,
+      43,    44,    24,    25,    26,    27,    28,    29,    85,    68,
+      86,    69,   107,   108,   109,   110,    45,   113,   114,   115,
+     116,   117,   118,    71,    72,    73,    74,    75,    76,    77,
+      78,    79,    82,    83,    84,    89,    90,    91,    92,    93,
+      94,    98,   121,   125,    97,   128,    99,   127,   100,    96,
+     101,    88,   102,     0,   103,   123,   104,     0,   105,     0,
+     106,     0,     0,     0,     0,     0,     0,   119,     0,     0,
+     120,     0,    62,     0,   124,     0,     0,   126,   130,     0,
+       0,   129,   131,   132,    70
 };
 
-static const yytype_uint8 yycheck[] =
+static const yytype_int8 yycheck[] =
 {
-       0,     8,    13,     3,     4,     5,     6,     7,    15,     8,
-      13,    11,     8,    12,    14,    15,    10,    13,    19,    15,
-      21,    22,    23,     4,     5,     6,     9,    12,    25,     9
+       0,     8,    10,     3,     4,     5,     6,     7,    66,     9,
+      20,    21,    22,    23,    36,    37,    38,    36,    37,    38,
+       8,    39,    40,    41,    42,    43,    44,    45,    46,    47,
+      48,    49,    50,    51,     8,     8,    53,    54,    55,    56,
+      57,    58,     8,     8,    66,    52,    68,    66,    66,     8,
+      68,    68,    53,    54,    55,    56,    57,    58,    68,     8,
+      59,    60,    61,    62,    63,    64,     8,    67,    68,    39,
+      40,    41,    42,    43,    44,    45,    46,    47,    48,    49,
+      50,    51,    59,    60,    61,    62,    63,    64,    66,     8,
+      68,    68,    20,    21,    22,    23,    66,    24,    25,    26,
+      27,    28,    29,     8,     8,     8,     8,     8,     8,     8,
+       8,     8,     8,     8,     8,     8,     8,     8,     8,     8,
+       8,    68,    29,    31,    11,    34,    12,    33,    13,    54,
+      14,    46,    15,    -1,    16,   111,    17,    -1,    18,    -1,
+      19,    -1,    -1,    -1,    -1,    -1,    -1,    25,    -1,    -1,
+      27,    -1,    22,    -1,    30,    -1,    -1,    32,    31,    -1,
+      -1,    35,    33,    35,    30
 };
 
   /* YYSTOS[STATE-NUM] -- The (internal number of the) accessing
      symbol of state STATE-NUM.  */
 static const yytype_uint8 yystos[] =
 {
-       0,    17,     0,     3,     4,     5,     6,     7,    11,    14,
-      15,    18,    19,    20,    21,    22,    23,    26,    13,    24,
-      25,    24,    24,    24,    13,    27,    28,     8,    13,    15,
-      25,    10,    28,     8,    12,     8,    15,     9,    12,     9
+       0,    70,     0,     3,     4,     5,     6,     7,     9,    67,
+      68,    71,    72,    73,    76,    79,    82,    85,    36,    37,
+      38,    66,    74,    75,    59,    60,    61,    62,    63,    64,
+      77,    78,    39,    40,    41,    42,    43,    44,    45,    46,
+      47,    48,    49,    50,    51,    66,    83,    84,    53,    54,
+      55,    56,    57,    58,    80,    81,    10,     8,     8,     8,
+      66,    68,    75,     8,     8,     8,     8,     8,     8,    68,
+      78,     8,     8,     8,     8,     8,     8,     8,     8,     8,
+       8,    52,     8,     8,     8,    66,    68,    68,    84,     8,
+       8,     8,     8,     8,     8,    68,    81,    11,    68,    12,
+      13,    14,    15,    16,    17,    18,    19,    20,    21,    22,
+      23,    86,    87,    24,    25,    26,    27,    28,    29,    25,
+      27,    29,    68,    87,    30,    31,    32,    33,    34,    35,
+      31,    33,    35
 };
 
   /* YYR1[YYN] -- Symbol number of symbol that rule YYN derives.  */
 static const yytype_uint8 yyr1[] =
 {
-       0,    16,    17,    17,    18,    18,    18,    18,    18,    18,
-      18,    18,    19,    20,    21,    22,    23,    24,    24,    25,
-      25,    25,    25,    25,    26,    27,    27,    28
+       0,    69,    70,    70,    71,    71,    71,    71,    71,    71,
+      71,    71,    72,    73,    74,    74,    75,    75,    75,    75,
+      75,    76,    77,    77,    78,    78,    78,    78,    78,    78,
+      79,    80,    80,    81,    81,    81,    81,    81,    81,    82,
+      83,    83,    84,    84,    84,    84,    84,    84,    84,    84,
+      84,    84,    84,    84,    84,    84,    84,    84,    84,    85,
+      86,    86,    87,    87,    87,    87,    87,    87,    87,    87,
+      87
 };
 
   /* YYR2[YYN] -- Number of symbols on the right hand side of rule YYN.  */
 static const yytype_uint8 yyr2[] =
 {
        0,     2,     0,     2,     1,     1,     1,     1,     1,     1,
-       1,     1,     1,     2,     2,     2,     2,     1,     2,     4,
-       5,     3,     3,     2,     2,     1,     2,     2
+       1,     1,     1,     3,     1,     2,     2,     2,     2,     2,
+       1,     3,     1,     2,     2,     2,     2,     2,     2,     2,
+       3,     1,     2,     2,     2,     2,     2,     2,     2,     3,
+       1,     2,     2,     2,     2,     2,     2,     2,     2,     2,
+       2,     2,     2,     2,     2,     2,     2,     3,     2,    13,
+       1,     2,     3,     3,     3,     3,     3,     3,     3,     3,
+       3
 };
 
 
@@ -1925,182 +1552,426 @@ yyreduce:
   switch (yyn)
     {
         case 5:
-#line 757 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+#line 305 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     { ERR("CONTROLCHAR");
                    rc_t rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
                    state->rc=rc;
    }
-#line 1934 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 1561 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
   case 6:
-#line 761 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+#line 309 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     { DBG("comment"); }
-#line 1940 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 1567 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
   case 7:
-#line 762 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
-    { DBG("header"); }
-#line 1946 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 310 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+    { DBG("header done"); }
+#line 1573 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
   case 8:
-#line 763 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+#line 311 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     { DBG("sequence"); }
-#line 1952 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 1579 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
   case 9:
-#line 764 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+#line 312 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     { DBG("program"); }
-#line 1958 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 1585 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
   case 10:
-#line 765 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+#line 313 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     { DBG("readgroup"); }
-#line 1964 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 1591 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
   case 11:
-#line 766 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+#line 314 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     { DBG("alignment"); }
-#line 1970 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 1597 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
   case 12:
-#line 770 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+#line 318 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
        mark_headers(state,"CO");
     }
-#line 1978 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 1605 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
   case 13:
-#line 777 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+#line 325 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
-        DBG("header tagvaluelist");
-        check_required_tag(state,state->tags,"VN");
-        if (!strcmp(state->tags,"SO ") &&
-            !strcmp(state->tags,"GO "))
+        DBG("header list");
+        if (!state->hashdvn)
+        {
+            ERR("VN tag not seen in header");
+            rc_t rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
+            state->rc=rc;
+        }
+        if (state->hashdso && state->hashdgo)
            WARN("Both SO and GO tags present");
-        if (!(strcmp(state->tags,"SO ") ||
-              strcmp(state->tags,"GO ")))
+        if (!state->hashdso && !state->hashdgo)
            WARN("neither SO or GO tags present");
-        free(state->tags);
-        state->tags=strdup("");
 
         mark_headers(state,"HD");
+        // TODO: Duplicate header
     }
-#line 1997 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
-    break;
-
-  case 14:
-#line 795 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
-    {
-        DBG("sequence");
-        DBG(" sequences were: %s", state->seqnames);
-        check_required_tag(state,state->tags,"SN");
-        check_required_tag(state,state->tags,"LN");
-        free(state->tags);
-        state->tags=strdup("");
-        mark_headers(state,"SQ");
-    }
-#line 2011 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
-    break;
-
-  case 15:
-#line 808 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
-    {
-        DBG("ids were: %s", state->ids);
-        DBG("program");
-        check_required_tag(state,state->tags,"ID");
-        free(state->tags);
-        state->tags=strdup("");
-        mark_headers(state,"PG");
-     }
-#line 2024 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 1626 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
   case 16:
-#line 821 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+#line 347 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
-        DBG("readgroup");
-        DBG("ids were: %s", state->ids);
-        check_required_tag(state,state->tags,"ID");
-        free(state->tags);
-        state->tags=strdup("");
-        mark_headers(state,"RG");
-     }
-#line 2037 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+        state->hashdvn=true;
+        process_header(state,"HD","VN",(yyvsp[0].strval));
+        free((yyvsp[0].strval));
+   }
+#line 1636 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
   case 17:
-#line 831 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
-    { DBG(" one tagvaluelist"); }
-#line 2043 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 352 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+    {
+        state->hashdso=true;
+        process_header(state,"HD","SO",(yyvsp[0].strval));
+        free((yyvsp[0].strval));
+   }
+#line 1646 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
   case 18:
-#line 832 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
-    { DBG(" many tagvaluelist"); }
-#line 2049 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 357 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+    {
+        state->hashdgo=true;
+        process_header(state,"HD","GO",(yyvsp[0].strval));
+        free((yyvsp[0].strval));
+   }
+#line 1656 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
   case 19:
-#line 835 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
-    {
-        DBG("tagvalue:%s=%s", (yyvsp[-2].strval), (yyvsp[0].strval));
-        const char * tag=(yyvsp[-2].strval);
-        const char * value=(yyvsp[0].strval);
-        process_tagvalue(state,tag,value);
-        free((yyvsp[-2].strval));
-        free((yyvsp[0].strval));
-        }
-#line 2062 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
-    break;
-
-  case 20:
-#line 843 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+#line 362 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
         ERR("two tabs"); /* TODO: Handle >2 tabs in a row */
         rc_t rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
         state->rc=rc;
   }
-#line 2072 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 1666 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+    break;
+
+  case 20:
+#line 367 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+    { WARN("empty tags"); }
+#line 1672 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
   case 21:
-#line 848 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+#line 374 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
-        ERR("empty tags");
-        rc_t rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
-        state->rc=rc;
-  }
-#line 2082 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
-    break;
-
-  case 22:
-#line 853 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
-    {
-        const char * tag=(yyvsp[-1].strval);
-        WARN("malformed TAG:VALUE 'TAB %s(NOT COLON)...'", tag);
+        DBG("sequence");
+        if (!state->hassqsn)
+        {
+            ERR("SN tag not seen in header");
+            rc_t rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
+            state->rc=rc;
         }
-#line 2091 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
-    break;
-
-  case 23:
-#line 857 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
-    { WARN("empty tags"); }
-#line 2097 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+        if (!state->hassqln)
+        {
+            ERR("LN tag not seen in header");
+            rc_t rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
+            state->rc=rc;
+        }
+        mark_headers(state,"SQ");
+    }
+#line 1693 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
   case 24:
-#line 862 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+#line 397 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
-        DBG(" avlist qname:%s fields=%zu", (yyvsp[-1].strval), alignfields);
-        alignfields=2;
+        state->hassqsn=true;
+        process_header(state,"SQ",(yyvsp[-1].strval),(yyvsp[0].strval));
+        free((yyvsp[0].strval)); }
+#line 1702 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+    break;
+
+  case 25:
+#line 401 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+    {
+        if (!inrange((yyvsp[0].strval),1,INT32_MAX))
+        {
+            ERR("SQ LN field not in range %s",(yyvsp[0].strval));
+            rc_t rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
+            state->rc=rc;
+        }
+        state->hassqln=true;
+        process_header(state,"SQ",(yyvsp[-1].strval),(yyvsp[0].strval));
+        free((yyvsp[0].strval)); }
+#line 1717 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+    break;
+
+  case 26:
+#line 411 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+    {
+        process_header(state,"SQ",(yyvsp[-1].strval),(yyvsp[0].strval));
+        free((yyvsp[0].strval)); }
+#line 1725 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+    break;
+
+  case 27:
+#line 414 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+    {
+        process_header(state,"SQ",(yyvsp[-1].strval),(yyvsp[0].strval));
+        free((yyvsp[0].strval)); }
+#line 1733 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+    break;
+
+  case 28:
+#line 417 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+    {
+        process_header(state,"SQ",(yyvsp[-1].strval),(yyvsp[0].strval));
+        free((yyvsp[0].strval)); }
+#line 1741 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+    break;
+
+  case 29:
+#line 420 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+    {
+        process_header(state,"SQ",(yyvsp[-1].strval),(yyvsp[0].strval));
+        free((yyvsp[0].strval)); }
+#line 1749 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+    break;
+
+  case 30:
+#line 426 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+    {
+        DBG("program");
+        if (!state->haspgid)
+        {
+            ERR("ID tag not seen in header");
+            rc_t rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
+            state->rc=rc;
+        }
+        mark_headers(state,"PG");
+     }
+#line 1764 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+    break;
+
+  case 33:
+#line 443 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+    {
+        state->haspgid=true;
+        process_header(state,"PG",(yyvsp[-1].strval),(yyvsp[0].strval));
+        free((yyvsp[0].strval)); }
+#line 1773 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+    break;
+
+  case 34:
+#line 447 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+    {
+        process_header(state,"PG",(yyvsp[-1].strval),(yyvsp[0].strval));
+        free((yyvsp[0].strval)); }
+#line 1781 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+    break;
+
+  case 35:
+#line 450 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+    {
+        process_header(state,"PG",(yyvsp[-1].strval),(yyvsp[0].strval));
+        free((yyvsp[0].strval)); }
+#line 1789 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+    break;
+
+  case 36:
+#line 453 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+    {
+        process_header(state,"PG",(yyvsp[-1].strval),(yyvsp[0].strval));
+        free((yyvsp[0].strval)); }
+#line 1797 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+    break;
+
+  case 37:
+#line 456 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+    {
+        process_header(state,"PG",(yyvsp[-1].strval),(yyvsp[0].strval));
+        free((yyvsp[0].strval)); }
+#line 1805 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+    break;
+
+  case 38:
+#line 459 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+    {
+        process_header(state,"PG",(yyvsp[-1].strval),(yyvsp[0].strval));
+        free((yyvsp[0].strval)); }
+#line 1813 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+    break;
+
+  case 39:
+#line 466 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+    {
+        DBG("readgroup ");
+        if (!state->hasrgid)
+        {
+            ERR("ID tag not seen in header");
+            rc_t rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
+            state->rc=rc;
+        }
+
+        mark_headers(state,"RG");
+    }
+#line 1829 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+    break;
+
+  case 42:
+#line 483 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+    {
+        state->hasrgid=true;
+        process_header(state,"RG",(yyvsp[-1].strval),(yyvsp[0].strval));
+        free((yyvsp[0].strval)); }
+#line 1838 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+    break;
+
+  case 43:
+#line 487 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+    {
+        process_header(state,"RG",(yyvsp[-1].strval),(yyvsp[0].strval));
+        free((yyvsp[0].strval)); }
+#line 1846 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+    break;
+
+  case 44:
+#line 490 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+    {
+        process_header(state,"RG",(yyvsp[-1].strval),(yyvsp[0].strval));
+        free((yyvsp[0].strval)); }
+#line 1854 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+    break;
+
+  case 45:
+#line 493 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+    {
+        process_header(state,"RG",(yyvsp[-1].strval),(yyvsp[0].strval));
+        free((yyvsp[0].strval)); }
+#line 1862 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+    break;
+
+  case 46:
+#line 496 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+    {
+        if (!isfloworder((yyvsp[0].strval)))
+            WARN("Flow order incorrec");
+        process_header(state,"RG",(yyvsp[-1].strval),(yyvsp[0].strval));
+        free((yyvsp[0].strval)); }
+#line 1872 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+    break;
+
+  case 47:
+#line 501 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+    {
+        process_header(state,"RG",(yyvsp[-1].strval),(yyvsp[0].strval));
+        free((yyvsp[0].strval)); }
+#line 1880 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+    break;
+
+  case 48:
+#line 504 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+    {
+        process_header(state,"RG",(yyvsp[-1].strval),(yyvsp[0].strval));
+        free((yyvsp[0].strval)); }
+#line 1888 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+    break;
+
+  case 49:
+#line 507 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+    {
+        process_header(state,"RG",(yyvsp[-1].strval),(yyvsp[0].strval));
+        free((yyvsp[0].strval)); }
+#line 1896 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+    break;
+
+  case 50:
+#line 510 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+    {
+        process_header(state,"RG",(yyvsp[-1].strval),(yyvsp[0].strval));
+        free((yyvsp[0].strval)); }
+#line 1904 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+    break;
+
+  case 51:
+#line 513 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+    {
+        process_header(state,"RG",(yyvsp[-1].strval),(yyvsp[0].strval));
+        free((yyvsp[0].strval)); }
+#line 1912 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+    break;
+
+  case 52:
+#line 516 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+    {
+        ERR("Invalid Platform %s", (yyvsp[0].strval));
+        process_header(state,"RG",(yyvsp[-1].strval),(yyvsp[0].strval));
+        free((yyvsp[0].strval)); }
+#line 1921 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+    break;
+
+  case 53:
+#line 520 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+    {
+        process_header(state,"RG",(yyvsp[-1].strval),(yyvsp[0].strval));
+        free((yyvsp[0].strval)); }
+#line 1929 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+    break;
+
+  case 54:
+#line 523 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+    {
+        process_header(state,"RG",(yyvsp[-1].strval),(yyvsp[0].strval));
+        free((yyvsp[0].strval)); }
+#line 1937 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+    break;
+
+  case 55:
+#line 526 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+    {
+        process_header(state,"RG",(yyvsp[-1].strval),(yyvsp[0].strval));
+        free((yyvsp[0].strval)); }
+#line 1945 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+    break;
+
+  case 56:
+#line 529 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+    {
+        ERR("two tabs"); /* TODO: Handle >2 tabs in a row */
+        rc_t rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
+        state->rc=rc; }
+#line 1954 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+    break;
+
+  case 57:
+#line 533 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+    {
+        ERR("empty tags");
+        rc_t rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
+        state->rc=rc; }
+#line 1963 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+    break;
+
+  case 58:
+#line 537 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+    { WARN("empty tags"); }
+#line 1969 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+    break;
+
+  case 59:
+#line 544 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+    {
+        DBG("Done alignment record");
         Alignment * align=myalloc(state,sizeof(Alignment));
         if (align==NULL)
         {
@@ -2108,41 +1979,150 @@ yyreduce:
             rc_t rc=RC(rcAlign, rcRow,rcConstructing,rcMemory,rcExhausted);
             state->rc=rc;
         }
-        align->read=state->read;
-        align->cigar=state->cigar;
-        align->rname=state->rname;
-        align->pos=state->pos;
+        const char *qname=(yyvsp[-12].strval);
+        const char *flag=(yyvsp[-11].strval);
+        const char *rname=(yyvsp[-10].strval);
+        const char *pos=(yyvsp[-9].strval);
+        const char *mapq=(yyvsp[-8].strval);
+        const char *cigar=(yyvsp[-7].strval);
+        const char *rnext=(yyvsp[-6].strval);
+        const char *pnext=(yyvsp[-5].strval);
+        const char *tlen=(yyvsp[-4].strval);
+        const char *seq=(yyvsp[-3].strval);
+        const char *qual=(yyvsp[-2].strval);
+        DBG("align %s %s %s", qname, rnext, qual); // TODO silence warning for now
+
+        if (!inrange(flag,0,UINT16_MAX))
+            ERR("Flag not in range %s",flag);
+
+        if (!inrange(pos,0,INT32_MAX))
+            ERR("POS not in range %s",pos);
+
+        if (!inrange(mapq,0,UINT8_MAX))
+            ERR("MAPQ not in range %s",mapq);
+
+        if (!inrange(pnext,0,INT32_MAX))
+            ERR("PNEXT not in range %s", pnext);
+
+        if (!inrange(tlen,INT32_MIN,INT32_MAX))
+            ERR("TLEN not in range %s", tlen);
+
+        align->read=mystrdup(state,seq);
+        align->cigar=mystrdup(state,cigar);
+        align->rname=mystrdup(state,rname);
+        align->pos=strtou32(pos,NULL,10);
+        align->flags=strtou32(flag,NULL,10);
         VectorAppend(&state->alignments,NULL,align);
-        free((yyvsp[-1].strval));
+        free((yyvsp[-12].strval));
+        free((yyvsp[-11].strval));
+        free((yyvsp[-10].strval));
+        free((yyvsp[-9].strval));
+        free((yyvsp[-8].strval));
+        free((yyvsp[-7].strval));
+        free((yyvsp[-6].strval));
+        free((yyvsp[-5].strval));
+        free((yyvsp[-4].strval));
+        free((yyvsp[-3].strval));
+        free((yyvsp[-2].strval));
     }
-#line 2119 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 2029 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
-  case 25:
-#line 882 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
-    { DBG(" one av"); }
-#line 2125 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+  case 60:
+#line 601 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+    { DBG("opt"); }
+#line 2035 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
-  case 26:
-#line 883 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
-    { DBG("bison: many avlist"); }
-#line 2131 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+  case 61:
+#line 602 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+    { DBG(" opts"); }
+#line 2041 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
-  case 27:
-#line 888 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+  case 62:
+#line 607 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
-        const char * field=(yyvsp[0].strval);
-        rc_t rc=process_align(state,field);
-        state->rc=rc;
-        free((yyvsp[0].strval));
-    }
-#line 2142 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+        DBG("?AA");
+        free((yyvsp[-2].strval));
+        free((yyvsp[0].strval)); }
+#line 2050 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+    break;
+
+  case 63:
+#line 612 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+    {
+        DBG("?II");
+        free((yyvsp[-2].strval));
+        free((yyvsp[0].strval)); }
+#line 2059 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+    break;
+
+  case 64:
+#line 617 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+    {
+        DBG("?FF");
+        free((yyvsp[-2].strval));
+        free((yyvsp[0].strval)); }
+#line 2068 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+    break;
+
+  case 65:
+#line 622 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+    {
+        DBG("?ZZ");
+        free((yyvsp[-2].strval));
+        free((yyvsp[0].strval)); }
+#line 2077 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+    break;
+
+  case 66:
+#line 627 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+    {
+        DBG("?HH");
+        free((yyvsp[-2].strval));
+        free((yyvsp[0].strval)); }
+#line 2086 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+    break;
+
+  case 67:
+#line 632 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+    {
+        DBG("?BB");
+        free((yyvsp[-2].strval));
+        free((yyvsp[0].strval)); }
+#line 2095 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+    break;
+
+  case 68:
+#line 637 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+    {
+        DBG("III");
+        free((yyvsp[-2].strval));
+        free((yyvsp[0].strval)); }
+#line 2104 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+    break;
+
+  case 69:
+#line 642 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+    {
+        DBG("ZZZ");
+        free((yyvsp[-2].strval));
+        free((yyvsp[0].strval)); }
+#line 2113 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+    break;
+
+  case 70:
+#line 647 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+    {
+        DBG("BBB");
+        free((yyvsp[-2].strval));
+        free((yyvsp[0].strval)); }
+#line 2122 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
 
-#line 2146 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 2126 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
       default: break;
     }
   /* User semantic actions sometimes alter yychar, and that requires
@@ -2370,6 +2350,6 @@ yyreturn:
 #endif
   return yyresult;
 }
-#line 896 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1906  */
+#line 654 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1906  */
 
 

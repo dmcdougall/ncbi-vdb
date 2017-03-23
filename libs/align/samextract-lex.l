@@ -47,7 +47,7 @@
 #include "samextract.h"
 #include "samextract-tokens.h"
 
-#define LEXDEBUG 0
+/* #define LEXDEBUG 0 */
 
 char * lexbuf=NULL;
 size_t lexbuf_sz=0;
@@ -59,14 +59,27 @@ size_t lexbuf_sz=0;
  /* definitions */
 digits [[:digit:]]+
 integer [-+]?[0-9]+
+posinteger [+]?[0-9]+
 float  [-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?
 eol    (\r\n|\r|\n)
 controlchar [\x00-\x08\x0b-\x0c\x0e-\x1f]
 
-tag [A-Za-z][A-Za-z0-9]
+ /* tag [A-Za-z][A-Za-z0-9] */
 
- /* No @ in first, to distinguish from headers */
+ /* qname=No @ in first, to distinguish from headers */
 qname [!-?A-~][!-~]{0,253}
+flag {posinteger}
+ /* rname=No * or = in first */
+rname \*|[!-)+-<>-~][!-~]*
+pos {posinteger}
+mapq {posinteger}
+cigar \*|([0-9]+[MIDNSHPX=])+
+rnext \*|=|[!-)+-<>-~][!-~]*
+pnext {posinteger}
+tlen {integer}
+seq \*|[A-Za-z=.]+
+qual [!-~]+
+opttag [A-Za-z][A-Za-z0-9]
 
  /* See bison's lex-param/parse-param */
 %option prefix="SAM"
@@ -84,33 +97,270 @@ qname [!-?A-~][!-~]{0,253}
 %option nounistd
 
  /* Start states */
-%x INALIGNMENT
-%x AFTERCOLON
+%s INHD
+%s INSQ
+%s INRG
+%s INPG
+%x ALIGNQNAME
+%x ALIGNFLAG
+%x ALIGNRNAME
+%x ALIGNPOS
+%x ALIGNMAPQ
+%x ALIGNCIGAR
+%x ALIGNRNEXT
+%x ALIGNPNEXT
+%x ALIGNTLEN
+%x ALIGNSEQ
+%s ALIGNOPT
+%x ALIGNOPTTYPE
+%x ALIGNOPTAVALUE
+%x ALIGNOPTIVALUE
+%x ALIGNOPTFVALUE
+%x ALIGNOPTZVALUE
+%x ALIGNOPTHVALUE
+%x ALIGNOPTBVALUE
 
 %%
- /* rules */
-^@HD   { DBG( " Header"); return HEADER; }
-^@SQ   { DBG( " SQ"); return SEQUENCE; }
-^@RG   { DBG( " RG"); return READGROUP; }
-^@PG   { DBG( " PG"); return PROGRAM; }
-^@CO\t.*{eol} { DBG( " Comment"); return COMMENT; }
+ /* Generic rules */
+{controlchar} { DBG("CONTROLCHAR1"); return CONTROLCHAR; }
+\t { DBG(" tab"); return TAB; }
+: { DBG(" colon"); return COLON; }
+{eol} { BEGIN INITIAL; DBG("EOL"); return EOL;}
+
+ /* Header */
+<INITIAL>^@HD   {
+    BEGIN INHD;
+    DBG( "HEADER");
+    // TODO First line only
+    return HEADER; }
+<INHD>"\tVN:" return HDVN;
+<INHD>"\tSO:" return HDSO;
+<INHD>"\tGO:" return HDGO;
+<INHD>[0-9]+\.[0-9]+ {
+    SAMlval.strval=strdup(yytext);
+    DBG(" header version");
+    return VALUE; }
+<INHD>unknown|unsorted|queryname|coordinate {
+    SAMlval.strval=strdup(yytext);
+    DBG(" header SO");
+    return VALUE; }
+<INHD>none|query|reference {
+    SAMlval.strval=strdup(yytext);
+    DBG(" header GO");
+    return VALUE; }
 
 
-<INITIAL,INALIGNMENT>^{qname} { BEGIN INALIGNMENT; SAMlval.strval=strdup(yytext); DBG(" alignment qname, INALIGNMENT"); return QNAME; }
-<INITIAL,INALIGNMENT,AFTERCOLON>{controlchar} { DBG("CONTROLCHAR1"); return CONTROLCHAR; }
-<INITIAL,INALIGNMENT>\t { DBG(" tab"); return TAB;}
-<AFTERCOLON>\t { BEGIN INITIAL; DBG(" tab INITIAL"); return TAB;}
+ /* Sequences */
+<INITIAL>^@SQ {
+    BEGIN INSQ;
+    DBG("SEQUENCE");
+    return SEQUENCE;
+}
+<INSQ>"\tSN:" { SAMlval.strval="SN"; return SQSN; }
+<INSQ>"\tLN:" { SAMlval.strval="LN"; return SQLN; }
+<INSQ>"\tAS:" { SAMlval.strval="AS"; return SQAS; }
+<INSQ>"\tM5:" { SAMlval.strval="M5"; return SQM5; }
+<INSQ>"\tSP:" { SAMlval.strval="SP"; return SQSP; }
+<INSQ>"\tUR:" { SAMlval.strval="UR"; return SQUR; }
+<INSQ>[^\t\r\n]+ {
+    SAMlval.strval=strdup(yytext);
+    DBG("SEQ VALUE");
+    return VALUE;
+}
 
-<INITIAL,INALIGNMENT,AFTERCOLON>{eol} { BEGIN INITIAL; DBG(" eol INITIAL"); return EOL;}
-<INALIGNMENT>[ -~]+ {
-    SAMlval.strval=strdup(yytext); DBG(" alignvalue"); return ALIGNVALUE; }
-{tag}  {
-    SAMlval.strval=strdup(yytext); DBG(" Valid Tag:%s", yytext); return TAG; }
-<INITIAL,INALIGNMENT>: { BEGIN AFTERCOLON; DBG(" colon AFTERCOLON"); return COLON;}
-<AFTERCOLON>[ -~]+ { SAMlval.strval=strdup(yytext); DBG(" Value:%s", yytext); return VALUE; }
+ /* Read Groups */
+<INITIAL>^@RG {
+    BEGIN INRG;
+    DBG("READGROUP");
+    return READGROUP;
+}
+<INRG>"\tID:" { SAMlval.strval="ID"; return RGID; }
+<INRG>"\tCN:" { SAMlval.strval="CN"; return RGCN; }
+<INRG>"\tDS:" { SAMlval.strval="DS"; return RGDS; }
+<INRG>"\tDT:" { SAMlval.strval="DT"; return RGDT; }
+<INRG>"\tFO:" { SAMlval.strval="FO"; return RGFO; }
+<INRG>"\tKS:" { SAMlval.strval="KS"; return RGKS; }
+<INRG>"\tLB:" { SAMlval.strval="LB"; return RGLB; }
+<INRG>"\tPG:" { SAMlval.strval="PG"; return RGPG; }
+<INRG>"\tPI:" { SAMlval.strval="PI"; return RGPI; }
+<INRG>"\tPL:" { SAMlval.strval="PL"; return RGPL; }
+<INRG>"\tPM:" { SAMlval.strval="PM"; return RGPM; }
+<INRG>"\tPU:" { SAMlval.strval="PU"; return RGPU; }
+<INRG>"\tSM:" { SAMlval.strval="SM"; return RGSM; }
+<INRG>"\t.+:" { ERR("Bad token"); yyterminate();}
+<INRG>CAPILLARY|LS454|ILLUMINA|SOLID|HELICOS|IONTORRENT|ONT|PACBIO {
+    SAMlval.strval=strdup(yytext);
+    return PLATFORM; }
+<INRG>[^\t\r\n]+ {
+    SAMlval.strval=strdup(yytext);
+    DBG("readgroup value:%s",yytext);
+    return VALUE;
+ }
+
+ /* Program */
+<INITIAL>^@PG {
+    BEGIN INPG;
+    DBG("PROGRAM");
+    return PROGRAM;
+}
+<INPG>"\tID:" { SAMlval.strval="ID"; return PGID; }
+<INPG>"\tPN:" { SAMlval.strval="PN"; return PGPN; }
+<INPG>"\tCL:" { SAMlval.strval="CL"; return PGCL; }
+<INPG>"\tPP:" { SAMlval.strval="PP"; return PGPP; }
+<INPG>"\tDS:" { SAMlval.strval="DS"; return PGDS; }
+<INPG>"\tVN:" { SAMlval.strval="VN"; return PGVN; }
+<INPG>[^\t\r\n]+ {
+    SAMlval.strval=strdup(yytext);
+    DBG("program value:%s",yytext);
+    return VALUE;
+ }
+
+
+ /* Comments */
+<INITIAL>^@CO.*{eol} { DBG( " Comment"); return COMMENT; }
+
+ /* Alignments */
+<INITIAL>^{qname} {
+    BEGIN ALIGNQNAME;
+    SAMlval.strval=strdup(yytext+1);
+    DBG(" alignment qname");
+    return QNAME; }
+<ALIGNQNAME>\t{flag} {
+    BEGIN ALIGNFLAG;
+    SAMlval.strval=strdup(yytext+1);
+    DBG(" alignment flag");
+    return FLAG; }
+<ALIGNFLAG>\t{rname} {
+    BEGIN ALIGNRNAME;
+    SAMlval.strval=strdup(yytext+1);
+    DBG(" alignment rname");
+    return RNAME; }
+<ALIGNRNAME>\t{pos} {
+    BEGIN ALIGNPOS;
+    SAMlval.strval=strdup(yytext+1);
+    DBG(" alignment pos");
+    return POS; }
+<ALIGNPOS>\t{mapq} {
+    BEGIN ALIGNMAPQ;
+    SAMlval.strval=strdup(yytext+1);
+    DBG(" alignment mapq");
+    return MAPQ; }
+<ALIGNMAPQ>\t{cigar} {
+    BEGIN ALIGNCIGAR;
+    SAMlval.strval=strdup(yytext+1);
+    DBG(" alignment cigar");
+    return CIGAR; }
+<ALIGNCIGAR>\t{rnext} {
+    BEGIN ALIGNRNEXT;
+    SAMlval.strval=strdup(yytext+1);
+    DBG(" alignment rnext");
+    return RNEXT; }
+<ALIGNRNEXT>\t{pnext} {
+    BEGIN ALIGNPNEXT;
+    SAMlval.strval=strdup(yytext+1);
+    DBG(" alignment pnext ");
+    return PNEXT; }
+<ALIGNPNEXT>\t{tlen} {
+    BEGIN ALIGNTLEN;
+    SAMlval.strval=strdup(yytext+1);
+    DBG(" alignment tlen");
+    return TLEN; }
+<ALIGNTLEN>\t{seq} {
+    BEGIN ALIGNSEQ;
+    SAMlval.strval=strdup(yytext+1);
+    DBG(" alignment seq");
+    return SEQ; }
+<ALIGNSEQ>\t{qual} {
+    BEGIN ALIGNOPT;
+    SAMlval.strval=strdup(yytext+1);
+    DBG(" alignment qual");
+    return QUAL; }
+
+ /* Optional alignment fields */
+ /* Reserved and Locally defined tags */
+<ALIGNOPT>\t(GC|GQ|GS|MF|SQ|X[A-Za-z0-9]|Y[A-Za-z0-9]|Z[A-Za-z0-9]) {
+    BEGIN ALIGNOPTTYPE;
+    SAMlval.strval=strdup(yytext+1);
+    return OPTTAG; }
+
+ /* Only types iZB have optioanl standardized tags */
+<ALIGNOPT>\t(AM|AS|CM|CP|FI|H0|H1|H2|HI|IH|MQ|NH|NM|OP|PQ|SM|TC|UQ) {
+    BEGIN ALIGNOPTTYPE;
+    SAMlval.strval=strdup(yytext+1);
+    DBG(" alignment opt '%s'", SAMlval.strval);
+    return OPTITAG; }
+
+<ALIGNOPT>\t(BC|BQ|CC|CO|CQ|CS|CT|E2|FS|LB|MC|MD|OC|OQ|PG|PT|PU|QT|Q2|R2|RG|RT|SZ|U2) {
+    BEGIN ALIGNOPTTYPE;
+    SAMlval.strval=strdup(yytext+1);
+    DBG(" alignment opt '%s'", SAMlval.strval);
+    return OPTZTAG; }
+
+<ALIGNOPT>\t(FZ) {
+    BEGIN ALIGNOPTTYPE;
+    SAMlval.strval=strdup(yytext+1);
+    DBG(" alignment opt '%s'", SAMlval.strval);
+    return OPTBTAG; }
+
+<ALIGNOPT>\t{opttag} {
+    BEGIN ALIGNOPTTYPE;
+    SAMlval.strval=strdup(yytext+1);
+    DBG(" alignment opt '%s'", SAMlval.strval);
+    return OPTTAG; }
+
+<ALIGNOPTTYPE>":A:" {
+    BEGIN ALIGNOPTAVALUE;
+    SAMlval.strval="A";
+    return OPTATYPE; }
+<ALIGNOPTTYPE>":i:" {
+    BEGIN ALIGNOPTIVALUE;
+    SAMlval.strval="i";
+    return OPTITYPE; }
+<ALIGNOPTTYPE>":f:" {
+    BEGIN ALIGNOPTFVALUE;
+    SAMlval.strval="f";
+    return OPTFTYPE; }
+<ALIGNOPTTYPE>":Z:" {
+    BEGIN ALIGNOPTZVALUE;
+    SAMlval.strval="Z";
+    return OPTZTYPE; }
+<ALIGNOPTTYPE>":H:" {
+    BEGIN ALIGNOPTHVALUE;
+    SAMlval.strval="H";
+    return OPTHTYPE; }
+<ALIGNOPTTYPE>":B:" {
+    BEGIN ALIGNOPTBVALUE;
+    SAMlval.strval="B";
+    return OPTBTYPE; }
+
+<ALIGNOPTAVALUE>[!-~] {
+    BEGIN ALIGNOPT;
+    SAMlval.strval=strdup(yytext);
+    return OPTAVALUE; }
+<ALIGNOPTIVALUE>{integer} {
+    BEGIN ALIGNOPT;
+    SAMlval.strval=strdup(yytext);
+    return OPTIVALUE; }
+<ALIGNOPTFVALUE>{float} {
+    BEGIN ALIGNOPT;
+    SAMlval.strval=strdup(yytext);
+    return OPTFVALUE; }
+<ALIGNOPTZVALUE>[ -~]* {
+    BEGIN ALIGNOPT;
+    SAMlval.strval=strdup(yytext);
+    return OPTZVALUE; }
+<ALIGNOPTHVALUE>([0-9A-Fa-f][0-9A-Fa-f])* {
+    BEGIN ALIGNOPT;
+    SAMlval.strval=strdup(yytext);
+    return OPTHVALUE; }
+<ALIGNOPTBVALUE>cCsSiIf](,[-+]?[0-9]*\\.?[0-9]+(eE][-+]?[0-9]+)?)+ {
+    BEGIN ALIGNOPT;
+    SAMlval.strval=strdup(yytext);
+    return OPTBVALUE; }
+
 
 .|\n       DBG("DEFAULT '%c' ", *yytext);
- /* TODO: <<EOF>> rule */
+<<EOF>> { DBG("EOF"); yyterminate(); }
 %%
 
 #if YY_FLEX_MAJOR_VERSION == 2 && YY_FLEX_MINOR_VERSION < 6
@@ -131,7 +381,7 @@ rc_t SAM_parseend(Extractor * state)
     lexbuf=NULL;
     lexbuf_sz=0;
     SAMlex_destroy();
-    regcomp_cache_clear();
+//    regcomp_cache_clear();
     return 0;
 }
 
@@ -159,7 +409,7 @@ rc_t SAM_parsebuffer(Extractor * state, const char * str, size_t size)
 
 int moredata(char * buf, int * numbytes, size_t maxbytes)
 {
-    DBG("moredata %p %d", buf, maxbytes);
+    DBG("moredata %p %d\nline:%s", buf, maxbytes, lexbuf);
     strcpy(buf,lexbuf);
     *numbytes=strlen(buf);
     lexbuf[0]='\0';

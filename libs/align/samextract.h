@@ -41,8 +41,8 @@ typedef  int16_t i16;
 typedef uint16_t u16;
 typedef  int32_t i32;
 typedef uint32_t u32;
-
-#define INT32_MAX (2147483647)
+typedef  int64_t i64;
+typedef uint64_t u64;
 
 typedef struct chunk_s
 {
@@ -74,16 +74,16 @@ extern "C" {
     void logmsg (const char * fname, int line, const char * func, const char * severity, const char * fmt, ...);
     void samload(char const path[]);
     void regcomp_cache_clear(void);
-    extern rc_t SAM_parsebegin(Extractor * state);
-    extern rc_t SAM_parsebuffer(Extractor * state, const char * str, size_t size);
-    extern rc_t SAM_parseend(Extractor * state);
+    rc_t SAM_parsebegin(Extractor * state);
+    rc_t SAM_parsebuffer(Extractor * state, const char * str, size_t size);
+    rc_t SAM_parseend(Extractor * state);
 
 #ifdef __cplusplus
 }
 #endif
 
 /*#ifndef DEBUG*/
-#define DEBUG 0
+#define DEBUG 1
 /*#endif*/
 
 #define ERR(...) logmsg(__FILE__, __LINE__, __func__, "Error",  __VA_ARGS__)

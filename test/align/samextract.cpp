@@ -108,7 +108,8 @@ rc_t CC KMain(int argc, char *argv[])
             for (uint32_t i=0; i!=vlen; ++i)
             {
                 Alignment * align=(Alignment *)VectorGet(&alignments,i);
-//                fprintf(stderr,"\tAlignment%2d: %s\n", i, align->read);
+
+                fprintf(stderr,"\tAlignment%2d: %s\n", i, align->read);
             // Do stuff with headers
             }
 //            fprintf(stderr,"\n");

@@ -51,14 +51,67 @@ extern int SAMdebug;
     READGROUP = 260,
     PROGRAM = 261,
     COMMENT = 262,
-    TAG = 263,
-    VALUE = 264,
-    ALIGNVALUE = 265,
-    QNAME = 266,
-    COLON = 267,
-    TAB = 268,
-    CONTROLCHAR = 269,
-    EOL = 270
+    VALUE = 263,
+    QNAME = 264,
+    FLAG = 265,
+    RNAME = 266,
+    POS = 267,
+    MAPQ = 268,
+    CIGAR = 269,
+    RNEXT = 270,
+    PNEXT = 271,
+    TLEN = 272,
+    SEQ = 273,
+    QUAL = 274,
+    OPTTAG = 275,
+    OPTITAG = 276,
+    OPTZTAG = 277,
+    OPTBTAG = 278,
+    OPTATYPE = 279,
+    OPTITYPE = 280,
+    OPTFTYPE = 281,
+    OPTZTYPE = 282,
+    OPTHTYPE = 283,
+    OPTBTYPE = 284,
+    OPTAVALUE = 285,
+    OPTIVALUE = 286,
+    OPTFVALUE = 287,
+    OPTZVALUE = 288,
+    OPTHVALUE = 289,
+    OPTBVALUE = 290,
+    HDVN = 291,
+    HDSO = 292,
+    HDGO = 293,
+    RGID = 294,
+    RGCN = 295,
+    RGDS = 296,
+    RGDT = 297,
+    RGFO = 298,
+    RGKS = 299,
+    RGLB = 300,
+    RGPG = 301,
+    RGPI = 302,
+    RGPL = 303,
+    RGPM = 304,
+    RGPU = 305,
+    RGSM = 306,
+    PLATFORM = 307,
+    PGID = 308,
+    PGPN = 309,
+    PGCL = 310,
+    PGPP = 311,
+    PGDS = 312,
+    PGVN = 313,
+    SQSN = 314,
+    SQLN = 315,
+    SQAS = 316,
+    SQM5 = 317,
+    SQSP = 318,
+    SQUR = 319,
+    COLON = 320,
+    TAB = 321,
+    CONTROLCHAR = 322,
+    EOL = 323
   };
 #endif
 
@@ -67,13 +120,11 @@ extern int SAMdebug;
 
 union YYSTYPE
 {
-#line 721 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1909  */
+#line 206 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1909  */
 
- int intval;
  char * strval;
- double floatval;
 
-#line 77 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-tokens.h" /* yacc.c:1909  */
+#line 128 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-tokens.h" /* yacc.c:1909  */
 };
 
 typedef union YYSTYPE YYSTYPE;
