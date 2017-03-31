@@ -30,6 +30,7 @@
 #include <klib/rc.h>
 #include <klib/defs.h>
 #include <klib/vector.h>
+#include <kfs/file.h>
 #include <sys/types.h>
 
 #ifdef __cplusplus
@@ -37,9 +38,7 @@ extern "C" {
 #endif
     typedef struct Extractor
     {
-        char *mmapbuf;
-        off_t mmapbuf_sz;
-        char *mmapbuf_cur;
+        const KFile * infile;
 
         Vector headers;
         Vector alignments;
@@ -55,6 +54,7 @@ extern "C" {
         char * rname;
 
         uint32_t pos;
+        int32_t num_threads;
         rc_t rc;
         bool hashdvn;
         bool hashdso;
@@ -86,7 +86,7 @@ extern "C" {
         uint16_t flags;
     } Alignment;
 
-    ALIGN_EXTERN rc_t CC SAMExtractorMake(Extractor **state, const char * fname, uint32_t num_threads);
+    ALIGN_EXTERN rc_t CC SAMExtractorMake(Extractor **state, const KFile * fin, int32_t num_threads);
     ALIGN_EXTERN rc_t CC SAMExtractorRelease(Extractor *state); /* dtor */
 
     ALIGN_EXTERN rc_t CC SAMExtractorGetHeaders(Extractor *state, Vector *headers);

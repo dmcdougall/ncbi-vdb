@@ -38,18 +38,27 @@
 #include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strtol.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <pthread.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
-#include <regex.h>
 #include <unistd.h>
 #include <asm-generic/mman-common.h> // Needed for MADV_HUGEPAGE
 #include "samextract.h"
+#include "samextract-tokens.h"
 #include <align/samextract-lib.h>
 #include <stdint.h>
 
+// TODO: Put into struct
+static const size_t READBUF_SZ=65536;
+static char readbuf[READBUF_SZ+1];
+static size_t readbuf_sz=0;
+static size_t readbuf_pos=0;
+
+static char curline[READBUF_SZ+1];
+static size_t curline_len=0;
 
 class chunkview
 {
@@ -169,7 +178,6 @@ class chunkview
 };
 
 
-extern "C" {
     void logmsg (const char * fname, int line, const char * func, const char * severity, const char * fmt, ...)
     {
         char * buf;
@@ -203,7 +211,271 @@ extern "C" {
     }
 
 
-    static rc_t inflater(const KThread * kt, void * in)
+    rc_t SAM_parseline(Extractor * state, const char * str, size_t size)
+    {
+        state->rc=0;
+        if (size>=READBUF_SZ)
+        {
+            ERR("Line too long");
+            rc_t rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
+            state->rc=rc;
+            return rc;
+        }
+
+        memmove(curline,str,size);
+        curline[size]='\0';
+        curline_len=size;
+        if (size!=strlen(curline)) WARN("mismatch %d %d", size, strlen(curline));
+        DBG("Parsing line (%d bytes): '%s'", size, curline);
+        SAMparse(state);
+        return state->rc;
+    }
+
+    int moredata(char * buf, int * numbytes, size_t maxbytes)
+    {
+        if (!curline_len)
+            DBG("nomoredata");
+        else
+            DBG("  moredata %p %d\nline:'%s'", buf, maxbytes, curline);
+        memmove(buf,curline,curline_len);
+        *numbytes=curline_len;
+        curline_len=0;
+        return 0;
+    }
+
+    static uint64_t pos=0;
+    static rc_t readfile(Extractor * state)
+    {
+//        ssize_t remain=readbuf_sz - readbuf_pos;
+        if (readbuf_pos == readbuf_sz)
+        {
+            readbuf_sz=READBUF_SZ;
+            DBG("reading in at %d",pos);
+            rc_t rc=KFileReadAll(state->infile, pos, readbuf, readbuf_sz, &readbuf_sz);
+            pos+=readbuf_sz;
+            if (rc) { ERR("readfile error"); return rc;}
+            DBG("Read in %d",readbuf_sz);
+            if (memchr(readbuf, 0, readbuf_sz))
+            {
+                WARN("NULL found");
+            }
+
+            readbuf_pos=0;
+            if (!readbuf_sz)
+            {
+                DBG("Buffer complete. EOF");
+            }
+        }
+        return 0;
+    }
+
+    void SAMerror(Extractor * state, const char * s)
+    {
+        ERR(" Parsing error: %s\nLine was:%s",s, curline);
+        rc_t rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
+        state->rc=rc;
+        abort();
+    }
+
+    /*TODO: Replace with pool allocator. */
+    void * myalloc(Extractor * state,size_t sz)
+    {
+        void * buf=malloc(sz);
+        if (buf==NULL)
+        {
+            ERR("out of memory");
+            return NULL;
+        }
+        memset(buf,0,sz);
+        VectorAppend(&state->allocs,NULL,buf);
+        return buf;
+    }
+
+    char * mystrdup(Extractor * state,const char * str)
+    {
+        size_t len=strlen(str)+1;
+        void * buf=myalloc(state,len);
+        memmove(buf,str,len);
+        return (char *)buf;
+    }
+
+    /* low<=str<=high */
+    bool inrange(const char * str, i64 low, i64 high)
+    {
+        i64 i=strtoi64(str, NULL, 10);
+        if (errno) return false;
+        if (i<low || i>high) return false;
+        return true;
+    }
+
+    bool ismd5(const char * str)
+    {
+    size_t i;
+    size_t len=strlen(str);
+
+    if (len!=32) return false;
+
+    for (i=0; i!=len; ++i)
+    {
+        if (!isalnum(str[i]) && str[i]!='*') return false;
+    }
+
+
+    return true;
+    }
+
+    /* Avoiding handling this as flex token because so many other ReadGroup values
+    * could end up looking like flow orders.
+    */
+    bool isfloworder(const char * str)
+    {
+    size_t i;
+    size_t len=strlen(str);
+
+    if (len==1 && str[0]=='*') return true;
+    for (i=0; i!=len; ++i)
+    {
+        switch(str[i])
+        {
+            case 'A':
+            case 'C':
+            case 'M':
+            case 'G':
+            case 'R':
+            case 'S':
+            case 'V':
+            case 'T':
+            case 'W':
+            case 'Y':
+            case 'H':
+            case 'K':
+            case 'D':
+            case 'B':
+            case 'N':
+                continue;
+            default:
+                return false;
+        }
+    }
+    return true;
+    }
+
+    rc_t process_header(Extractor * state, const char * type, const char * tag, const char * value)
+    {
+        DBG("processing type:%s tag:%s value:%s", type, tag, value);
+        if (strcmp(type,"HD") &&
+            strcmp(type,"SQ") &&
+            strcmp(type,"RG") &&
+            strcmp(type,"PG"))
+        {
+            ERR("record '%s' must be HD, SQ, RG or PG", type);
+            rc_t rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
+            state->rc=rc;
+            return rc;
+        }
+
+        if (strlen(tag)!=2)
+        {
+            ERR("tag '%s' must be 2 characters", tag);
+            rc_t rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
+            state->rc=rc;
+            return rc;
+        }
+
+        if (islower(tag[0] &&
+            islower(tag[1])))
+        {
+            DBG("optional tag");
+        }
+
+        TagValue * tv=(TagValue *)myalloc(state,sizeof(TagValue));
+        if (tv==NULL)
+        {
+            ERR("out of memory");
+            rc_t rc=RC(rcAlign, rcRow,rcConstructing,rcMemory,rcExhausted);
+            state->rc=rc;
+            return rc;
+        }
+        tv->tag=mystrdup(state,tag);
+        if (tv->tag==NULL)
+        {
+            ERR("out of memory");
+            rc_t rc=RC(rcAlign, rcRow,rcConstructing,rcMemory,rcExhausted);
+            state->rc=rc;
+            return rc;
+        }
+        tv->value=mystrdup(state,value);
+        if (tv->value==NULL)
+        {
+            ERR("out of memory");
+            rc_t rc=RC(rcAlign, rcRow,rcConstructing,rcMemory,rcExhausted);
+            state->rc=rc;
+            return rc;
+        }
+        VectorAppend(&state->tagvalues,NULL,tv);
+
+        return 0;
+    }
+
+    rc_t mark_headers(Extractor * state, const char * type)
+    {
+        DBG("mark_headers");
+        Header * hdr=(Header *)myalloc(state,sizeof(Header));
+        if (hdr==NULL)
+        {
+            ERR("out of memory");
+            rc_t rc=RC(rcAlign, rcRow,rcConstructing,rcMemory,rcExhausted);
+            state->rc=rc;
+            return rc;
+        }
+        hdr->headercode=type;
+        VectorCopy(&state->tagvalues,&hdr->tagvalues);
+        VectorAppend(&state->headers,NULL,hdr);
+        VectorWhack(&state->tagvalues,NULL,NULL);
+        return 0;
+    }
+
+    rc_t process_alignment(Extractor * state, const char * qname,const char * flag,const
+    char * rname,const char * pos,const char * mapq,const char * cigar,const char *
+    rnext,const char * pnext,const char * tlen,const char * seq,const char * qual)
+    {
+        Alignment * align=(Alignment *)myalloc(state,sizeof(Alignment));
+        if (align==NULL)
+        {
+            ERR("out of memory");
+            rc_t rc=RC(rcAlign, rcRow,rcConstructing,rcMemory,rcExhausted);
+            state->rc=rc;
+        }
+
+        DBG("process_alignment %s %s %s", qname, rnext, qual); // TODO silence warning for now
+
+        if (!inrange(flag,0,UINT16_MAX))
+            ERR("Flag not in range %s",flag);
+
+        if (!inrange(pos,0,INT32_MAX))
+            ERR("POS not in range %s",pos);
+
+        if (!inrange(mapq,0,UINT8_MAX))
+            ERR("MAPQ not in range %s",mapq);
+
+        if (!inrange(pnext,0,INT32_MAX))
+            ERR("PNEXT not in range %s", pnext);
+
+        if (!inrange(tlen,INT32_MIN,INT32_MAX))
+            ERR("TLEN not in range %s", tlen);
+
+        align->read=mystrdup(state,seq);
+        align->cigar=mystrdup(state,cigar);
+        align->rname=mystrdup(state,rname);
+        align->pos=strtou32(pos,NULL,10);
+        align->flags=strtou32(flag,NULL,10);
+        VectorAppend(&state->alignments,NULL,align);
+
+        return 0;
+    }
+
+
+    rc_t inflater(const KThread * kt, void * in)
     {
         KQueue *inflatequeue=(KQueue *)in;
         struct timeout_t tm;
@@ -544,7 +816,7 @@ extern "C" {
     {
         for (u32 i=0; i!=VectorLength(threads); ++i)
         {
-            rc_t rc;
+            rc_t rc=0;
             INFO("waiting for thread %d to complete", i);
             KThreadWait((KThread*)VectorGet(threads,i),&rc);
         }
@@ -560,25 +832,25 @@ extern "C" {
         }
     }
 
-    static rc_t threadinflate(Extractor * state, int numthreads)
+    static rc_t threadinflate(Extractor * state)
     {
-        rc_t rc;
+        rc_t rc=0;
         struct timeout_t tm;
         z_stream strm;
 
-        if (numthreads<=-1)
-            numthreads=sysconf(_SC_NPROCESSORS_ONLN) - 1;
+        if (state->num_threads<=-1)
+            state->num_threads=sysconf(_SC_NPROCESSORS_ONLN) - 1;
         KQueue * inflatequeue;
         KQueue * blockqueue;
         Vector chunks;
         Vector threads;
 
-        KQueueMake(&inflatequeue, numthreads);
-        KQueueMake(&blockqueue, numthreads);
-        VectorInit(&chunks,0,numthreads);
-        VectorInit(&threads,0,numthreads);
+        KQueueMake(&inflatequeue, state->num_threads);
+        KQueueMake(&blockqueue, state->num_threads);
+        VectorInit(&chunks,0,state->num_threads);
+        VectorInit(&threads,0,state->num_threads);
 
-        for (int i=0; i!=numthreads; ++i)
+        for (int i=0; i!=state->num_threads; ++i)
         {
             chunk * c=(chunk *)calloc(1,sizeof(chunk));
             c->state=empty;
@@ -591,20 +863,20 @@ extern "C" {
         KThread * blockthread=(KThread *)calloc(1,sizeof(KThread));
         KThreadMake(&blockthread, blocker, (void *)blockqueue);
         VectorAppend(&threads, NULL, blockthread);
-
+#if 0
         while(1)
         {
             memset(&strm,0,sizeof strm);
-            if (!memcmp(state->mmapbuf_cur,"\x1f\x8b\x08\x04\x00\x00\x00\x00\x00\xff\x06\x00\x42\x43\x02\x00\x1b\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00",28))
+//            if (!memcmp(readbuf_pos,"\x1f\x8b\x08\x04\x00\x00\x00\x00\x00\xff\x06\x00\x42\x43\x02\x00\x1b\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00",28))
             {
                 INFO("EOF marker found");
                 break;
             }
-            strm.next_in=(Bytef*)state->mmapbuf_cur;
-            if (state->mmapbuf_sz > INT32_MAX)
+//            strm.next_in=(Bytef*)state->buf_cur;
+            if (state->buf_sz > INT32_MAX)
                 strm.avail_in=INT32_MAX;
             else
-                strm.avail_in=(uInt)state->mmapbuf_sz;
+                strm.avail_in=(uInt)state->buf_sz;
             int zrc=inflateInit2(&strm, MAX_WBITS + 16); // Only gzip format
             switch (zrc)
             {
@@ -649,9 +921,9 @@ extern "C" {
                 inflateEnd(&strm);
                 DBG("extra:   %d",bsize);
                 DBG("total_in:%d",strm.avail_in);
-                DBG("buf   in:%p",state->mmapbuf_cur);
+                DBG("buf   in:%p",state->buf_cur);
                 DBG("next_in: %p",strm.next_in);
-                DBG("offset:  %ld",state->mmapbuf_cur-state->mmapbuf);
+                DBG("offset:  %ld",state->buf_cur-state->buf);
                 if (bsize<=28)
                 {
                     INFO("small block found");
@@ -675,7 +947,7 @@ extern "C" {
                 }
 
                 c->state=compressed;
-                c->in=(Bytef*)state->mmapbuf_cur;
+                c->in=(Bytef*)state->buf_cur;
                 c->insize=bsize;
                 c->outsize=sizeof(c->out);
 
@@ -715,14 +987,14 @@ extern "C" {
                     }
                 }
 
-                state->mmapbuf_cur=state->mmapbuf_cur+bsize+1;
+                state->buf_cur=state->buf_cur+bsize+1;
             } else
             {
                 ERR("error: BAM required extra extension not found");
                 return RC(rcAlign,rcFile,rcParsing,rcData,rcInvalid);
             }
         }
-
+#endif
         KQueueSeal(inflatequeue);
         KQueueSeal(blockqueue);
         waitforthreads(&threads);
@@ -734,14 +1006,14 @@ extern "C" {
     }
 
 
-    LIB_EXPORT rc_t CC SAMExtractorMake(Extractor **state, const char * fname, uint32_t num_threads=-1)
+    LIB_EXPORT rc_t CC SAMExtractorMake(Extractor **state, const KFile * fin, int32_t num_threads=-1)
     {
         Extractor * s=(Extractor *)calloc(1,sizeof(*s));
         *state=s;
 
-        s->mmapbuf=NULL;
-        s->mmapbuf_sz=0;
-        s->mmapbuf_cur=NULL;
+//        s->readbuf=NULL;
+//        s->readbuf_sz=0;
+//        s->readbuf_cur=NULL;
 
         VectorInit(&s->headers,0,0);
         VectorInit(&s->alignments,0,0);
@@ -766,92 +1038,9 @@ extern "C" {
 
         s->rc=0;
 
-        int fd=open(fname, O_RDONLY);
-        if (fd==-1)
-        {
-            ERR("Cannot open %s:%s", fname, strerror(errno));
-            return RC(rcAlign,rcFile,rcReading,rcFile,rcNotFound);
-        }
+        s->infile=fin;
 
-        struct stat st;
-        if (fstat(fd,&st))
-        {
-            ERR("Cannot stat %s:%s", fname, strerror(errno));
-            return RC(rcAlign,rcFile,rcReading,rcFile,rcNotFound);
-        }
-        s->mmapbuf_sz=st.st_size;
-        DBG("stat_sz = %ld", s->mmapbuf_sz);
-        if (s->mmapbuf_sz < 10)
-        {
-            ERR("File too small");
-            return RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
-        }
-
-        s->mmapbuf=(char *)mmap(NULL, (size_t)s->mmapbuf_sz, PROT_READ, MAP_PRIVATE, fd, 0);
-        s->mmapbuf_cur=s->mmapbuf;
-        close(fd); // Still need to munmap
-
-        madvise(s->mmapbuf, s->mmapbuf_sz, MADV_SEQUENTIAL | MADV_HUGEPAGE);
-
-        if (s->mmapbuf==MAP_FAILED)
-        {
-            ERR("Cannot mmap %s:%s", fname, strerror(errno));
-            return RC(rcAlign,rcFile,rcReading,rcFile,rcNotFound);
-        }
-
-        // TODO: Move to getheaders
-
-        if (!memcmp(s->mmapbuf,"\x1f\x8b\x08",3))
-        {
-            DBG("gzip file");
-            threadinflate(s,num_threads);
-        } else if (s->mmapbuf[0]=='@')
-        {
-            // TODO: Move to function
-            DBG("SAM file");
-
-            rc_t rc=SAM_parsebegin(s);
-            DBG("begin=%d",rc);
-            if (rc)
-            {
-                return rc;
-            }
-            while (1)
-            {
-                ssize_t remain=s->mmapbuf_sz-(s->mmapbuf_cur-s->mmapbuf);
-                if (remain<=0)
-                {
-                    DBG("Buffer complete");
-                    break;
-                }
-                if (s->mmapbuf_cur[0]!='@')
-                {
-                    DBG("out of headers");
-                    break;
-                }
-                // TODO: Process much more than a line at a time.
-                // Preferably YY_BUF_SIZE=16777216
-                char * nl=(char *)memchr(s->mmapbuf_cur, '\x0a', remain);
-                if (nl)
-                {
-                    ++nl;
-                    size_t linesize=nl-s->mmapbuf_cur;
-                    DBG("linesize=%d",linesize);
-                    rc=SAM_parsebuffer(s,s->mmapbuf_cur,linesize);
-                    if (rc)
-                    {
-                        return rc;
-                    }
-                    s->mmapbuf_cur+=linesize;
-                } else
-                {
-                    DBG("No newline");
-                    // TODO: What if file doesn't end in newline
-                    break;
-                }
-            }
-            DBG("Done parsing headers");
-        }
+        s->num_threads=num_threads;
 
         return 0;
     }
@@ -859,15 +1048,15 @@ extern "C" {
     LIB_EXPORT rc_t CC SAMExtractorRelease(Extractor *s)
     {
         DBG("release_Extractor");
-        SAM_parseend(s);
+        SAMlex_destroy();
 
         SAMExtractorInvalidateHeaders(s);
         SAMExtractorInvalidateAlignments(s);
 
-        munmap(s->mmapbuf,s->mmapbuf_sz);
-        s->mmapbuf=NULL;
-        s->mmapbuf_sz=0;
-        s->mmapbuf_cur=NULL;
+//        free(s->readbuf);
+//        s->readbuf=NULL;
+//        s->readbuf_sz=0;
+//        s->readbuf_cur=NULL;
 
         VectorWhack(&s->headers,NULL,NULL);
 
@@ -879,7 +1068,71 @@ extern "C" {
 
     LIB_EXPORT rc_t CC SAMExtractorGetHeaders(Extractor *s, Vector *headers)
     {
+        rc_t rc=0;
         DBG("get_headers");
+
+        u64 sz=0;
+        rc=KFileSize(s->infile,&sz);
+        DBG("File size=%'d", sz);
+        if (sz < 12)
+        {
+            ERR("File too small");
+            return RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
+        }
+
+        rc=readfile(s);
+        if (rc) return rc;
+
+        if (!memcmp(readbuf,"\x1f\x8b\x08",3))
+        {
+            DBG("gzip file, BAM or SAM.gz");
+            threadinflate(s);
+        } else if (readbuf[0]=='@')
+        {
+            // TODO: Move to function
+            DBG("SAM file");
+
+            char line[READBUF_SZ];
+            while (1)
+            {
+                char * p=line;
+                while (1)
+                {
+                    readfile(s);
+                    if (!readbuf_sz) break;
+                    *p=readbuf[readbuf_pos];
+                    ++readbuf_pos;
+                    if (*p=='\n') break;
+                    ++p;
+                    if (readbuf_pos > readbuf_sz)
+                    {
+                        DBG("EOF");
+                        break;
+                    }
+                }
+                if (!readbuf_sz) break;
+                ++p;
+                *p='\0';
+
+                if (line[0]!='@')
+                {
+                    // First line of alignments will be processed
+                    DBG("out of headers");
+                    break;
+                }
+
+                size_t linesize=p - line;
+                rc=SAM_parseline(s, line, linesize);
+                if (rc) return rc;
+            }
+            DBG("Done parsing headers");
+        }
+        else
+        {
+            ERR("Unkown magic");
+            return RC(rcAlign,rcFile,rcParsing,rcData,rcInvalid);
+        }
+
         VectorInit(headers,0,0);
         VectorCopy(&s->headers,headers);
         s->prev_headers=headers;
@@ -914,44 +1167,46 @@ extern "C" {
 
     LIB_EXPORT rc_t CC SAMExtractorGetAlignments(Extractor *s, Vector *alignments)
     {
+        rc_t rc=0;
         DBG("get_alignments");
         SAMExtractorInvalidateAlignments(s);
         VectorInit(&s->alignments,0,0);
-        int numaligns=20;
-        while (numaligns--)
+
+        while (VectorLength(&s->alignments) < 20)
         {
-            ssize_t remain=s->mmapbuf_sz-(s->mmapbuf_cur-s->mmapbuf);
-            if (remain<=0)
+            char line[READBUF_SZ];
+            char * p=line;
+            DBG("reading line %d", readbuf_pos);
+            while (1)
             {
-                DBG("Buffer complete");
-                numaligns=0;
+                readfile(s);
+                if (!readbuf_sz) break;
+                *p=readbuf[readbuf_pos];
+                ++readbuf_pos;
+                if (*p=='\n') break;
+                if (*p=='\0') WARN("NULL read %d", readbuf_pos);
+                ++p;
+            }
+            if (!readbuf_sz) break;
+            if (p==line) WARN("empty line");
+            if (*p!='\n') WARN("Not eol");
+            ++p;
+            *p='\0';
+
+            if (line[0]=='@')
+            {
+                ERR("header restarted");
                 break;
             }
-            if (s->mmapbuf_cur[0]=='@')
-            {
-                DBG("headers restarted");
-                break;
-            }
-            char * nl=(char *)memchr(s->mmapbuf_cur, '\x0a', remain);
-            if (nl)
-            {
-                ++nl;
-                size_t linesize=nl-s->mmapbuf_cur;
-                DBG("alignment #%d linesize=%d",20-numaligns,linesize);
-                rc_t rc=SAM_parsebuffer(s,s->mmapbuf_cur,linesize);
-                if (rc)
-                {
-                    fprintf(stderr,"parsebuffer rc\n");
-                    return rc;
-                }
-                s->mmapbuf_cur+=linesize;
-            } else
-            {
-                DBG("No newline");
-                // No newline, TODO: final line terminated?
-                break;
-            }
+
+            size_t linesize=p - line;
+            DBG("linesize is %d %d %p %p", linesize, strlen(line), p, line);
+            rc=SAM_parseline(s, line, linesize);
+            if (rc) return rc;
+
         }
+
+        DBG("Done parsing %d alignments", VectorLength(&s->alignments));
 
         VectorInit(alignments,0,0);
         VectorCopy(&s->alignments,alignments);
@@ -977,6 +1232,4 @@ extern "C" {
 
         return 0;
     }
-
-} // extern C
 

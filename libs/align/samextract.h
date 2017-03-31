@@ -29,6 +29,9 @@
 #include <klib/rc.h>
 #include <klib/defs.h>
 #include <klib/vector.h>
+#include <kproc/thread.h>
+#include <kfs/file.h>
+#include <kfs/buffile.h>
 #include <zlib.h>
 #include <sys/types.h>
 #include <align/samextract-lib.h>
@@ -69,18 +72,26 @@ typedef struct bamalign
 #ifdef __cplusplus
 extern "C" {
 #endif
-    int moredata(char * buf, int * numbytes, size_t maxbytes);
+    int SAMparse (Extractor * state);
     void SAMerror(Extractor * state, const char * TODOmsg);
+    int SAMlex_destroy  (void);
     void logmsg (const char * fname, int line, const char * func, const char * severity, const char * fmt, ...);
-    void samload(char const path[]);
-    void regcomp_cache_clear(void);
-    rc_t SAM_parsebegin(Extractor * state);
-    rc_t SAM_parsebuffer(Extractor * state, const char * str, size_t size);
-    rc_t SAM_parseend(Extractor * state);
-
+    int moredata(char * buf, int * numbytes, size_t maxbytes);
+    rc_t process_header(Extractor * state, const char * type, const char * tag, const char * value);
+    rc_t process_alignment(Extractor * state, const char * qname,const char * flag,const char * rname,const char * pos,const char * mapq,const char * cigar,const char * rnext,const char * pnext,const char * tlen,const char * seq,const char * qual);
+    rc_t mark_headers(Extractor * state, const char * type);
+    bool inrange(const char * str, i64 low, i64 high);
+    bool ismd5(const char * str);
+    bool isfloworder(const char * str);
 #ifdef __cplusplus
 }
 #endif
+    void samload(char const path[]);
+/*
+    rc_t SAM_parsebegin(Extractor * state);
+    rc_t SAM_parsebuffer(Extractor * state, const char * str, size_t size);
+    rc_t SAM_parseend(Extractor * state);
+*/
 
 #ifndef DEBUG
 #define DEBUG 0

@@ -35,171 +35,10 @@
    */
 
 %{
-    #include <stdio.h>
-    #include <ctype.h>
-    #include <stdlib.h>
-    #include <string.h>
-    #include <sys/stat.h>
-    #include <sys/types.h>
-    #include <regex.h>
     #include <klib/rc.h>
     #include "samextract.h"
     #include <align/samextract-lib.h>
-    #include <errno.h>
-    #include <strtol.h>
-
-int SAMlex (Extractor *);
-
-void SAMerror(Extractor * state, const char * s)
-{
-    ERR(" Parsing error: %s",s);
-    rc_t rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
-    state->rc=rc;
-    return;
-}
-
-/*TODO: Replace with pool allocator. */
-static void * myalloc(Extractor * state,size_t sz)
-{
-    void * buf=malloc(sz);
-    if (buf==NULL)
-    {
-        ERR("out of memory");
-        return NULL;
-    }
-    memset(buf,0,sz);
-    VectorAppend(&state->allocs,NULL,buf);
-    return buf;
-}
-
-static void * mystrdup(Extractor * state,const char * str)
-{
-    size_t len=strlen(str)+1;
-    void * buf=myalloc(state,len);
-    memmove(buf,str,len);
-    return buf;
-}
-
-/* low<=str<=high */
-static bool inrange(const char * str, i64 low, i64 high)
-{
-    i64 i=strtoi64(str, NULL, 10);
-    if (errno) return false;
-    if (i<low || i>high) return false;
-    return true;
-}
-
-/* Avoiding handling this as flex token because so many other ReadGroup values
- * could end up looking like flow orders.
- */
-static bool isfloworder(const char * str)
-{
-  size_t i;
-  size_t len=strlen(str);
-
-  if (len==1 && str[0]=='*') return true;
-  for (i=0; i!=len; ++i)
-  {
-    switch(str[i])
-    {
-        case 'A':
-        case 'C':
-        case 'M':
-        case 'G':
-        case 'R':
-        case 'S':
-        case 'V':
-        case 'T':
-        case 'W':
-        case 'Y':
-        case 'H':
-        case 'K':
-        case 'D':
-        case 'B':
-        case 'N':
-            continue;
-        default:
-            return false;
-    }
-  }
-  return true;
-}
-
-static rc_t process_header(Extractor * state, const char * type, const char * tag, const char * value)
-{
-    DBG("processing type %s tag %s value %s", type, tag, value);
-    if (strcmp(type,"HD") &&
-        strcmp(type,"SQ") &&
-        strcmp(type,"RG") &&
-        strcmp(type,"PG"))
-    {
-        ERR("record '%s' must be HD, SQ, RG or PG", type);
-        rc_t rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
-        state->rc=rc;
-        return rc;
-    }
-
-    if (strlen(tag)!=2)
-    {
-        ERR("tag '%s' must be 2 characters", tag);
-        rc_t rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
-        state->rc=rc;
-        return rc;
-    }
-
-    if (islower(tag[0] &&
-        islower(tag[1])))
-    {
-        DBG("optional tag");
-    }
-
-    TagValue * tv=myalloc(state,sizeof(TagValue));
-    if (tv==NULL)
-    {
-        ERR("out of memory");
-        rc_t rc=RC(rcAlign, rcRow,rcConstructing,rcMemory,rcExhausted);
-        state->rc=rc;
-        return rc;
-    }
-    tv->tag=mystrdup(state,tag);
-    if (tv->tag==NULL)
-    {
-        ERR("out of memory");
-        rc_t rc=RC(rcAlign, rcRow,rcConstructing,rcMemory,rcExhausted);
-        state->rc=rc;
-        return rc;
-    }
-    tv->value=mystrdup(state,value);
-    if (tv->value==NULL)
-    {
-        ERR("out of memory");
-        rc_t rc=RC(rcAlign, rcRow,rcConstructing,rcMemory,rcExhausted);
-        state->rc=rc;
-        return rc;
-    }
-    VectorAppend(&state->tagvalues,NULL,tv);
-
-    return 0;
-}
-
-static rc_t mark_headers(Extractor * state, const char * type)
-{
-    DBG("mark_headers");
-    Header * hdr=(Header *)myalloc(state,sizeof(Header));
-    if (hdr==NULL)
-    {
-        ERR("out of memory");
-        rc_t rc=RC(rcAlign, rcRow,rcConstructing,rcMemory,rcExhausted);
-        state->rc=rc;
-        return rc;
-    }
-    hdr->headercode=type;
-    VectorCopy(&state->tagvalues,&hdr->tagvalues);
-    VectorAppend(&state->headers,NULL,hdr);
-    VectorWhack(&state->tagvalues,NULL,NULL);
-    return 0;
-}
-
+    int SAMlex(Extractor *);
 %}
 
 /* Bison Declarations */
@@ -315,9 +154,7 @@ line:
    ;
 
 comment:
-       COMMENT {
-       mark_headers(state,"CO");
-    }
+       COMMENT { mark_headers(state,"CO"); }
     ;
 
 header:
@@ -335,9 +172,8 @@ header:
         if (!state->hashdso && !state->hashdgo)
            WARN("neither SO or GO tags present");
 
-        mark_headers(state,"HD");
-        // TODO: Duplicate header
-    }
+        mark_headers(state,"HD"); }
+    /* TODO: Duplicate header */
     ;
 
 headerlist:   hdr
@@ -347,23 +183,19 @@ headerlist:   hdr
 hdr: HDVN VALUE {
         state->hashdvn=true;
         process_header(state,"HD","VN",$2);
-        free($2);
-   }
+        free($2); }
    | HDSO VALUE {
         state->hashdso=true;
         process_header(state,"HD","SO",$2);
-        free($2);
-   }
+        free($2); }
    | HDGO VALUE {
         state->hashdgo=true;
         process_header(state,"HD","GO",$2);
-        free($2);
-   };
+        free($2); }
   | TAB TAB {
         ERR("two tabs"); /* TODO: Handle >2 tabs in a row */
         rc_t rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
-        state->rc=rc;
-  }
+        state->rc=rc; }
   | TAB { WARN("empty tags"); }
   ;
 
@@ -385,8 +217,7 @@ sequence:
             rc_t rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
             state->rc=rc;
         }
-        mark_headers(state,"SQ");
-    }
+        mark_headers(state,"SQ"); }
     ;
 
 sequencelist: sq
@@ -412,6 +243,8 @@ sq:
         process_header(state,"SQ",$1,$2);
         free($2); }
     | SQM5 VALUE {
+        if (!ismd5($2))
+            WARN("M5 value not followed by MD5");
         process_header(state,"SQ",$1,$2);
         free($2); }
     | SQSP VALUE {
@@ -420,6 +253,8 @@ sq:
     | SQUR VALUE {
         process_header(state,"SQ",$1,$2);
         free($2); }
+    | TAB { WARN("Unexpected tab in sequence"); }
+    ;
 
 program:
       PROGRAM programlist EOL
@@ -431,8 +266,7 @@ program:
             rc_t rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
             state->rc=rc;
         }
-        mark_headers(state,"PG");
-     }
+        mark_headers(state,"PG"); }
      ;
 
 programlist: pg
@@ -459,6 +293,10 @@ pg:
     | PGVN VALUE {
         process_header(state,"PG",$1,$2);
         free($2); }
+    | VALUE {
+        WARN("Bogus value in PG:%s",$1);
+        free($1); }
+    ;
 
 
 readgroup:
@@ -472,8 +310,7 @@ readgroup:
             state->rc=rc;
         }
 
-        mark_headers(state,"RG");
-    }
+        mark_headers(state,"RG"); }
     ;
 
 readgrouplist:   rg
@@ -526,6 +363,11 @@ rg:  RGID VALUE {
    | RGSM VALUE {
         process_header(state,"RG",$1,$2);
         free($2); }
+   | VALUE VALUE {
+        WARN("Unknown readgroup (RG) tag:%s", $1);
+        free($1);
+        free($2);
+        }
    | TAB TAB {
         ERR("two tabs"); /* TODO: Handle >2 tabs in a row */
         rc_t rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
@@ -535,55 +377,15 @@ rg:  RGID VALUE {
         rc_t rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
         state->rc=rc; }
    | TAB EOL { WARN("empty tags"); }
-  ;
+   ;
 
 
 
 alignment:
-     QNAME FLAG RNAME POS MAPQ CIGAR RNEXT PNEXT TLEN SEQ QUAL optlist EOL
-    {
-        DBG("Done alignment record");
-        Alignment * align=myalloc(state,sizeof(Alignment));
-        if (align==NULL)
-        {
-            ERR("out of memory");
-            rc_t rc=RC(rcAlign, rcRow,rcConstructing,rcMemory,rcExhausted);
-            state->rc=rc;
-        }
-        const char *qname=$1;
-        const char *flag=$2;
-        const char *rname=$3;
-        const char *pos=$4;
-        const char *mapq=$5;
-        const char *cigar=$6;
-        const char *rnext=$7;
-        const char *pnext=$8;
-        const char *tlen=$9;
-        const char *seq=$10;
-        const char *qual=$11;
-        DBG("align %s %s %s", qname, rnext, qual); // TODO silence warning for now
-
-        if (!inrange(flag,0,UINT16_MAX))
-            ERR("Flag not in range %s",flag);
-
-        if (!inrange(pos,0,INT32_MAX))
-            ERR("POS not in range %s",pos);
-
-        if (!inrange(mapq,0,UINT8_MAX))
-            ERR("MAPQ not in range %s",mapq);
-
-        if (!inrange(pnext,0,INT32_MAX))
-            ERR("PNEXT not in range %s", pnext);
-
-        if (!inrange(tlen,INT32_MIN,INT32_MAX))
-            ERR("TLEN not in range %s", tlen);
-
-        align->read=mystrdup(state,seq);
-        align->cigar=mystrdup(state,cigar);
-        align->rname=mystrdup(state,rname);
-        align->pos=strtou32(pos,NULL,10);
-        align->flags=strtou32(flag,NULL,10);
-        VectorAppend(&state->alignments,NULL,align);
+     QNAME FLAG RNAME POS MAPQ CIGAR RNEXT PNEXT TLEN SEQ QUAL EOL
+     {
+        DBG("alignment record");
+        process_alignment(state,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11);
         free($1);
         free($2);
         free($3);
@@ -594,8 +396,22 @@ alignment:
         free($8);
         free($9);
         free($10);
-        free($11);
-    }
+        free($11); }
+     | QNAME FLAG RNAME POS MAPQ CIGAR RNEXT PNEXT TLEN SEQ QUAL optlist EOL
+    {
+        DBG("alignment record with optional tags");
+        process_alignment(state,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11);
+        free($1);
+        free($2);
+        free($3);
+        free($4);
+        free($5);
+        free($6);
+        free($7);
+        free($8);
+        free($9);
+        free($10);
+        free($11); }
     ;
 
 optlist: opt { DBG("opt"); }
@@ -608,48 +424,47 @@ opt:
         DBG("?AA");
         free($1);
         free($3); }
-  | OPTTAG OPTITYPE OPTIVALUE
+    | OPTTAG OPTITYPE OPTIVALUE
     {
         DBG("?II");
         free($1);
         free($3); }
-  | OPTTAG OPTFTYPE OPTFVALUE
+    | OPTTAG OPTFTYPE OPTFVALUE
     {
         DBG("?FF");
         free($1);
         free($3); }
-  | OPTTAG OPTZTYPE OPTZVALUE
+    | OPTTAG OPTZTYPE OPTZVALUE
     {
         DBG("?ZZ");
         free($1);
         free($3); }
-  | OPTTAG OPTHTYPE OPTHVALUE
+    | OPTTAG OPTHTYPE OPTHVALUE
     {
         DBG("?HH");
         free($1);
         free($3); }
-  | OPTTAG OPTBTYPE OPTBVALUE
+    | OPTTAG OPTBTYPE OPTBVALUE
     {
         DBG("?BB");
         free($1);
         free($3); }
-  | OPTITAG OPTITYPE OPTIVALUE
-  {
+    | OPTITAG OPTITYPE OPTIVALUE
+    {
         DBG("III");
         free($1);
         free($3); }
-  | OPTZTAG OPTZTYPE OPTZVALUE
-  {
+    | OPTZTAG OPTZTYPE OPTZVALUE
+    {
         DBG("ZZZ");
         free($1);
         free($3); }
-  | OPTBTAG OPTBTYPE OPTBVALUE
-  {
+    | OPTBTAG OPTBTYPE OPTBVALUE
+    {
         DBG("BBB");
         free($1);
         free($3); }
-  ;
-
+    ;
 
 %%
 

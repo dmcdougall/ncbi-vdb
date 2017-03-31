@@ -33,27 +33,13 @@
       user code
    */
 
-  /*
-    @HD\tVN:1.4\tSO:coordinate
-    @SQ\tSN:1\t...
-    @SQ\tSN:16\t...
-    @RG\tID:PM89\tPL:Illumina\tLB...
-    HWI-...
-  */
-
 %top{
-#include <stdio.h>
 #include <string.h>
 #include "samextract.h"
 #include "samextract-tokens.h"
 
 /* #define LEXDEBUG 0 */
-
-char * lexbuf=NULL;
-size_t lexbuf_sz=0;
-
 #define YY_INPUT(buf,numbytes,maxbytes) moredata(buf,&numbytes,maxbytes)
-
  }
  /* %top */
 
@@ -63,7 +49,9 @@ integer [-+]?[0-9]+
 posinteger [+]?[0-9]+
 float  [-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?
 eol    (\r\n|\r|\n)
+ /* Exclude tabs, newlines, carrige returns */
 controlchar [\x00-\x08\x0b-\x0c\x0e-\x1f]
+
 
 
  /* qname=No @ in first, to distinguish from headers */
@@ -88,6 +76,7 @@ opttag [A-Za-z][A-Za-z0-9]
 %option nodefault
 %option warn
 %option nodebug
+ /* %option nodebug */
  /* Don't use these functions */
 %option nounput
 %option noinput
@@ -95,6 +84,8 @@ opttag [A-Za-z][A-Za-z0-9]
 %option never-interactive
  /* %option yylineno */
 %option nounistd
+%option extra-type="Extractor *"
+ /*%option bison-bridge */
 
  /* Start states */
 %s INHD
@@ -131,11 +122,12 @@ opttag [A-Za-z][A-Za-z0-9]
 <INITIAL>^@HD   {
     BEGIN INHD;
     DBG( "HEADER");
-    // TODO First line only
+    /* TODO First line only */
     return HEADER; }
 <INHD>"\tVN:" return HDVN;
 <INHD>"\tSO:" return HDSO;
 <INHD>"\tGO:" return HDGO;
+<INHD>\t[A-Z][A-Z]: { ERR("Undefined HD tag %s",yytext); yyterminate();}
 <INHD>[0-9]+\.[0-9]+ {
     SAMlval.strval=strdup(yytext);
     DBG(" header version");
@@ -160,8 +152,10 @@ opttag [A-Za-z][A-Za-z0-9]
 <INSQ>"\tLN:" { SAMlval.strval="LN"; return SQLN; }
 <INSQ>"\tAS:" { SAMlval.strval="AS"; return SQAS; }
 <INSQ>"\tM5:" { SAMlval.strval="M5"; return SQM5; }
+<INSQ>"\tMD5:" { WARN("SQ MD5 should be M5"); SAMlval.strval="M5"; return SQM5; }
 <INSQ>"\tSP:" { SAMlval.strval="SP"; return SQSP; }
 <INSQ>"\tUR:" { SAMlval.strval="UR"; return SQUR; }
+<INSQ>\t[A-Z][A-Z]: { ERR("Undefined SQ tag %s",yytext); yyterminate();}
 <INSQ>[^\t\r\n]+ {
     SAMlval.strval=strdup(yytext);
     DBG("SEQ VALUE");
@@ -187,8 +181,10 @@ opttag [A-Za-z][A-Za-z0-9]
 <INRG>"\tPM:" { SAMlval.strval="PM"; return RGPM; }
 <INRG>"\tPU:" { SAMlval.strval="PU"; return RGPU; }
 <INRG>"\tSM:" { SAMlval.strval="SM"; return RGSM; }
-<INRG>"\t.+:" { ERR("Bad token"); yyterminate();}
-<INRG>CAPILLARY|LS454|ILLUMINA|SOLID|HELICOS|IONTORRENT|ONT|PACBIO {
+<INRG>\t[A-Z][A-Z]: { ERR("Undefined RG tag:%s",yytext+1); yyterminate();}
+<INRG>"\tLNID:" { ERR("LNID Undefined RG tag"); yyterminate();}
+<INRG>\t[^: -~]+: { ERR("Undefined long RG tag: %s",yytext+1); yyterminate();}
+<INRG>CAPILLARY|LS454|ILLUMINA|illumina|Illumina|SOLID|HELICOS|IONTORRENT|ONT|PACBIO {
     SAMlval.strval=strdup(yytext);
     return PLATFORM; }
 <INRG>[^\t\r\n]+ {
@@ -210,6 +206,11 @@ opttag [A-Za-z][A-Za-z0-9]
 <INPG>"\tPP:" { SAMlval.strval="PP"; return PGPP; }
 <INPG>"\tDS:" { SAMlval.strval="DS"; return PGDS; }
 <INPG>"\tVN:" { SAMlval.strval="VN"; return PGVN; }
+<INPG>\t[A-Z][A-Z]: { ERR("Undefined PG tag %s",yytext); yyterminate();}
+<INPG>\t[a-z_]{3,} {
+    WARN("Not a PG tag:%s",yytext+1);
+    SAMlval.strval=strdup(yytext+1);
+    return VALUE; }
 <INPG>[^\t\r\n]+ {
     SAMlval.strval=strdup(yytext);
     DBG("program value:%s",yytext);
@@ -283,6 +284,7 @@ opttag [A-Za-z][A-Za-z0-9]
 <ALIGNOPT>\t(GC|GQ|GS|MF|SQ|X[A-Za-z0-9]|Y[A-Za-z0-9]|Z[A-Za-z0-9]) {
     BEGIN ALIGNOPTTYPE;
     SAMlval.strval=strdup(yytext+1);
+    DBG(" alignment opt reserved");
     return OPTTAG; }
 
  /* Only types iZB have optioanl standardized tags */
@@ -368,54 +370,4 @@ opttag [A-Za-z][A-Za-z0-9]
 #if YY_FLEX_MAJOR_VERSION == 2 && YY_FLEX_MINOR_VERSION < 6
 #error "Flex version should be >= 2.6.X"
 #endif
-
-
-rc_t SAM_parsebegin(Extractor * state)
-{
-    DBG("parsebegin");
-    return 0;
-}
-
-rc_t SAM_parseend(Extractor * state)
-{
-    DBG("parseend");
-    free(lexbuf);
-    lexbuf=NULL;
-    lexbuf_sz=0;
-    SAMlex_destroy();
-//    regcomp_cache_clear();
-    return 0;
-}
-
-rc_t SAM_parsebuffer(Extractor * state, const char * str, size_t size)
-{
-    DBG("Parsingbuffer");
-    state->rc=0;
-    if (lexbuf==NULL || size > lexbuf_sz)
-    {
-        lexbuf=realloc(lexbuf,size+2);
-        lexbuf_sz=size+2;
-        if (lexbuf==NULL)
-        {
-            ERR("out of memory");
-            rc_t rc=RC(rcAlign,rcFile,rcReading,rcMemory,rcExhausted);
-            state->rc=rc;
-            return rc;
-        }
-    }
-    memmove(lexbuf,str,size);
-    lexbuf[size]='\0';
-    SAMparse(state);
-    return state->rc;
-}
-
-int moredata(char * buf, int * numbytes, size_t maxbytes)
-{
-    DBG("moredata %p %d\nline:%s", buf, maxbytes, lexbuf);
-    strcpy(buf,lexbuf);
-    *numbytes=strlen(buf);
-    lexbuf[0]='\0';
-    return 0;
-}
-
 

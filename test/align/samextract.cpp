@@ -27,6 +27,7 @@
 #include <kapp/args.h>
 #include <kapp/main.h>
 #include <kfs/file.h>
+#include <kfs/directory.h>
 #include <klib/rc.h>
 #include <klib/defs.h>
 #include <klib/vector.h>
@@ -66,14 +67,27 @@ rc_t CC Usage(Args const *args)
 
 rc_t CC KMain(int argc, char *argv[])
 {
+    rc_t rc;
     if (argc == 1) {
         UsageSummary(argv[0]);
         return 0;
     }
     while (--argc) {
+        const char * fname=*(++argv);
+
+        struct KDirectory * srcdir = NULL;
+        const struct KFile * infile = NULL;
+        rc=KDirectoryNativeDir(&srcdir);
+        if (rc) return rc;
+
+        rc=KDirectoryOpenFileRead(srcdir, &infile, fname);
+        KDirectoryRelease(srcdir);
+        if (rc) return rc;
+        srcdir=NULL;
+
         Extractor * extractor;
-        rc_t rc=SAMExtractorMake(&extractor, *(++argv), -1);
-        fprintf(stderr,"Made extractor\n");
+        rc_t rc=SAMExtractorMake(&extractor, infile, -1);
+        fprintf(stderr,"Made extractor for %s\n",fname);
         if (rc) return rc;
 
         Vector headers;
@@ -84,19 +98,20 @@ rc_t CC KMain(int argc, char *argv[])
         {
             Header * hdr=(Header *)VectorGet(&headers,i);
             Vector * tvs=&hdr->tagvalues;
-            fprintf(stderr,"\tHeader%d: %s\n", i, hdr->headercode);
+//            fprintf(stderr,"\tHeader%d: %s\n", i, hdr->headercode);
             for (uint32_t j=0; j!=VectorLength(tvs); ++j)
             {
                 TagValue * tv=(TagValue *)VectorGet(tvs,j);
 
-                fprintf(stderr,"\t\t%d\t%s %s\n", j, tv->tag, tv->value);
+//                fprintf(stderr,"\t\t%d\t%s %s\n", j, tv->tag, tv->value);
             }
         // Do stuff with headers
         }
         SAMExtractorInvalidateHeaders(extractor);
 
 
-        fprintf(stderr,"Alignments\n");
+        fprintf(stderr,"Getting Alignments\n");
+        int total=0;
         uint32_t vlen;
         do
         {
@@ -104,6 +119,7 @@ rc_t CC KMain(int argc, char *argv[])
             rc=SAMExtractorGetAlignments(extractor, &alignments);
             if (rc) { fprintf(stderr,"GetAligned returned rc\n"); return rc; }
             vlen=VectorLength(&alignments);
+            total+=vlen;
 //            fprintf(stderr,"\n\nReturned %d alignments\n",vlen);
             for (uint32_t i=0; i!=vlen; ++i)
             {
@@ -117,7 +133,10 @@ rc_t CC KMain(int argc, char *argv[])
         } while (vlen);
 
         SAMExtractorRelease(extractor);
-        fprintf(stderr,"Done with file\n");
+        fprintf(stderr,"Done with file, %d alignments\n", total);
+
+        KFileRelease(infile);
+        infile=NULL;
     }
     fprintf(stderr,"KMain done\n");
     return 0;
