@@ -83,15 +83,16 @@ extern "C" {
     bool inrange(const char * str, i64 low, i64 high);
     bool ismd5(const char * str);
     bool isfloworder(const char * str);
+
+    void pool_init(void);
+    void pool_release(void);
+    void * pool_alloc(size_t sz);
+    char * pool_strdup(const char * str);
+    void pool_free(void *);
 #ifdef __cplusplus
 }
 #endif
     void samload(char const path[]);
-/*
-    rc_t SAM_parsebegin(Extractor * state);
-    rc_t SAM_parsebuffer(Extractor * state, const char * str, size_t size);
-    rc_t SAM_parseend(Extractor * state);
-*/
 
 #ifndef DEBUG
 #define DEBUG 0
@@ -105,5 +106,6 @@ extern "C" {
     do { if (DEBUG) logmsg(__FILE__, __LINE__, __func__, "Debug",  __VA_ARGS__); } while (0)
 
 #define MIN(a,b)    (((a) < (b)) ? (a) : (b))
+#define MAX(a,b)    (((a) > (b)) ? (a) : (b))
 
 #endif

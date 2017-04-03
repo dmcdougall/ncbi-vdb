@@ -43,15 +43,9 @@ extern "C" {
         Vector headers;
         Vector alignments;
 
-        Vector allocs;
-
         Vector tagvalues;
         Vector * prev_headers;
         Vector * prev_aligns;
-
-        char * read;
-        char * cigar;
-        char * rname;
 
         uint32_t pos;
         int32_t num_threads;
@@ -86,7 +80,7 @@ extern "C" {
         uint16_t flags;
     } Alignment;
 
-    ALIGN_EXTERN rc_t CC SAMExtractorMake(Extractor **state, const KFile * fin, int32_t num_threads);
+    ALIGN_EXTERN rc_t CC SAMExtractorMake(Extractor **state, const KFile * fin, int32_t num_threads); /* TODO: Pass in filename for diagnostics */
     ALIGN_EXTERN rc_t CC SAMExtractorRelease(Extractor *state); /* dtor */
 
     ALIGN_EXTERN rc_t CC SAMExtractorGetHeaders(Extractor *state, Vector *headers);

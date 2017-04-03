@@ -1465,7 +1465,7 @@ yyreduce:
     {
         state->hashdvn=true;
         process_header(state,"HD","VN",(yyvsp[0].strval));
-        free((yyvsp[0].strval)); }
+        pool_free((yyvsp[0].strval)); }
 #line 1470 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
@@ -1474,7 +1474,7 @@ yyreduce:
     {
         state->hashdso=true;
         process_header(state,"HD","SO",(yyvsp[0].strval));
-        free((yyvsp[0].strval)); }
+        pool_free((yyvsp[0].strval)); }
 #line 1479 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
@@ -1483,7 +1483,7 @@ yyreduce:
     {
         state->hashdgo=true;
         process_header(state,"HD","GO",(yyvsp[0].strval));
-        free((yyvsp[0].strval)); }
+        pool_free((yyvsp[0].strval)); }
 #line 1488 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
@@ -1527,7 +1527,7 @@ yyreduce:
     {
         state->hassqsn=true;
         process_header(state,"SQ",(yyvsp[-1].strval),(yyvsp[0].strval));
-        free((yyvsp[0].strval)); }
+        pool_free((yyvsp[0].strval)); }
 #line 1532 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
@@ -1542,7 +1542,7 @@ yyreduce:
         }
         state->hassqln=true;
         process_header(state,"SQ",(yyvsp[-1].strval),(yyvsp[0].strval));
-        free((yyvsp[0].strval)); }
+        pool_free((yyvsp[0].strval)); }
 #line 1547 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
@@ -1550,7 +1550,7 @@ yyreduce:
 #line 242 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
         process_header(state,"SQ",(yyvsp[-1].strval),(yyvsp[0].strval));
-        free((yyvsp[0].strval)); }
+        pool_free((yyvsp[0].strval)); }
 #line 1555 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
@@ -1560,7 +1560,7 @@ yyreduce:
         if (!ismd5((yyvsp[0].strval)))
             WARN("M5 value not followed by MD5");
         process_header(state,"SQ",(yyvsp[-1].strval),(yyvsp[0].strval));
-        free((yyvsp[0].strval)); }
+        pool_free((yyvsp[0].strval)); }
 #line 1565 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
@@ -1568,7 +1568,7 @@ yyreduce:
 #line 250 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
         process_header(state,"SQ",(yyvsp[-1].strval),(yyvsp[0].strval));
-        free((yyvsp[0].strval)); }
+        pool_free((yyvsp[0].strval)); }
 #line 1573 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
@@ -1576,7 +1576,7 @@ yyreduce:
 #line 253 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
         process_header(state,"SQ",(yyvsp[-1].strval),(yyvsp[0].strval));
-        free((yyvsp[0].strval)); }
+        pool_free((yyvsp[0].strval)); }
 #line 1581 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
@@ -1605,7 +1605,7 @@ yyreduce:
     {
         state->haspgid=true;
         process_header(state,"PG",(yyvsp[-1].strval),(yyvsp[0].strval));
-        free((yyvsp[0].strval)); }
+        pool_free((yyvsp[0].strval)); }
 #line 1610 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
@@ -1613,7 +1613,7 @@ yyreduce:
 #line 281 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
         process_header(state,"PG",(yyvsp[-1].strval),(yyvsp[0].strval));
-        free((yyvsp[0].strval)); }
+        pool_free((yyvsp[0].strval)); }
 #line 1618 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
@@ -1621,7 +1621,7 @@ yyreduce:
 #line 284 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
         process_header(state,"PG",(yyvsp[-1].strval),(yyvsp[0].strval));
-        free((yyvsp[0].strval)); }
+        pool_free((yyvsp[0].strval)); }
 #line 1626 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
@@ -1629,7 +1629,7 @@ yyreduce:
 #line 287 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
         process_header(state,"PG",(yyvsp[-1].strval),(yyvsp[0].strval));
-        free((yyvsp[0].strval)); }
+        pool_free((yyvsp[0].strval)); }
 #line 1634 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
@@ -1637,7 +1637,7 @@ yyreduce:
 #line 290 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
         process_header(state,"PG",(yyvsp[-1].strval),(yyvsp[0].strval));
-        free((yyvsp[0].strval)); }
+        pool_free((yyvsp[0].strval)); }
 #line 1642 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
@@ -1645,7 +1645,7 @@ yyreduce:
 #line 293 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
         process_header(state,"PG",(yyvsp[-1].strval),(yyvsp[0].strval));
-        free((yyvsp[0].strval)); }
+        pool_free((yyvsp[0].strval)); }
 #line 1650 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
@@ -1653,7 +1653,7 @@ yyreduce:
 #line 296 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
         WARN("Bogus value in PG:%s",(yyvsp[0].strval));
-        free((yyvsp[0].strval)); }
+        pool_free((yyvsp[0].strval)); }
 #line 1658 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
@@ -1677,7 +1677,7 @@ yyreduce:
     {
         state->hasrgid=true;
         process_header(state,"RG",(yyvsp[-1].strval),(yyvsp[0].strval));
-        free((yyvsp[0].strval)); }
+        pool_free((yyvsp[0].strval)); }
 #line 1682 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
@@ -1685,7 +1685,7 @@ yyreduce:
 #line 324 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
         process_header(state,"RG",(yyvsp[-1].strval),(yyvsp[0].strval));
-        free((yyvsp[0].strval)); }
+        pool_free((yyvsp[0].strval)); }
 #line 1690 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
@@ -1693,7 +1693,7 @@ yyreduce:
 #line 327 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
         process_header(state,"RG",(yyvsp[-1].strval),(yyvsp[0].strval));
-        free((yyvsp[0].strval)); }
+        pool_free((yyvsp[0].strval)); }
 #line 1698 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
@@ -1701,7 +1701,7 @@ yyreduce:
 #line 330 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
         process_header(state,"RG",(yyvsp[-1].strval),(yyvsp[0].strval));
-        free((yyvsp[0].strval)); }
+        pool_free((yyvsp[0].strval)); }
 #line 1706 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
@@ -1711,7 +1711,7 @@ yyreduce:
         if (!isfloworder((yyvsp[0].strval)))
             WARN("Flow order incorrec");
         process_header(state,"RG",(yyvsp[-1].strval),(yyvsp[0].strval));
-        free((yyvsp[0].strval)); }
+        pool_free((yyvsp[0].strval)); }
 #line 1716 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
@@ -1719,7 +1719,7 @@ yyreduce:
 #line 338 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
         process_header(state,"RG",(yyvsp[-1].strval),(yyvsp[0].strval));
-        free((yyvsp[0].strval)); }
+        pool_free((yyvsp[0].strval)); }
 #line 1724 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
@@ -1727,7 +1727,7 @@ yyreduce:
 #line 341 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
         process_header(state,"RG",(yyvsp[-1].strval),(yyvsp[0].strval));
-        free((yyvsp[0].strval)); }
+        pool_free((yyvsp[0].strval)); }
 #line 1732 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
@@ -1735,7 +1735,7 @@ yyreduce:
 #line 344 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
         process_header(state,"RG",(yyvsp[-1].strval),(yyvsp[0].strval));
-        free((yyvsp[0].strval)); }
+        pool_free((yyvsp[0].strval)); }
 #line 1740 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
@@ -1743,7 +1743,7 @@ yyreduce:
 #line 347 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
         process_header(state,"RG",(yyvsp[-1].strval),(yyvsp[0].strval));
-        free((yyvsp[0].strval)); }
+        pool_free((yyvsp[0].strval)); }
 #line 1748 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
@@ -1751,7 +1751,7 @@ yyreduce:
 #line 350 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
         process_header(state,"RG",(yyvsp[-1].strval),(yyvsp[0].strval));
-        free((yyvsp[0].strval)); }
+        pool_free((yyvsp[0].strval)); }
 #line 1756 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
@@ -1760,7 +1760,7 @@ yyreduce:
     {
         ERR("Invalid Platform %s", (yyvsp[0].strval));
         process_header(state,"RG",(yyvsp[-1].strval),(yyvsp[0].strval));
-        free((yyvsp[0].strval)); }
+        pool_free((yyvsp[0].strval)); }
 #line 1765 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
@@ -1768,7 +1768,7 @@ yyreduce:
 #line 357 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
         process_header(state,"RG",(yyvsp[-1].strval),(yyvsp[0].strval));
-        free((yyvsp[0].strval)); }
+        pool_free((yyvsp[0].strval)); }
 #line 1773 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
@@ -1776,7 +1776,7 @@ yyreduce:
 #line 360 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
         process_header(state,"RG",(yyvsp[-1].strval),(yyvsp[0].strval));
-        free((yyvsp[0].strval)); }
+        pool_free((yyvsp[0].strval)); }
 #line 1781 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
@@ -1784,7 +1784,7 @@ yyreduce:
 #line 363 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
         process_header(state,"RG",(yyvsp[-1].strval),(yyvsp[0].strval));
-        free((yyvsp[0].strval)); }
+        pool_free((yyvsp[0].strval)); }
 #line 1789 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
@@ -1792,8 +1792,8 @@ yyreduce:
 #line 366 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
         WARN("Unknown readgroup (RG) tag:%s", (yyvsp[-1].strval));
-        free((yyvsp[-1].strval));
-        free((yyvsp[0].strval));
+        pool_free((yyvsp[-1].strval));
+        pool_free((yyvsp[0].strval));
         }
 #line 1799 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
@@ -1827,17 +1827,17 @@ yyreduce:
     {
         DBG("alignment record");
         process_alignment(state,(yyvsp[-11].strval),(yyvsp[-10].strval),(yyvsp[-9].strval),(yyvsp[-8].strval),(yyvsp[-7].strval),(yyvsp[-6].strval),(yyvsp[-5].strval),(yyvsp[-4].strval),(yyvsp[-3].strval),(yyvsp[-2].strval),(yyvsp[-1].strval));
-        free((yyvsp[-11].strval));
-        free((yyvsp[-10].strval));
-        free((yyvsp[-9].strval));
-        free((yyvsp[-8].strval));
-        free((yyvsp[-7].strval));
-        free((yyvsp[-6].strval));
-        free((yyvsp[-5].strval));
-        free((yyvsp[-4].strval));
-        free((yyvsp[-3].strval));
-        free((yyvsp[-2].strval));
-        free((yyvsp[-1].strval)); }
+        pool_free((yyvsp[-11].strval));
+        pool_free((yyvsp[-10].strval));
+        pool_free((yyvsp[-9].strval));
+        pool_free((yyvsp[-8].strval));
+        pool_free((yyvsp[-7].strval));
+        pool_free((yyvsp[-6].strval));
+        pool_free((yyvsp[-5].strval));
+        pool_free((yyvsp[-4].strval));
+        pool_free((yyvsp[-3].strval));
+        pool_free((yyvsp[-2].strval));
+        pool_free((yyvsp[-1].strval)); }
 #line 1842 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
@@ -1846,17 +1846,17 @@ yyreduce:
     {
         DBG("alignment record with optional tags");
         process_alignment(state,(yyvsp[-12].strval),(yyvsp[-11].strval),(yyvsp[-10].strval),(yyvsp[-9].strval),(yyvsp[-8].strval),(yyvsp[-7].strval),(yyvsp[-6].strval),(yyvsp[-5].strval),(yyvsp[-4].strval),(yyvsp[-3].strval),(yyvsp[-2].strval));
-        free((yyvsp[-12].strval));
-        free((yyvsp[-11].strval));
-        free((yyvsp[-10].strval));
-        free((yyvsp[-9].strval));
-        free((yyvsp[-8].strval));
-        free((yyvsp[-7].strval));
-        free((yyvsp[-6].strval));
-        free((yyvsp[-5].strval));
-        free((yyvsp[-4].strval));
-        free((yyvsp[-3].strval));
-        free((yyvsp[-2].strval)); }
+        pool_free((yyvsp[-12].strval));
+        pool_free((yyvsp[-11].strval));
+        pool_free((yyvsp[-10].strval));
+        pool_free((yyvsp[-9].strval));
+        pool_free((yyvsp[-8].strval));
+        pool_free((yyvsp[-7].strval));
+        pool_free((yyvsp[-6].strval));
+        pool_free((yyvsp[-5].strval));
+        pool_free((yyvsp[-4].strval));
+        pool_free((yyvsp[-3].strval));
+        pool_free((yyvsp[-2].strval)); }
 #line 1861 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
@@ -1876,8 +1876,8 @@ yyreduce:
 #line 423 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
         DBG("?AA");
-        free((yyvsp[-2].strval));
-        free((yyvsp[0].strval)); }
+        pool_free((yyvsp[-2].strval));
+        pool_free((yyvsp[0].strval)); }
 #line 1882 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
@@ -1885,8 +1885,8 @@ yyreduce:
 #line 428 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
         DBG("?II");
-        free((yyvsp[-2].strval));
-        free((yyvsp[0].strval)); }
+        pool_free((yyvsp[-2].strval));
+        pool_free((yyvsp[0].strval)); }
 #line 1891 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
@@ -1894,8 +1894,8 @@ yyreduce:
 #line 433 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
         DBG("?FF");
-        free((yyvsp[-2].strval));
-        free((yyvsp[0].strval)); }
+        pool_free((yyvsp[-2].strval));
+        pool_free((yyvsp[0].strval)); }
 #line 1900 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
@@ -1903,8 +1903,8 @@ yyreduce:
 #line 438 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
         DBG("?ZZ");
-        free((yyvsp[-2].strval));
-        free((yyvsp[0].strval)); }
+        pool_free((yyvsp[-2].strval));
+        pool_free((yyvsp[0].strval)); }
 #line 1909 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
@@ -1912,8 +1912,8 @@ yyreduce:
 #line 443 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
         DBG("?HH");
-        free((yyvsp[-2].strval));
-        free((yyvsp[0].strval)); }
+        pool_free((yyvsp[-2].strval));
+        pool_free((yyvsp[0].strval)); }
 #line 1918 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
@@ -1921,8 +1921,8 @@ yyreduce:
 #line 448 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
         DBG("?BB");
-        free((yyvsp[-2].strval));
-        free((yyvsp[0].strval)); }
+        pool_free((yyvsp[-2].strval));
+        pool_free((yyvsp[0].strval)); }
 #line 1927 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
@@ -1930,8 +1930,8 @@ yyreduce:
 #line 453 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
         DBG("III");
-        free((yyvsp[-2].strval));
-        free((yyvsp[0].strval)); }
+        pool_free((yyvsp[-2].strval));
+        pool_free((yyvsp[0].strval)); }
 #line 1936 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
@@ -1939,8 +1939,8 @@ yyreduce:
 #line 458 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
         DBG("ZZZ");
-        free((yyvsp[-2].strval));
-        free((yyvsp[0].strval)); }
+        pool_free((yyvsp[-2].strval));
+        pool_free((yyvsp[0].strval)); }
 #line 1945 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
@@ -1948,8 +1948,8 @@ yyreduce:
 #line 463 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
         DBG("BBB");
-        free((yyvsp[-2].strval));
-        free((yyvsp[0].strval)); }
+        pool_free((yyvsp[-2].strval));
+        pool_free((yyvsp[0].strval)); }
 #line 1954 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 

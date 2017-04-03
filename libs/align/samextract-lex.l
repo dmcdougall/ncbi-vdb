@@ -129,15 +129,15 @@ opttag [A-Za-z][A-Za-z0-9]
 <INHD>"\tGO:" return HDGO;
 <INHD>\t[A-Z][A-Z]: { ERR("Undefined HD tag %s",yytext); yyterminate();}
 <INHD>[0-9]+\.[0-9]+ {
-    SAMlval.strval=strdup(yytext);
+    SAMlval.strval=pool_strdup(yytext);
     DBG(" header version");
     return VALUE; }
 <INHD>unknown|unsorted|queryname|coordinate {
-    SAMlval.strval=strdup(yytext);
+    SAMlval.strval=pool_strdup(yytext);
     DBG(" header SO");
     return VALUE; }
 <INHD>none|query|reference {
-    SAMlval.strval=strdup(yytext);
+    SAMlval.strval=pool_strdup(yytext);
     DBG(" header GO");
     return VALUE; }
 
@@ -157,7 +157,7 @@ opttag [A-Za-z][A-Za-z0-9]
 <INSQ>"\tUR:" { SAMlval.strval="UR"; return SQUR; }
 <INSQ>\t[A-Z][A-Z]: { ERR("Undefined SQ tag %s",yytext); yyterminate();}
 <INSQ>[^\t\r\n]+ {
-    SAMlval.strval=strdup(yytext);
+    SAMlval.strval=pool_strdup(yytext);
     DBG("SEQ VALUE");
     return VALUE;
 }
@@ -182,13 +182,13 @@ opttag [A-Za-z][A-Za-z0-9]
 <INRG>"\tPU:" { SAMlval.strval="PU"; return RGPU; }
 <INRG>"\tSM:" { SAMlval.strval="SM"; return RGSM; }
 <INRG>\t[A-Z][A-Z]: { ERR("Undefined RG tag:%s",yytext+1); yyterminate();}
-<INRG>"\tLNID:" { ERR("LNID Undefined RG tag"); yyterminate();}
+<INRG>"\tLNID:" { WARN("LNID is improper RG tag"); yyterminate();}
 <INRG>\t[^: -~]+: { ERR("Undefined long RG tag: %s",yytext+1); yyterminate();}
 <INRG>CAPILLARY|LS454|ILLUMINA|illumina|Illumina|SOLID|HELICOS|IONTORRENT|ONT|PACBIO {
-    SAMlval.strval=strdup(yytext);
+    SAMlval.strval=pool_strdup(yytext);
     return PLATFORM; }
 <INRG>[^\t\r\n]+ {
-    SAMlval.strval=strdup(yytext);
+    SAMlval.strval=pool_strdup(yytext);
     DBG("readgroup value:%s",yytext);
     return VALUE;
  }
@@ -209,10 +209,10 @@ opttag [A-Za-z][A-Za-z0-9]
 <INPG>\t[A-Z][A-Z]: { ERR("Undefined PG tag %s",yytext); yyterminate();}
 <INPG>\t[a-z_]{3,} {
     WARN("Not a PG tag:%s",yytext+1);
-    SAMlval.strval=strdup(yytext+1);
+    SAMlval.strval=pool_strdup(yytext+1);
     return VALUE; }
 <INPG>[^\t\r\n]+ {
-    SAMlval.strval=strdup(yytext);
+    SAMlval.strval=pool_strdup(yytext);
     DBG("program value:%s",yytext);
     return VALUE;
  }
@@ -225,57 +225,57 @@ opttag [A-Za-z][A-Za-z0-9]
  /* Alignments */
 <INITIAL>^{qname} {
     BEGIN ALIGNQNAME;
-    SAMlval.strval=strdup(yytext+1);
+    SAMlval.strval=pool_strdup(yytext+1);
     DBG(" alignment qname");
     return QNAME; }
 <ALIGNQNAME>\t{flag} {
     BEGIN ALIGNFLAG;
-    SAMlval.strval=strdup(yytext+1);
+    SAMlval.strval=pool_strdup(yytext+1);
     DBG(" alignment flag");
     return FLAG; }
 <ALIGNFLAG>\t{rname} {
     BEGIN ALIGNRNAME;
-    SAMlval.strval=strdup(yytext+1);
+    SAMlval.strval=pool_strdup(yytext+1);
     DBG(" alignment rname");
     return RNAME; }
 <ALIGNRNAME>\t{pos} {
     BEGIN ALIGNPOS;
-    SAMlval.strval=strdup(yytext+1);
+    SAMlval.strval=pool_strdup(yytext+1);
     DBG(" alignment pos");
     return POS; }
 <ALIGNPOS>\t{mapq} {
     BEGIN ALIGNMAPQ;
-    SAMlval.strval=strdup(yytext+1);
+    SAMlval.strval=pool_strdup(yytext+1);
     DBG(" alignment mapq");
     return MAPQ; }
 <ALIGNMAPQ>\t{cigar} {
     BEGIN ALIGNCIGAR;
-    SAMlval.strval=strdup(yytext+1);
+    SAMlval.strval=pool_strdup(yytext+1);
     DBG(" alignment cigar");
     return CIGAR; }
 <ALIGNCIGAR>\t{rnext} {
     BEGIN ALIGNRNEXT;
-    SAMlval.strval=strdup(yytext+1);
+    SAMlval.strval=pool_strdup(yytext+1);
     DBG(" alignment rnext");
     return RNEXT; }
 <ALIGNRNEXT>\t{pnext} {
     BEGIN ALIGNPNEXT;
-    SAMlval.strval=strdup(yytext+1);
+    SAMlval.strval=pool_strdup(yytext+1);
     DBG(" alignment pnext ");
     return PNEXT; }
 <ALIGNPNEXT>\t{tlen} {
     BEGIN ALIGNTLEN;
-    SAMlval.strval=strdup(yytext+1);
+    SAMlval.strval=pool_strdup(yytext+1);
     DBG(" alignment tlen");
     return TLEN; }
 <ALIGNTLEN>\t{seq} {
     BEGIN ALIGNSEQ;
-    SAMlval.strval=strdup(yytext+1);
+    SAMlval.strval=pool_strdup(yytext+1);
     DBG(" alignment seq");
     return SEQ; }
 <ALIGNSEQ>\t{qual} {
     BEGIN ALIGNOPT;
-    SAMlval.strval=strdup(yytext+1);
+    SAMlval.strval=pool_strdup(yytext+1);
     DBG(" alignment qual");
     return QUAL; }
 
@@ -283,32 +283,32 @@ opttag [A-Za-z][A-Za-z0-9]
  /* Reserved and Locally defined tags */
 <ALIGNOPT>\t(GC|GQ|GS|MF|SQ|X[A-Za-z0-9]|Y[A-Za-z0-9]|Z[A-Za-z0-9]) {
     BEGIN ALIGNOPTTYPE;
-    SAMlval.strval=strdup(yytext+1);
+    SAMlval.strval=pool_strdup(yytext+1);
     DBG(" alignment opt reserved");
     return OPTTAG; }
 
  /* Only types iZB have optioanl standardized tags */
 <ALIGNOPT>\t(AM|AS|CM|CP|FI|H0|H1|H2|HI|IH|MQ|NH|NM|OP|PQ|SM|TC|UQ) {
     BEGIN ALIGNOPTTYPE;
-    SAMlval.strval=strdup(yytext+1);
+    SAMlval.strval=pool_strdup(yytext+1);
     DBG(" alignment opt '%s'", SAMlval.strval);
     return OPTITAG; }
 
 <ALIGNOPT>\t(BC|BQ|CC|CO|CQ|CS|CT|E2|FS|LB|MC|MD|OC|OQ|PG|PT|PU|QT|Q2|R2|RG|RT|SZ|U2) {
     BEGIN ALIGNOPTTYPE;
-    SAMlval.strval=strdup(yytext+1);
+    SAMlval.strval=pool_strdup(yytext+1);
     DBG(" alignment opt '%s'", SAMlval.strval);
     return OPTZTAG; }
 
 <ALIGNOPT>\t(FZ) {
     BEGIN ALIGNOPTTYPE;
-    SAMlval.strval=strdup(yytext+1);
+    SAMlval.strval=pool_strdup(yytext+1);
     DBG(" alignment opt '%s'", SAMlval.strval);
     return OPTBTAG; }
 
 <ALIGNOPT>\t{opttag} {
     BEGIN ALIGNOPTTYPE;
-    SAMlval.strval=strdup(yytext+1);
+    SAMlval.strval=pool_strdup(yytext+1);
     DBG(" alignment opt '%s'", SAMlval.strval);
     return OPTTAG; }
 
@@ -339,27 +339,27 @@ opttag [A-Za-z][A-Za-z0-9]
 
 <ALIGNOPTAVALUE>[!-~] {
     BEGIN ALIGNOPT;
-    SAMlval.strval=strdup(yytext);
+    SAMlval.strval=pool_strdup(yytext);
     return OPTAVALUE; }
 <ALIGNOPTIVALUE>{integer} {
     BEGIN ALIGNOPT;
-    SAMlval.strval=strdup(yytext);
+    SAMlval.strval=pool_strdup(yytext);
     return OPTIVALUE; }
 <ALIGNOPTFVALUE>{float} {
     BEGIN ALIGNOPT;
-    SAMlval.strval=strdup(yytext);
+    SAMlval.strval=pool_strdup(yytext);
     return OPTFVALUE; }
 <ALIGNOPTZVALUE>[ -~]* {
     BEGIN ALIGNOPT;
-    SAMlval.strval=strdup(yytext);
+    SAMlval.strval=pool_strdup(yytext);
     return OPTZVALUE; }
 <ALIGNOPTHVALUE>([0-9A-Fa-f][0-9A-Fa-f])* {
     BEGIN ALIGNOPT;
-    SAMlval.strval=strdup(yytext);
+    SAMlval.strval=pool_strdup(yytext);
     return OPTHVALUE; }
 <ALIGNOPTBVALUE>cCsSiIf](,[-+]?[0-9]*\\.?[0-9]+(eE][-+]?[0-9]+)?)+ {
     BEGIN ALIGNOPT;
-    SAMlval.strval=strdup(yytext);
+    SAMlval.strval=pool_strdup(yytext);
     return OPTBVALUE; }
 
 

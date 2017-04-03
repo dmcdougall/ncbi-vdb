@@ -173,7 +173,9 @@ $(ILIBDIR)/libsam-extract: $(addprefix $(ILIBDIR)/libsam-extract.,$(LIBX))
 SAM_EXTRACT_SRC = \
      samextract-grammar \
      samextract-lex \
-     samextract-lib
+     samextract-lib \
+     samextract-bam \
+     samextract-pool
 
 SAM_EXTRACT_OBJ = \
 	$(addsuffix .$(LOBX),$(SAM_EXTRACT_SRC))

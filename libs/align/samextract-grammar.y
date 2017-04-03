@@ -183,15 +183,15 @@ headerlist:   hdr
 hdr: HDVN VALUE {
         state->hashdvn=true;
         process_header(state,"HD","VN",$2);
-        free($2); }
+        pool_free($2); }
    | HDSO VALUE {
         state->hashdso=true;
         process_header(state,"HD","SO",$2);
-        free($2); }
+        pool_free($2); }
    | HDGO VALUE {
         state->hashdgo=true;
         process_header(state,"HD","GO",$2);
-        free($2); }
+        pool_free($2); }
   | TAB TAB {
         ERR("two tabs"); /* TODO: Handle >2 tabs in a row */
         rc_t rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
@@ -228,7 +228,7 @@ sq:
       SQSN VALUE {
         state->hassqsn=true;
         process_header(state,"SQ",$1,$2);
-        free($2); }
+        pool_free($2); }
     | SQLN VALUE {
         if (!inrange($2,1,INT32_MAX))
         {
@@ -238,21 +238,21 @@ sq:
         }
         state->hassqln=true;
         process_header(state,"SQ",$1,$2);
-        free($2); }
+        pool_free($2); }
     | SQAS VALUE {
         process_header(state,"SQ",$1,$2);
-        free($2); }
+        pool_free($2); }
     | SQM5 VALUE {
         if (!ismd5($2))
             WARN("M5 value not followed by MD5");
         process_header(state,"SQ",$1,$2);
-        free($2); }
+        pool_free($2); }
     | SQSP VALUE {
         process_header(state,"SQ",$1,$2);
-        free($2); }
+        pool_free($2); }
     | SQUR VALUE {
         process_header(state,"SQ",$1,$2);
-        free($2); }
+        pool_free($2); }
     | TAB { WARN("Unexpected tab in sequence"); }
     ;
 
@@ -277,25 +277,25 @@ pg:
       PGID VALUE {
         state->haspgid=true;
         process_header(state,"PG",$1,$2);
-        free($2); }
+        pool_free($2); }
     | PGPN VALUE {
         process_header(state,"PG",$1,$2);
-        free($2); }
+        pool_free($2); }
     | PGCL VALUE {
         process_header(state,"PG",$1,$2);
-        free($2); }
+        pool_free($2); }
     | PGPP VALUE {
         process_header(state,"PG",$1,$2);
-        free($2); }
+        pool_free($2); }
     | PGDS VALUE {
         process_header(state,"PG",$1,$2);
-        free($2); }
+        pool_free($2); }
     | PGVN VALUE {
         process_header(state,"PG",$1,$2);
-        free($2); }
+        pool_free($2); }
     | VALUE {
         WARN("Bogus value in PG:%s",$1);
-        free($1); }
+        pool_free($1); }
     ;
 
 
@@ -320,53 +320,53 @@ readgrouplist:   rg
 rg:  RGID VALUE {
         state->hasrgid=true;
         process_header(state,"RG",$1,$2);
-        free($2); }
+        pool_free($2); }
    | RGCN VALUE {
         process_header(state,"RG",$1,$2);
-        free($2); }
+        pool_free($2); }
    | RGDS VALUE {
         process_header(state,"RG",$1,$2);
-        free($2); }
+        pool_free($2); }
    | RGDT VALUE {
         process_header(state,"RG",$1,$2);
-        free($2); }
+        pool_free($2); }
    | RGFO VALUE {
         if (!isfloworder($2))
             WARN("Flow order incorrec");
         process_header(state,"RG",$1,$2);
-        free($2); }
+        pool_free($2); }
    | RGKS VALUE {
         process_header(state,"RG",$1,$2);
-        free($2); }
+        pool_free($2); }
    | RGLB VALUE {
         process_header(state,"RG",$1,$2);
-        free($2); }
+        pool_free($2); }
    | RGPG VALUE {
         process_header(state,"RG",$1,$2);
-        free($2); }
+        pool_free($2); }
    | RGPI VALUE {
         process_header(state,"RG",$1,$2);
-        free($2); }
+        pool_free($2); }
    | RGPL PLATFORM {
         process_header(state,"RG",$1,$2);
-        free($2); }
+        pool_free($2); }
    | RGPL VALUE {
         ERR("Invalid Platform %s", $2);
         process_header(state,"RG",$1,$2);
-        free($2); }
+        pool_free($2); }
    | RGPM VALUE {
         process_header(state,"RG",$1,$2);
-        free($2); }
+        pool_free($2); }
    | RGPU VALUE {
         process_header(state,"RG",$1,$2);
-        free($2); }
+        pool_free($2); }
    | RGSM VALUE {
         process_header(state,"RG",$1,$2);
-        free($2); }
+        pool_free($2); }
    | VALUE VALUE {
         WARN("Unknown readgroup (RG) tag:%s", $1);
-        free($1);
-        free($2);
+        pool_free($1);
+        pool_free($2);
         }
    | TAB TAB {
         ERR("two tabs"); /* TODO: Handle >2 tabs in a row */
@@ -386,32 +386,32 @@ alignment:
      {
         DBG("alignment record");
         process_alignment(state,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11);
-        free($1);
-        free($2);
-        free($3);
-        free($4);
-        free($5);
-        free($6);
-        free($7);
-        free($8);
-        free($9);
-        free($10);
-        free($11); }
+        pool_free($1);
+        pool_free($2);
+        pool_free($3);
+        pool_free($4);
+        pool_free($5);
+        pool_free($6);
+        pool_free($7);
+        pool_free($8);
+        pool_free($9);
+        pool_free($10);
+        pool_free($11); }
      | QNAME FLAG RNAME POS MAPQ CIGAR RNEXT PNEXT TLEN SEQ QUAL optlist EOL
     {
         DBG("alignment record with optional tags");
         process_alignment(state,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11);
-        free($1);
-        free($2);
-        free($3);
-        free($4);
-        free($5);
-        free($6);
-        free($7);
-        free($8);
-        free($9);
-        free($10);
-        free($11); }
+        pool_free($1);
+        pool_free($2);
+        pool_free($3);
+        pool_free($4);
+        pool_free($5);
+        pool_free($6);
+        pool_free($7);
+        pool_free($8);
+        pool_free($9);
+        pool_free($10);
+        pool_free($11); }
     ;
 
 optlist: opt { DBG("opt"); }
@@ -422,48 +422,48 @@ opt:
     OPTTAG OPTATYPE OPTAVALUE
     {
         DBG("?AA");
-        free($1);
-        free($3); }
+        pool_free($1);
+        pool_free($3); }
     | OPTTAG OPTITYPE OPTIVALUE
     {
         DBG("?II");
-        free($1);
-        free($3); }
+        pool_free($1);
+        pool_free($3); }
     | OPTTAG OPTFTYPE OPTFVALUE
     {
         DBG("?FF");
-        free($1);
-        free($3); }
+        pool_free($1);
+        pool_free($3); }
     | OPTTAG OPTZTYPE OPTZVALUE
     {
         DBG("?ZZ");
-        free($1);
-        free($3); }
+        pool_free($1);
+        pool_free($3); }
     | OPTTAG OPTHTYPE OPTHVALUE
     {
         DBG("?HH");
-        free($1);
-        free($3); }
+        pool_free($1);
+        pool_free($3); }
     | OPTTAG OPTBTYPE OPTBVALUE
     {
         DBG("?BB");
-        free($1);
-        free($3); }
+        pool_free($1);
+        pool_free($3); }
     | OPTITAG OPTITYPE OPTIVALUE
     {
         DBG("III");
-        free($1);
-        free($3); }
+        pool_free($1);
+        pool_free($3); }
     | OPTZTAG OPTZTYPE OPTZVALUE
     {
         DBG("ZZZ");
-        free($1);
-        free($3); }
+        pool_free($1);
+        pool_free($3); }
     | OPTBTAG OPTBTYPE OPTBVALUE
     {
         DBG("BBB");
-        free($1);
-        free($3); }
+        pool_free($1);
+        pool_free($3); }
     ;
 
 %%
