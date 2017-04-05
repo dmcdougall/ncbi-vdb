@@ -86,9 +86,10 @@ extern "C" {
 
     void pool_init(void);
     void pool_release(void);
+    void pool_free(void *);
     void * pool_alloc(size_t sz);
     char * pool_strdup(const char * str);
-    void pool_free(void *);
+    rc_t threadinflate(Extractor * state);
 #ifdef __cplusplus
 }
 #endif

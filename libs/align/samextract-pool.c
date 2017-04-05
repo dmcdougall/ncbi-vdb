@@ -36,7 +36,6 @@ const size_t BLOCK_SZ=2 * 1024 * 1024;
 Vector allocs;
 
 void * cur_block=NULL;
-//size_t prev_size=0;
 size_t cur_block_remain;
 
 static void morecore(size_t sz)
@@ -50,7 +49,6 @@ static void morecore(size_t sz)
 
     VectorAppend(&allocs,NULL,cur_block);
     DBG("morecore %p", cur_block);
-//    prev_size=0;
 }
 
 void pool_init(void)
@@ -81,13 +79,13 @@ void pool_release(void)
 
 void pool_free(void * buf)
 {
-    // Could reclaim previous allocation only
+    /* Could conceivably reclaim last allocation */
     return;
 }
 
 void * pool_alloc(size_t sz)
 {
-    if (sz % 8 != 0) sz += 8-(sz % 8); // Round up for better alignment
+    if (sz % 8 != 0) sz += 8-(sz % 8); // Round up for alignment
     if (sz > cur_block_remain)
         morecore(MAX(sz,BLOCK_SZ));
 
@@ -98,11 +96,10 @@ void * pool_alloc(size_t sz)
     return buf;
 }
 
-inline char * pool_strdup(const char * str)
+char * pool_strdup(const char * str)
 {
     size_t len=strlen(str)+1;
     void * buf=pool_alloc(len);
     memmove(buf,str,len);
     return (char *)buf;
 }
-
