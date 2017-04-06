@@ -108,10 +108,9 @@ extern int SAMdebug;
     SQM5 = 317,
     SQSP = 318,
     SQUR = 319,
-    COLON = 320,
-    TAB = 321,
-    CONTROLCHAR = 322,
-    EOL = 323
+    TAB = 320,
+    CONTROLCHAR = 321,
+    EOL = 322
   };
 #endif
 
@@ -124,7 +123,7 @@ union YYSTYPE
 
  char * strval;
 
-#line 128 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-tokens.h" /* yacc.c:1909  */
+#line 127 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-tokens.h" /* yacc.c:1909  */
 };
 
 typedef union YYSTYPE YYSTYPE;

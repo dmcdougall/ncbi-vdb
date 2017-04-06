@@ -85,7 +85,7 @@ void pool_free(void * buf)
 
 void * pool_alloc(size_t sz)
 {
-    if (sz % 8 != 0) sz += 8-(sz % 8); // Round up for alignment
+    if (sz % 8 != 0) sz += 8-(sz % 8); /* Round up for alignment */
     if (sz > cur_block_remain)
         morecore(MAX(sz,BLOCK_SZ));
 
@@ -103,3 +103,11 @@ char * pool_strdup(const char * str)
     memmove(buf,str,len);
     return (char *)buf;
 }
+
+char * pool_memdup(const char * str, size_t len)
+{
+    void * buf=pool_alloc(len);
+    memmove(buf,str,len);
+    return (char *)buf;
+}
+

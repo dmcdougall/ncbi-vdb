@@ -89,11 +89,12 @@ extern "C" {
     void pool_free(void *);
     void * pool_alloc(size_t sz);
     char * pool_strdup(const char * str);
+    char * pool_memdup(const char * str, size_t len);
     rc_t threadinflate(Extractor * state);
 #ifdef __cplusplus
 }
 #endif
-    void samload(char const path[]);
+void samload(char const path[]);
 
 #ifndef DEBUG
 #define DEBUG 0

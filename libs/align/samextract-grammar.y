@@ -123,14 +123,12 @@
 %token <strval> SQSP
 %token <strval> SQUR
 
-%token COLON
 %token TAB
-%token CONTROLCHAR
+%token <strval> CONTROLCHAR
 %token EOL
 %token END 0 "end of file"
 
-%expect 2
- /* TODO, two shift-reduce conflicts? */
+%expect 0
 %%
 
  /* Bison grammar rules */
@@ -141,7 +139,7 @@ sam: /* beginning of input */
 
 line:
     EOL /* Spec is unclear about empty lines, accept for now */
-   | CONTROLCHAR { ERR("CONTROLCHAR");
+   | CONTROLCHAR { ERR("CONTROLCHAR %d", $1[0]);
                    rc_t rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
                    state->rc=rc;
    }
@@ -192,10 +190,13 @@ hdr: HDVN VALUE {
         state->hashdgo=true;
         process_header(state,"HD","GO",$2);
         pool_free($2); }
+        /* TODO: Handle >2 tabs in a row */
+        /*
   | TAB TAB {
-        ERR("two tabs"); /* TODO: Handle >2 tabs in a row */
+        ERR("two tabs");
         rc_t rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
         state->rc=rc; }
+        */
   | TAB { WARN("empty tags"); }
   ;
 
@@ -368,10 +369,6 @@ rg:  RGID VALUE {
         pool_free($1);
         pool_free($2);
         }
-   | TAB TAB {
-        ERR("two tabs"); /* TODO: Handle >2 tabs in a row */
-        rc_t rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
-        state->rc=rc; }
    | TAB TAB EOL {
         ERR("empty tags");
         rc_t rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);

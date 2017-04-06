@@ -98,14 +98,14 @@ rc_t CC KMain(int argc, char *argv[])
         {
             Header * hdr=(Header *)VectorGet(&headers,i);
             Vector * tvs=&hdr->tagvalues;
-//            fprintf(stderr,"\tHeader%d: %s\n", i, hdr->headercode);
+            //            fprintf(stderr,"\tHeader%d: %s\n", i, hdr->headercode);
             for (uint32_t j=0; j!=VectorLength(tvs); ++j)
             {
                 TagValue * tv=(TagValue *)VectorGet(tvs,j);
 
-//                fprintf(stderr,"\t\t%d\t%s %s\n", j, tv->tag, tv->value);
+                //                fprintf(stderr,"\t\t%d\t%s %s\n", j, tv->tag, tv->value);
             }
-        // Do stuff with headers
+            // Do stuff with headers
         }
         SAMExtractorInvalidateHeaders(extractor);
 
@@ -120,15 +120,15 @@ rc_t CC KMain(int argc, char *argv[])
             if (rc) { fprintf(stderr,"GetAligned returned rc\n"); return rc; }
             vlen=VectorLength(&alignments);
             total+=vlen;
-//            fprintf(stderr,"\n\nReturned %d alignments\n",vlen);
+            //            fprintf(stderr,"\n\nReturned %d alignments\n",vlen);
             for (uint32_t i=0; i!=vlen; ++i)
             {
                 Alignment * align=(Alignment *)VectorGet(&alignments,i);
 
-//                fprintf(stderr,"\tAlignment%2d: %s\n", i, align->read);
-            // Do stuff with headers
+                //                fprintf(stderr,"\tAlignment%2d: %s\n", i, align->read);
+                // Do stuff with headers
             }
-//            fprintf(stderr,"\n");
+            //            fprintf(stderr,"\n");
             SAMExtractorInvalidateAlignments(extractor);
         } while (vlen);
 

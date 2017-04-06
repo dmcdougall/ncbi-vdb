@@ -50,7 +50,7 @@
 #include <align/samextract-lib.h>
 #include <stdint.h>
 
-// TODO: Put into struct
+// TODO: Put these into struct
 static const ssize_t READBUF_SZ=65536;
 static char readbuf[READBUF_SZ+1];
 static size_t readbuf_sz=0;
@@ -58,7 +58,7 @@ static size_t readbuf_pos=0;
 
 static char curline[READBUF_SZ+1];
 static size_t curline_len=0;
-static uint64_t pos=0;
+static uint64_t file_pos=0;
 
 class chunkview
 {
@@ -210,23 +210,10 @@ void logmsg (const char * fname, int line, const char * func, const char * sever
     if (!strcmp(severity,"Error")) abort();
 }
 
-
-rc_t SAM_parseline(Extractor * state, const char * str, size_t size)
+rc_t SAM_parseline(Extractor * state)
 {
     state->rc=0;
-    if (size>=READBUF_SZ)
-    {
-        ERR("Line too long");
-        rc_t rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
-        state->rc=rc;
-        return rc;
-    }
-
-    memmove(curline,str,size);
-    curline[size]='\0';
-    curline_len=size;
-    if (size!=strlen(curline)) WARN("mismatch %d %d", size, strlen(curline));
-    DBG("Parsing line (%d bytes): '%s'", size, curline);
+    DBG("Parsing line (%d bytes): '%s'", strlen(curline), curline);
     SAMparse(state);
     return state->rc;
 }
@@ -236,7 +223,7 @@ int moredata(char * buf, int * numbytes, size_t maxbytes)
     if (!curline_len)
         DBG("nomoredata");
     else
-        DBG("  moredata %p %d\nline:'%s'", buf, maxbytes, curline);
+        DBG("  moredata %p %d\ncurline:'%s'", buf, maxbytes, curline);
     memmove(buf,curline,curline_len);
     *numbytes=curline_len;
     curline_len=0;
@@ -248,9 +235,9 @@ static inline rc_t readfile(Extractor * state)
     if (readbuf_pos == readbuf_sz)
     {
         readbuf_sz=READBUF_SZ;
-        DBG("reading in at %d",pos);
-        rc_t rc=KFileReadAll(state->infile, pos, readbuf, readbuf_sz, &readbuf_sz);
-        pos+=readbuf_sz;
+        DBG("reading in at %d",file_pos);
+        rc_t rc=KFileReadAll(state->infile, file_pos, readbuf, readbuf_sz, &readbuf_sz);
+        file_pos+=readbuf_sz;
         if (rc) { ERR("readfile error"); return rc;}
         DBG("Read in %d",readbuf_sz);
         readbuf_pos=0;
@@ -264,7 +251,7 @@ static inline rc_t readfile(Extractor * state)
 
 void SAMerror(Extractor * state, const char * s)
 {
-    ERR(" Parsing error: %s\nLine was:%s",s, curline);
+    ERR(" Parsing error: %s\nLine was:'%s'",s, curline);
     rc_t rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
     state->rc=rc;
     abort();
@@ -444,14 +431,60 @@ rc_t process_alignment(Extractor * state, const char * qname,const char * flag,c
     return 0;
 }
 
+// Reads next line into curline, returns false if file complete.
+static bool readline(Extractor * s)
+{
+    DBG("readline");
+    if (readfile(s)) return false;
+    char * line=curline;
+    line[0]='\0';
+    curline_len=0;
+    // Is there a newline in current buffer?
+    char * nl=(char *)memchr( (readbuf+readbuf_pos), '\n', (readbuf_sz-readbuf_pos) );
+    if (nl)
+    {
+        nl+=1;
+        size_t len=nl - (readbuf+readbuf_pos);
+        memmove(line, readbuf+readbuf_pos, len);
+        curline_len+=len;
+        readbuf_pos+=len;
+        line[curline_len+1]='\0';
+        return true;
+    }
+
+    // Nope, append and get more
+    size_t len=(readbuf_sz - readbuf_pos);
+    DBG("readline more %d/%d", readbuf_pos, len);
+    memmove(line, readbuf+readbuf_pos, len);
+    DBG("moreline was %d '%s'", strlen(line), line);
+    line+=len;
+    curline_len+=len;
+
+    readbuf_pos=readbuf_sz;
+    if (readfile(s)) return false;
+
+    // Better be a newline now
+    nl=(char *)memchr(readbuf, '\n', readbuf_sz);
+    if (!nl)
+    {
+        return false;
+    }
+    DBG("found newline at %d", nl-readbuf);
+    nl+=1;
+    len=(nl - readbuf);
+    memmove(line, readbuf, len);
+    curline_len+=len;
+    readbuf_pos+=len;
+    line[curline_len+1]='\0';
+    DBG("moreline  is %d %d '%s'", curline_len, strlen(line), line);
+
+    return true;
+}
+
 LIB_EXPORT rc_t CC SAMExtractorMake(Extractor **state, const KFile * fin, int32_t num_threads=-1)
 {
     Extractor * s=(Extractor *)calloc(1,sizeof(*s));
     *state=s;
-
-    //        s->readbuf=NULL;
-    //        s->readbuf_sz=0;
-    //        s->readbuf_cur=NULL;
 
     VectorInit(&s->headers,0,0);
     VectorInit(&s->alignments,0,0);
@@ -521,38 +554,17 @@ LIB_EXPORT rc_t CC SAMExtractorGetHeaders(Extractor *s, Vector *headers)
         // TODO: Move to function
         DBG("SAM file");
 
-        char line[READBUF_SZ];
-        while (1)
+        while (readline(s))
         {
-            char * p=line;
-            while (1)
-            {
-                readfile(s);
-                if (!readbuf_sz) break;
-                *p=readbuf[readbuf_pos];
-                ++readbuf_pos;
-                if (*p=='\n') break;
-                ++p;
-                if (p - line > READBUF_SZ)
-                {
-                    WARN("Line too long");
-                    break;
-                }
-            }
-            if (!readbuf_sz) break;
-            ++p;
-            *p='\0';
+            rc=SAM_parseline(s);
+            if (rc) return rc;
 
-            if (line[0]!='@')
+            if (curline[0]!='@')
             {
                 // First line of alignments will be processed
                 DBG("out of headers");
                 break;
             }
-
-            size_t linesize=p - line;
-            rc=SAM_parseline(s, line, linesize);
-            if (rc) return rc;
         }
         DBG("Done parsing headers");
     }
@@ -604,41 +616,16 @@ LIB_EXPORT rc_t CC SAMExtractorGetAlignments(Extractor *s, Vector *alignments)
 
     while (VectorLength(&s->alignments) < 20)
     {
-        char line[READBUF_SZ];
-        char * p=line;
-        DBG("reading line %d", readbuf_pos);
-        while (1)
-        {
-            readfile(s);
-            if (!readbuf_sz) break;
-            *p=readbuf[readbuf_pos];
-            ++readbuf_pos;
-            if (*p=='\n') break;
-            if (*p=='\0') WARN("NULL read %d", readbuf_pos);
-            ++p;
-            if (p - line > READBUF_SZ)
-            {
-                WARN("Line too long");
-                break;
-            }
-        }
-        if (!readbuf_sz) break;
-        if (p==line) WARN("empty line");
-        if (*p!='\n') WARN("Not eol");
-        ++p;
-        *p='\0';
+        if (!readline(s)) break;
 
-        if (line[0]=='@')
+        if (curline[0]=='@')
         {
             ERR("header restarted");
             break;
         }
 
-        size_t linesize=p - line;
-        DBG("linesize is %d %d %p %p", linesize, strlen(line), p, line);
-        rc=SAM_parseline(s, line, linesize);
+        rc=SAM_parseline(s);
         if (rc) return rc;
-
     }
 
     DBG("Done parsing %d alignments", VectorLength(&s->alignments));
