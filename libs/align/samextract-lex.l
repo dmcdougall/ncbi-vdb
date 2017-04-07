@@ -285,33 +285,33 @@ opttag [A-Za-z][A-Za-z0-9]
  /* Reserved and Locally defined tags */
 <ALIGNOPT>\t(GC|GQ|GS|MF|SQ|X[A-Za-z0-9]|Y[A-Za-z0-9]|Z[A-Za-z0-9]) {
     BEGIN ALIGNOPTTYPE;
-    SAMlval.strval=pool_memdup(SAMtext+1, SAMleng);
+    SAMlval.strval=pool_memdup(SAMtext+1, 3);
     DBG(" alignment opt reserved");
     return OPTTAG; }
 
  /* Only types iZB have optioanl standardized tags */
 <ALIGNOPT>\t(AM|AS|CM|CP|FI|H0|H1|H2|HI|IH|MQ|NH|NM|OP|PQ|SM|TC|UQ) {
     BEGIN ALIGNOPTTYPE;
-    SAMlval.strval=pool_memdup(SAMtext+1, SAMleng);
+    SAMlval.strval=pool_memdup(SAMtext+1, 3);
     DBG(" alignment opt '%s'", SAMlval.strval);
     return OPTITAG; }
 
 <ALIGNOPT>\t(BC|BQ|CC|CO|CQ|CS|CT|E2|FS|LB|MC|MD|OC|OQ|PG|PT|PU|QT|Q2|R2|RG|RT|SZ|U2) {
     BEGIN ALIGNOPTTYPE;
     DBG(" alignment opt %d '%s'", SAMleng+1, SAMtext);
-    SAMlval.strval=pool_memdup(SAMtext+1, SAMleng);
+    SAMlval.strval=pool_memdup(SAMtext+1, 3);
     DBG(" alignment opt '%s'", SAMlval.strval);
     return OPTZTAG; }
 
 <ALIGNOPT>\t(FZ) {
     BEGIN ALIGNOPTTYPE;
-    SAMlval.strval=pool_memdup(SAMtext+1, SAMleng);
+    SAMlval.strval=pool_memdup(SAMtext+1, 3);
     DBG(" alignment opt '%s'", SAMlval.strval);
     return OPTBTAG; }
 
 <ALIGNOPT>\t{opttag} {
     BEGIN ALIGNOPTTYPE;
-    SAMlval.strval=pool_memdup(SAMtext+1, SAMleng);
+    SAMlval.strval=pool_memdup(SAMtext+1, 3);
     DBG(" alignment opt '%s'", SAMlval.strval);
     return OPTTAG; }
 
@@ -342,7 +342,7 @@ opttag [A-Za-z][A-Za-z0-9]
 
 <ALIGNOPTAVALUE>[!-~] {
     BEGIN ALIGNOPT;
-    SAMlval.strval=pool_memdup(SAMtext,SAMleng+1);
+    SAMlval.strval=pool_memdup(SAMtext,2);
     return OPTAVALUE; }
 <ALIGNOPTIVALUE>{integer} {
     BEGIN ALIGNOPT;
