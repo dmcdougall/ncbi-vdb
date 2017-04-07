@@ -522,6 +522,8 @@ LIB_EXPORT rc_t CC SAMExtractorRelease(Extractor *s)
 
     VectorWhack(&s->headers,NULL,NULL);
 
+    pool_release();
+
     memset(s,0,sizeof(Extractor));
     free(s);
 
@@ -600,6 +602,7 @@ LIB_EXPORT rc_t CC SAMExtractorInvalidateHeaders(Extractor *s)
         hdr=NULL;
     }
     pool_release();
+    pool_init();
     VectorWhack(&s->headers,NULL,NULL);
     VectorWhack(&s->tagvalues,NULL,NULL);
     VectorWhack(s->prev_headers,NULL,NULL);
@@ -643,6 +646,7 @@ LIB_EXPORT rc_t CC SAMExtractorInvalidateAlignments(Extractor *s)
 {
     DBG("invalidate_alignments");
     pool_release();
+    pool_init();
     VectorWhack(&s->alignments,NULL,NULL);
     VectorWhack(s->prev_aligns,NULL,NULL);
     s->prev_aligns=NULL;

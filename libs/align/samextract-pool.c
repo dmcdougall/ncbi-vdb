@@ -63,6 +63,9 @@ void pool_init(void)
 
 void pool_release(void)
 {
+    if (!cur_block)
+        WARN("Pool double release");
+
     DBG("pool_release");
     DBG("pool used %d", BLOCK_SZ-cur_block_remain);
     DBG("pools:%d", VectorLength(&allocs));
@@ -74,7 +77,6 @@ void pool_release(void)
 
     VectorWhack(&allocs,NULL,NULL);
     cur_block=NULL;
-    pool_init();
 }
 
 void pool_free(void * buf)

@@ -12871,7 +12871,7 @@ case 1:
 YY_RULE_SETUP
 #line 117 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 {
-    SAMlval.strval=pool_memdup(SAMtext,SAMleng);
+    SAMlval.strval=pool_memdup(SAMtext,SAMleng+1);
     DBG("CONTROLCHAR %d",yytext[0]);
     return CONTROLCHAR; }
 	YY_BREAK
@@ -12920,7 +12920,7 @@ case 9:
 YY_RULE_SETUP
 #line 134 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 {
-    SAMlval.strval=pool_memdup(SAMtext,SAMleng);
+    SAMlval.strval=pool_memdup(SAMtext,SAMleng+1);
     DBG(" header version");
     return VALUE; }
 	YY_BREAK
@@ -12928,7 +12928,7 @@ case 10:
 YY_RULE_SETUP
 #line 138 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 {
-    SAMlval.strval=pool_memdup(SAMtext,SAMleng);
+    SAMlval.strval=pool_memdup(SAMtext,SAMleng+1);
     DBG(" header SO");
     return VALUE; }
 	YY_BREAK
@@ -12936,7 +12936,7 @@ case 11:
 YY_RULE_SETUP
 #line 142 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 {
-    SAMlval.strval=pool_memdup(SAMtext,SAMleng);
+    SAMlval.strval=pool_memdup(SAMtext,SAMleng+1);
     DBG(" header GO");
     return VALUE; }
 	YY_BREAK
@@ -12994,7 +12994,7 @@ case 21:
 YY_RULE_SETUP
 #line 162 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 {
-    SAMlval.strval=pool_memdup(SAMtext,SAMleng);
+    SAMlval.strval=pool_memdup(SAMtext,SAMleng+1);
     DBG("SEQ VALUE");
     return VALUE;
 }
@@ -13094,14 +13094,14 @@ case 39:
 YY_RULE_SETUP
 #line 190 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 {
-    SAMlval.strval=pool_memdup(SAMtext,SAMleng);
+    SAMlval.strval=pool_memdup(SAMtext,SAMleng+1);
     return PLATFORM; }
 	YY_BREAK
 case 40:
 YY_RULE_SETUP
 #line 193 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 {
-    SAMlval.strval=pool_memdup(SAMtext,SAMleng);
+    SAMlval.strval=pool_memdup(SAMtext,SAMleng+1);
     DBG("readgroup value:%s",yytext);
     return VALUE;
  }
@@ -13156,14 +13156,14 @@ YY_RULE_SETUP
 #line 213 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 {
     WARN("Not a PG tag:%s",yytext+1);
-    SAMlval.strval=pool_memdup(SAMtext+1,SAMleng);
+    SAMlval.strval=pool_memdup(SAMtext+1, SAMleng);
     return VALUE; }
 	YY_BREAK
 case 50:
 YY_RULE_SETUP
 #line 217 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 {
-    SAMlval.strval=pool_memdup(SAMtext,SAMleng);
+    SAMlval.strval=pool_memdup(SAMtext,SAMleng+1);
     DBG("program value:%s",yytext);
     return VALUE;
  }
@@ -13181,7 +13181,7 @@ YY_RULE_SETUP
 #line 229 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 {
     BEGIN ALIGNQNAME;
-    SAMlval.strval=pool_memdup(SAMtext+1,SAMleng);
+    SAMlval.strval=pool_memdup(SAMtext+1, SAMleng);
     DBG(" alignment qname");
     return QNAME; }
 	YY_BREAK
@@ -13190,7 +13190,7 @@ YY_RULE_SETUP
 #line 234 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 {
     BEGIN ALIGNFLAG;
-    SAMlval.strval=pool_memdup(SAMtext+1,SAMleng);
+    SAMlval.strval=pool_memdup(SAMtext+1, SAMleng);
     DBG(" alignment flag");
     return FLAG; }
 	YY_BREAK
@@ -13199,7 +13199,7 @@ YY_RULE_SETUP
 #line 239 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 {
     BEGIN ALIGNRNAME;
-    SAMlval.strval=pool_memdup(SAMtext+1,SAMleng);
+    SAMlval.strval=pool_memdup(SAMtext+1, SAMleng);
     DBG(" alignment rname");
     return RNAME; }
 	YY_BREAK
@@ -13208,7 +13208,7 @@ YY_RULE_SETUP
 #line 244 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 {
     BEGIN ALIGNPOS;
-    SAMlval.strval=pool_memdup(SAMtext+1,SAMleng);
+    SAMlval.strval=pool_memdup(SAMtext+1, SAMleng);
     DBG(" alignment pos");
     return POS; }
 	YY_BREAK
@@ -13217,7 +13217,7 @@ YY_RULE_SETUP
 #line 249 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 {
     BEGIN ALIGNMAPQ;
-    SAMlval.strval=pool_memdup(SAMtext+1,SAMleng);
+    SAMlval.strval=pool_memdup(SAMtext+1, SAMleng);
     DBG(" alignment mapq");
     return MAPQ; }
 	YY_BREAK
@@ -13226,7 +13226,7 @@ YY_RULE_SETUP
 #line 254 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 {
     BEGIN ALIGNCIGAR;
-    SAMlval.strval=pool_memdup(SAMtext+1,SAMleng);
+    SAMlval.strval=pool_memdup(SAMtext+1, SAMleng);
     DBG(" alignment cigar");
     return CIGAR; }
 	YY_BREAK
@@ -13235,7 +13235,7 @@ YY_RULE_SETUP
 #line 259 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 {
     BEGIN ALIGNRNEXT;
-    SAMlval.strval=pool_memdup(SAMtext+1,SAMleng);
+    SAMlval.strval=pool_memdup(SAMtext+1, SAMleng);
     DBG(" alignment rnext");
     return RNEXT; }
 	YY_BREAK
@@ -13244,7 +13244,7 @@ YY_RULE_SETUP
 #line 264 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 {
     BEGIN ALIGNPNEXT;
-    SAMlval.strval=pool_memdup(SAMtext+1,SAMleng);
+    SAMlval.strval=pool_memdup(SAMtext+1, SAMleng);
     DBG(" alignment pnext ");
     return PNEXT; }
 	YY_BREAK
@@ -13253,7 +13253,7 @@ YY_RULE_SETUP
 #line 269 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 {
     BEGIN ALIGNTLEN;
-    SAMlval.strval=pool_memdup(SAMtext+1,SAMleng);
+    SAMlval.strval=pool_memdup(SAMtext+1, SAMleng);
     DBG(" alignment tlen");
     return TLEN; }
 	YY_BREAK
@@ -13262,7 +13262,7 @@ YY_RULE_SETUP
 #line 274 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 {
     BEGIN ALIGNSEQ;
-    SAMlval.strval=pool_memdup(SAMtext+1,SAMleng);
+    SAMlval.strval=pool_memdup(SAMtext+1, SAMleng);
     DBG(" alignment seq");
     return SEQ; }
 	YY_BREAK
@@ -13271,7 +13271,7 @@ YY_RULE_SETUP
 #line 279 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 {
     BEGIN ALIGNOPT;
-    SAMlval.strval=pool_memdup(SAMtext+1,SAMleng);
+    SAMlval.strval=pool_memdup(SAMtext+1, SAMleng);
     DBG(" alignment qual");
     return QUAL; }
 	YY_BREAK
@@ -13282,7 +13282,7 @@ YY_RULE_SETUP
 #line 287 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 {
     BEGIN ALIGNOPTTYPE;
-    SAMlval.strval=pool_memdup(SAMtext+1,SAMleng);
+    SAMlval.strval=pool_memdup(SAMtext+1, SAMleng);
     DBG(" alignment opt reserved");
     return OPTTAG; }
 	YY_BREAK
@@ -13292,7 +13292,7 @@ YY_RULE_SETUP
 #line 294 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 {
     BEGIN ALIGNOPTTYPE;
-    SAMlval.strval=pool_memdup(SAMtext+1,SAMleng);
+    SAMlval.strval=pool_memdup(SAMtext+1, SAMleng);
     DBG(" alignment opt '%s'", SAMlval.strval);
     return OPTITAG; }
 	YY_BREAK
@@ -13301,8 +13301,8 @@ YY_RULE_SETUP
 #line 300 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 {
     BEGIN ALIGNOPTTYPE;
-    DBG(" alignment opt %d '%s'", SAMleng, SAMtext);
-    SAMlval.strval=pool_memdup(SAMtext+1,SAMleng);
+    DBG(" alignment opt %d '%s'", SAMleng+1, SAMtext);
+    SAMlval.strval=pool_memdup(SAMtext+1, SAMleng);
     DBG(" alignment opt '%s'", SAMlval.strval);
     return OPTZTAG; }
 	YY_BREAK
@@ -13311,7 +13311,7 @@ YY_RULE_SETUP
 #line 307 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 {
     BEGIN ALIGNOPTTYPE;
-    SAMlval.strval=pool_memdup(SAMtext+1,SAMleng);
+    SAMlval.strval=pool_memdup(SAMtext+1, SAMleng);
     DBG(" alignment opt '%s'", SAMlval.strval);
     return OPTBTAG; }
 	YY_BREAK
@@ -13320,7 +13320,7 @@ YY_RULE_SETUP
 #line 313 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 {
     BEGIN ALIGNOPTTYPE;
-    SAMlval.strval=pool_memdup(SAMtext+1,SAMleng);
+    SAMlval.strval=pool_memdup(SAMtext+1, SAMleng);
     DBG(" alignment opt '%s'", SAMlval.strval);
     return OPTTAG; }
 	YY_BREAK
@@ -13377,7 +13377,7 @@ YY_RULE_SETUP
 #line 344 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 {
     BEGIN ALIGNOPT;
-    SAMlval.strval=pool_memdup(SAMtext,SAMleng);
+    SAMlval.strval=pool_memdup(SAMtext,SAMleng+1);
     return OPTAVALUE; }
 	YY_BREAK
 case 75:
@@ -13385,7 +13385,7 @@ YY_RULE_SETUP
 #line 348 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 {
     BEGIN ALIGNOPT;
-    SAMlval.strval=pool_memdup(SAMtext,SAMleng);
+    SAMlval.strval=pool_memdup(SAMtext,SAMleng+1);
     return OPTIVALUE; }
 	YY_BREAK
 case 76:
@@ -13393,7 +13393,7 @@ YY_RULE_SETUP
 #line 352 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 {
     BEGIN ALIGNOPT;
-    SAMlval.strval=pool_memdup(SAMtext,SAMleng);
+    SAMlval.strval=pool_memdup(SAMtext,SAMleng+1);
     return OPTFVALUE; }
 	YY_BREAK
 case 77:
@@ -13401,7 +13401,7 @@ YY_RULE_SETUP
 #line 356 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 {
     BEGIN ALIGNOPT;
-    SAMlval.strval=pool_memdup(SAMtext,SAMleng);
+    SAMlval.strval=pool_memdup(SAMtext,SAMleng+1);
     return OPTZVALUE; }
 	YY_BREAK
 case 78:
@@ -13409,7 +13409,7 @@ YY_RULE_SETUP
 #line 360 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 {
     BEGIN ALIGNOPT;
-    SAMlval.strval=pool_memdup(SAMtext,SAMleng);
+    SAMlval.strval=pool_memdup(SAMtext,SAMleng+1);
     return OPTHVALUE; }
 	YY_BREAK
 case 79:
@@ -13417,7 +13417,7 @@ YY_RULE_SETUP
 #line 364 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 {
     BEGIN ALIGNOPT;
-    SAMlval.strval=pool_memdup(SAMtext,SAMleng);
+    SAMlval.strval=pool_memdup(SAMtext,SAMleng+1);
     return OPTBVALUE; }
 	YY_BREAK
 case 80:
