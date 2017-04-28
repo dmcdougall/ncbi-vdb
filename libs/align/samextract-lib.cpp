@@ -50,139 +50,16 @@
 #include <align/samextract-lib.h>
 #include <stdint.h>
 
-// TODO: Put these into struct
-static const ssize_t READBUF_SZ=65536;
-static char readbuf[READBUF_SZ+1];
-static size_t readbuf_sz=0;
-static size_t readbuf_pos=0;
-
-static char curline[READBUF_SZ+1];
-static size_t curline_len=0;
-static uint64_t file_pos=0;
-
-class chunkview
-{
-  public:
-      chunkview(KQueue * queue) : que(queue), c(NULL), cur(NULL) {};
-
-      ~chunkview()
-      {
-          que=NULL;
-          c=NULL;
-          cur=NULL;
-      }
-
-      // TODO: Handle _MSC_VER
-      // TODO: Move to a USE_ include that defines features:
-      // __HAS_RVALUE_REFERENCES, ...
-      // __HAS_METHOD_DELETE, ...
-      // __has_cpp_attribute
-      // __CPPVER=98,11,14,..
-#ifndef __cplusplus
-      // C++98
-      chunkview(const chunkview &);
-#elif __cplusplus <= 199711L
-      // C++98
-      chunkview(const chunkview &);
-#elif __cplusplus >= 201103L
-      // C++11, C++14
-      chunkview(const chunkview &) = delete; // No copy ctor
-      chunkview & operator=(const chunkview &) = delete; // No assignment
-      chunkview(const chunkview &&) = delete; // No move ctor
-      chunkview & operator=(const chunkview &&) = delete; // No move assignment
-#endif
-
-  private:
-      bool getnextchunk()
-      {
-          void * where=NULL;
-          struct timeout_t tm;
-          DBG("\t\tBlocker thread checking blocker queue");
-          if (c && c->state!=uncompressed)
-          {
-              ERR("\t\tblocker bad state");
-              return RC(rcAlign,rcFile,rcConstructing,rcNoObj,rcUnexpected);
-          }
-          if (c) c->state=empty;
-          c=NULL;
-
-          while (1)
-          {
-              TimeoutInit(&tm, 5000); // 5 seconds
-              rc_t rc=KQueuePop(que, &where, &tm);
-              if (rc==0)
-              {
-                  c=(chunk *)where;
-                  if (c->state==empty)
-                  {
-                      ERR("\t\tBlocker bad state");
-                      return RC(rcAlign,rcFile,rcConstructing,rcNoObj,rcUnexpected);
-                  }
-                  while (c->state!=uncompressed)
-                  {
-                      DBG("\t\tBlocker busy");
-                      usleep(1);
-                  }
-                  DBG("\t\tBlocker thread chunk %p size %u", c->in, c->insize);
-                  break;
-              } else if ((int)GetRCObject(rc)== rcTimeout)
-              {
-                  INFO("\t\tBlocker thread queue empty");
-                  if (KQueueSealed(que))
-                  {
-                      INFO("\t\tQueue sealed, Blocker thread complete");
-                      return false;
-                  }
-                  //            usleep(1);
-              } else if ((int)GetRCObject(rc)== rcData)
-              {
-                  INFO("\t\tBlocker thread queue data (empty?)");
-                  return false;
-              } else
-              {
-                  ERR("blocker rc=%d",rc);
-                  return RC(rcAlign,rcFile,rcConstructing,rcNoObj,rcUnexpected);
-              }
-          }
-          return true;
-      }
-  public:
-      bool getbytes(void * dest, u8 len)
-      {
-          char * where=(char *)dest;
-          while (len)
-          {
-              if (c==NULL || c->outsize==0)
-              {
-                  if (!getnextchunk())
-                      return false;
-                  cur=c->out;
-              }
-
-              size_t howmany=c->outsize;
-              if (len < c->outsize) howmany=len;
-
-              memmove(where,cur,howmany);
-              len-=howmany;
-              c->outsize-=howmany;
-              where+=howmany;
-              cur+=howmany;
-          }
-          return true;
-      }
-
-  private:
-      KQueue * que;
-      chunk * c;
-      Bytef * cur;
-};
-
+char curline[READBUF_SZ+1];
+size_t curline_len=0;
 
 void logmsg (const char * fname, int line, const char * func, const char * severity, const char * fmt, ...)
 {
     char * buf;
     size_t bufsize=0;
     FILE * buffd;
+
+    pthread_t threadid=pthread_self();
 
     const char * basename=strrchr(fname,'/');
     if (!basename) basename=strrchr(fname,'\\');
@@ -197,7 +74,7 @@ void logmsg (const char * fname, int line, const char * func, const char * sever
         fprintf(stderr,"can't open memstream\n");
         return;
     }
-    fprintf(buffd, "%s:", severity);
+    fprintf(buffd, "%s (%lu):", severity, threadid % 10);
     vfprintf(buffd, fmt, args);
     va_end(args);
     fprintf(buffd, "\t[%s:%s():%d]\n", basename, func, line);
@@ -230,18 +107,18 @@ int moredata(char * buf, int * numbytes, size_t maxbytes)
     return 0;
 }
 
-static inline rc_t readfile(Extractor * state)
+inline rc_t readfile(Extractor * state)
 {
-    if (readbuf_pos == readbuf_sz)
+    if (state->readbuf_pos == state->readbuf_sz)
     {
-        readbuf_sz=READBUF_SZ;
-        DBG("reading in at %d",file_pos);
-        rc_t rc=KFileReadAll(state->infile, file_pos, readbuf, readbuf_sz, &readbuf_sz);
-        file_pos+=readbuf_sz;
+        state->readbuf_sz=READBUF_SZ;
+        DBG("reading in at %d",state->file_pos);
+        rc_t rc=KFileReadAll(state->infile, state->file_pos, state->readbuf, state->readbuf_sz, &state->readbuf_sz);
+        state->file_pos += state->readbuf_sz;
         if (rc) { ERR("readfile error"); return rc;}
-        DBG("Read in %d",readbuf_sz);
-        readbuf_pos=0;
-        if (!readbuf_sz)
+        DBG("Read in %d",state->readbuf_sz);
+        state->readbuf_pos=0;
+        if (!state->readbuf_sz)
         {
             DBG("Buffer complete. EOF");
         }
@@ -396,7 +273,8 @@ rc_t process_alignment(Extractor * state, const char * qname,const char * flag,c
                        char * rname,const char * pos,const char * mapq,const char * cigar,const char *
                        rnext,const char * pnext,const char * tlen,const char * seq,const char * qual)
 {
-    Alignment * align=(Alignment *)pool_alloc(sizeof(Alignment));
+    //Alignment * align=(Alignment *)pool_alloc(sizeof(Alignment));
+    Alignment * align=(Alignment *)calloc(1, sizeof(Alignment));
     if (align==NULL)
     {
         ERR("out of memory");
@@ -404,7 +282,7 @@ rc_t process_alignment(Extractor * state, const char * qname,const char * flag,c
         state->rc=rc;
     }
 
-    DBG("process_alignment %s %s %s", qname, rnext, qual); // TODO silence warning for now
+    INFO("process_alignment %s %s %s", rname, pos, flag);
 
     if (!inrange(flag,0,UINT16_MAX))
         ERR("Flag not in range %s",flag);
@@ -420,61 +298,69 @@ rc_t process_alignment(Extractor * state, const char * qname,const char * flag,c
 
     if (!inrange(tlen,INT32_MIN,INT32_MAX))
         ERR("TLEN not in range %s", tlen);
-
+/*
     align->read=pool_strdup(seq);
     align->cigar=pool_strdup(cigar);
     align->rname=pool_strdup(rname);
+*/
+    align->read=strdup(seq);
+    align->cigar=strdup(cigar);
+    align->rname=strdup(rname);
     align->pos=strtou32(pos,NULL,10);
     align->flags=strtou32(flag,NULL,10);
+    DBG("acquiring lock");
+    KLockAcquire(state->lock_align);
     VectorAppend(&state->alignments,NULL,align);
+    KLockUnlock(state->lock_align);
+    DBG("unacquiring lock");
 
     return 0;
 }
 
 // Reads next line into curline, returns false if file complete.
-static bool readline(Extractor * s)
+static bool readline(Extractor * state)
 {
     DBG("readline");
-    if (readfile(s)) return false;
+    if (readfile(state)) return false;
     char * line=curline;
     line[0]='\0';
     curline_len=0;
     // Is there a newline in current buffer?
-    char * nl=(char *)memchr( (readbuf+readbuf_pos), '\n', (readbuf_sz-readbuf_pos) );
+    char * nl=(char *)memchr( (state->readbuf+state->readbuf_pos), '\n', (state->readbuf_sz-state->readbuf_pos) );
     if (nl)
     {
         nl+=1;
-        size_t len=nl - (readbuf+readbuf_pos);
-        memmove(line, readbuf+readbuf_pos, len);
+        size_t len=nl - (state->readbuf+state->readbuf_pos);
+        memmove(line, state->readbuf+state->readbuf_pos, len);
         curline_len+=len;
-        readbuf_pos+=len;
+        state->readbuf_pos+=len;
         line[curline_len+1]='\0';
         return true;
     }
 
     // Nope, append and get more
-    size_t len=(readbuf_sz - readbuf_pos);
-    DBG("readline more %d/%d", readbuf_pos, len);
-    memmove(line, readbuf+readbuf_pos, len);
+    size_t len=(state->readbuf_sz - state->readbuf_pos);
+    DBG("readline more %d/%d", state->readbuf_pos, len);
+    memmove(line, state->readbuf+state->readbuf_pos, len);
     DBG("moreline was %d '%s'", strlen(line), line);
     line+=len;
     curline_len+=len;
 
-    readbuf_pos=readbuf_sz;
-    if (readfile(s)) return false;
+    state->readbuf_pos=state->readbuf_sz;
+    if (readfile(state)) return false;
 
     // Better be a newline now
-    nl=(char *)memchr(readbuf, '\n', readbuf_sz);
+    nl=(char *)memchr(state->readbuf, '\n', state->readbuf_sz);
     if (!nl)
     {
         return false;
     }
-    DBG("found newline at %d", nl-readbuf);
+    DBG("found newline at %d", nl-state->readbuf);
     nl+=1;
-    len=(nl - readbuf);
-    memmove(line, readbuf, len);
+    len=(nl - state->readbuf);
+    memmove(line, state->readbuf, len);
     curline_len+=len;
-    readbuf_pos+=len;
+    state->readbuf_pos+=len;
     line[curline_len+1]='\0';
     DBG("moreline  is %d %d '%s'", curline_len, strlen(line), line);
 
@@ -487,6 +373,7 @@ LIB_EXPORT rc_t CC SAMExtractorMake(Extractor **state, const KFile * fin, int32_
     *state=s;
 
     VectorInit(&s->headers,0,0);
+    KLockMake(&s->lock_align);
     VectorInit(&s->alignments,0,0);
     VectorInit(&s->tagvalues,0,0);
     pool_init();
@@ -495,6 +382,9 @@ LIB_EXPORT rc_t CC SAMExtractorMake(Extractor **state, const KFile * fin, int32_
     s->prev_aligns=NULL;
     s->pos=0;
 
+    s->file_type=unknown;
+
+    s->file_status=init;
     s->hashdvn=false;
     s->hashdso=false;
     s->hashdgo=false;
@@ -504,10 +394,23 @@ LIB_EXPORT rc_t CC SAMExtractorMake(Extractor **state, const KFile * fin, int32_
     s->haspgid=false;
 
     s->rc=0;
+    s->file_pos=0;
+    s->readbuf=(char *)calloc(1,READBUF_SZ+1);
+    s->readbuf_sz=0;
+    s->readbuf_pos=0;
 
     s->infile=fin;
 
     s->num_threads=num_threads;
+
+    if (s->num_threads<=-1)
+        s->num_threads=sysconf(_SC_NPROCESSORS_ONLN) - 1;
+
+    DBG("%d threads", s->num_threads);
+    KQueueMake(&s->inflatequeue, s->num_threads);
+    KQueueMake(&s->parsequeue, 1);
+
+    VectorInit(&s->threads,0,0);
 
     return 0;
 }
@@ -523,6 +426,15 @@ LIB_EXPORT rc_t CC SAMExtractorRelease(Extractor *s)
     VectorWhack(&s->headers,NULL,NULL);
 
     pool_release();
+
+    free(s->readbuf);
+
+    KQueueRelease(s->inflatequeue);
+    KQueueRelease(s->parsequeue);
+
+    //waitforthreads(&s->threads);
+    releasethreads(&s->threads);
+    VectorWhack(&s->threads,NULL,NULL);
 
     memset(s,0,sizeof(Extractor));
     free(s);
@@ -547,14 +459,21 @@ LIB_EXPORT rc_t CC SAMExtractorGetHeaders(Extractor *s, Vector *headers)
     rc=readfile(s);
     if (rc) return rc;
 
-    if (!memcmp(readbuf,"\x1f\x8b\x08",3))
+    if (!memcmp(s->readbuf,"\x1f\x8b\x08",3))
     {
         DBG("gzip file, BAM or SAM.gz");
+        s->file_type=BAM;
         threadinflate(s);
-    } else if (readbuf[0]=='@')
+        while (s->file_status==init)
+        {
+            DBG("waiting for headers complete");
+            sleep(1);
+        }
+        DBG("Done waiting for headers");
+    } else if (s->readbuf[0]=='@')
     {
-        // TODO: Move to function
         DBG("SAM file");
+        s->file_type=SAM;
 
         while (readline(s))
         {
@@ -579,6 +498,7 @@ LIB_EXPORT rc_t CC SAMExtractorGetHeaders(Extractor *s, Vector *headers)
     VectorInit(headers,0,0);
     VectorCopy(&s->headers,headers);
     s->prev_headers=headers;
+    s->file_status=alignments;
     return 0;
 }
 
@@ -601,8 +521,8 @@ LIB_EXPORT rc_t CC SAMExtractorInvalidateHeaders(Extractor *s)
         VectorWhack(&hdr->tagvalues,NULL,NULL);
         hdr=NULL;
     }
-    pool_release();
-    pool_init();
+    //pool_release();
+    //pool_init();
     VectorWhack(&s->headers,NULL,NULL);
     VectorWhack(&s->tagvalues,NULL,NULL);
     VectorWhack(s->prev_headers,NULL,NULL);
@@ -613,31 +533,47 @@ LIB_EXPORT rc_t CC SAMExtractorInvalidateHeaders(Extractor *s)
 LIB_EXPORT rc_t CC SAMExtractorGetAlignments(Extractor *s, Vector *alignments)
 {
     rc_t rc=0;
-    DBG("get_alignments");
+    DBG("get_alignments, acquiring lock");
     SAMExtractorInvalidateAlignments(s);
     VectorInit(&s->alignments,0,0);
 
-    while (VectorLength(&s->alignments) < 20)
+    if (s->file_type==SAM)
     {
-        if (!readline(s)) break;
-
-        if (curline[0]=='@')
+        while (VectorLength(&s->alignments) < 20)
         {
-            ERR("header restarted");
-            break;
+            if (!readline(s)) break;
+
+            if (curline[0]=='@')
+            {
+                ERR("header restarted");
+                break;
+            }
+
+            rc=SAM_parseline(s);
+            if (rc) return rc;
         }
 
-        rc=SAM_parseline(s);
-        if (rc) return rc;
+        DBG("Done parsing %d alignments", VectorLength(&s->alignments));
+    } else if (s->file_type==BAM)
+    {
+        // TODO: Handle BAM threads
+        while (VectorLength(&s->alignments) < 20)
+        {
+            DBG("Have %d BAM alignments", VectorLength(&s->alignments));
+            usleep(100);
+        }
+
+    } else
+    {
+        ERR("Unknown file type");
     }
-
-    DBG("Done parsing %d alignments", VectorLength(&s->alignments));
-
+    KLockAcquire(s->lock_align);
     VectorInit(alignments,0,0);
     VectorCopy(&s->alignments,alignments);
     VectorWhack(&s->alignments,NULL,NULL);
     s->prev_aligns=alignments;
-    DBG("got_alignments");
+    KLockUnlock(s->lock_align);
+    DBG("got_alignments, unacquire lock");
 
     return 0;
 }
@@ -645,8 +581,8 @@ LIB_EXPORT rc_t CC SAMExtractorGetAlignments(Extractor *s, Vector *alignments)
 LIB_EXPORT rc_t CC SAMExtractorInvalidateAlignments(Extractor *s)
 {
     DBG("invalidate_alignments");
-    pool_release();
-    pool_init();
+    //pool_release();
+    //pool_init();
     VectorWhack(&s->alignments,NULL,NULL);
     VectorWhack(s->prev_aligns,NULL,NULL);
     s->prev_aligns=NULL;

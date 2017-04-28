@@ -64,7 +64,7 @@ void pool_init(void)
 void pool_release(void)
 {
     if (!cur_block)
-        WARN("Pool double release");
+        ERR("Pool double release");
 
     DBG("pool_release");
     DBG("pool used %d", BLOCK_SZ-cur_block_remain);

@@ -36,6 +36,8 @@
 #include <sys/types.h>
 #include <align/samextract-lib.h>
 
+#define READBUF_SZ 65536
+
 typedef enum chunk_state { empty, compressed, uncompressed } chunk_state;
 
 typedef  int8_t i8;
@@ -49,11 +51,11 @@ typedef uint64_t u64;
 
 typedef struct chunk_s
 {
-    Bytef * in;
+    Bytef in[READBUF_SZ+1024];
+    Bytef out[READBUF_SZ+1024];
     uInt insize;
     uInt outsize;
     chunk_state state;
-    Bytef out[66000];
 } chunk;
 
 typedef struct bamalign
@@ -91,13 +93,18 @@ extern "C" {
     char * pool_strdup(const char * str);
     char * pool_memdup(const char * str, size_t len);
     rc_t threadinflate(Extractor * state);
+    void waitforthreads(Vector * threads);
+    void releasethreads(Vector * threads);
+    rc_t readfile(Extractor * state);
+    extern char curline[];
+    extern size_t curline_len;
 #ifdef __cplusplus
 }
 #endif
 void samload(char const path[]);
 
 #ifndef DEBUG
-#define DEBUG 0
+#define DEBUG 1
 #endif
 
 #define ERR(...) logmsg(__FILE__, __LINE__, __func__, "Error",  __VA_ARGS__)

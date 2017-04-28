@@ -28,6 +28,7 @@
 #include <klib/rc.h>
 #include <klib/defs.h>
 #include <klib/vector.h>
+#include <klib/text.h>
 #include <kproc/queue.h>
 #include <kproc/thread.hpp>
 #include <kproc/timeout.h>
@@ -81,16 +82,16 @@ class chunkview
       {
           void * where=NULL;
           struct timeout_t tm;
-          DBG("\t\tBlocker thread checking blocker queue");
+          DBG("\t\tParser thread checking parser queue");
           if (c && c->state!=uncompressed)
           {
-              ERR("\t\tblocker bad state");
+              ERR("\t\tparser queue bad state");
               return RC(rcAlign,rcFile,rcConstructing,rcNoObj,rcUnexpected);
           }
           if (c) c->state=empty;
           c=NULL;
 
-          while (1)
+          while (true)
           {
               TimeoutInit(&tm, 5000); // 5 seconds
               rc_t rc=KQueuePop(que, &where, &tm);
@@ -99,32 +100,31 @@ class chunkview
                   c=(chunk *)where;
                   if (c->state==empty)
                   {
-                      ERR("\t\tBlocker bad state");
+                      ERR("\t\tParser queue bad state");
                       return RC(rcAlign,rcFile,rcConstructing,rcNoObj,rcUnexpected);
                   }
                   while (c->state!=uncompressed)
                   {
-                      DBG("\t\tBlocker busy");
+                      DBG("\t\tParser busy");
                       usleep(1);
                   }
-                  DBG("\t\tBlocker thread chunk %p size %u", c->in, c->insize);
+                  DBG("\t\tParser thread chunk %p size %u", c->in, c->insize);
                   break;
               } else if ((int)GetRCObject(rc)== rcTimeout)
               {
-                  INFO("\t\tBlocker thread queue empty");
+                  INFO("\t\tParser thread queue empty");
                   if (KQueueSealed(que))
                   {
-                      INFO("\t\tQueue sealed, Blocker thread complete");
+                      INFO("\t\tQueue sealed, Parser thread complete");
                       return false;
                   }
-                  //            usleep(1);
               } else if ((int)GetRCObject(rc)== rcData)
               {
-                  INFO("\t\tBlocker thread queue data (empty?)");
+                  DBG("\t\tParser thread queue data (empty?)");
                   return false;
               } else
               {
-                  ERR("blocker rc=%d",rc);
+                  ERR("Parser rc=%d",rc);
                   return RC(rcAlign,rcFile,rcConstructing,rcNoObj,rcUnexpected);
               }
           }
@@ -164,23 +164,23 @@ class chunkview
 
 static rc_t inflater(const KThread * kt, void * in)
 {
-    KQueue *inflatequeue=(KQueue *)in;
+    Extractor * state=(Extractor *)in;
     struct timeout_t tm;
 
     z_stream strm;
     pthread_t threadid=pthread_self();
-    INFO("\tThread %lu started.",threadid);
+    DBG("\tInflater thread %lu started.",threadid);
 
-    while (1)
+    while (true)
     {
         void * where=NULL;
         DBG("\t\tthread %lu checking queue",threadid);
         TimeoutInit(&tm, 5000); // 5 seconds
-        rc_t rc=KQueuePop(inflatequeue, &where, &tm);
+        rc_t rc=KQueuePop(state->inflatequeue, &where, &tm);
         if (rc==0)
         {
             chunk * c=(chunk *)where;
-            DBG("\t\tthread %lu chunk %p size %u", threadid, c->in, c->insize);
+            DBG("\t\tinflater thread %lu chunk %p size %u", threadid, c->in, c->insize);
             if (c->state!=compressed)
             {
                 ERR("Inflater bad state");
@@ -188,6 +188,11 @@ static rc_t inflater(const KThread * kt, void * in)
             }
 
             memset(&strm,0,sizeof strm);
+            DBG("\tinflating %d bytes", c->insize);
+            strm.next_in=c->in;
+            strm.avail_in=c->insize;
+            strm.next_out=c->out;
+            strm.avail_out=c->outsize;
             int zrc=inflateInit2(&strm, MAX_WBITS + 16); // Only gzip format
             switch (zrc)
             {
@@ -206,18 +211,32 @@ static rc_t inflater(const KThread * kt, void * in)
                   ERR("zlib error %s",strm.msg);
                   return RC(rcAlign,rcFile,rcConstructing,rcNoObj,rcUnexpected);
             }
-            strm.next_in=c->in;
-            strm.avail_in=c->insize;
-            strm.next_out=c->out;
-            strm.avail_out=c->outsize;
 
-            zrc=inflate(&strm,Z_NO_FLUSH);
+            zrc=inflate(&strm,Z_FINISH);
             switch (zrc)
             {
               case Z_OK:
+              case Z_STREAM_END:
                   DBG("\t\tthread %lu OK %d %d %lu", threadid, strm.avail_in, strm.avail_out,strm.total_out);
                   c->outsize=strm.total_out;
                   c->state=uncompressed;
+                  while (true)
+                  {
+                    struct timeout_t tm;
+                    TimeoutInit(&tm, 1000); // 1 second
+                    rc_t rc=KQueuePush(state->parsequeue, (void *)c, &tm);
+                    if ((int)GetRCObject(rc)== rcTimeout)
+                    {
+                        DBG("parse queue full");
+                    } else if (rc == 0)
+                    {
+                        DBG("parse queued: %p %d %d %d", c->in, c->insize, rc, rcTimeout);
+                       break;
+                    } else
+                    {
+                        DBG("parse queue %d", rc);
+                    }
+                  }
                   break;
               case Z_MEM_ERROR:
                   ERR("error: Out of memory in zlib");
@@ -228,9 +247,6 @@ static rc_t inflater(const KThread * kt, void * in)
               case Z_STREAM_ERROR:
                   ERR("zlib stream error %s",strm.msg);
                   return RC(rcAlign,rcFile,rcConstructing,rcNoObj,rcUnexpected);
-              case Z_STREAM_END:
-                  ERR("zlib stream end%s",strm.msg);
-                  return RC(rcAlign,rcFile,rcConstructing,rcNoObj,rcUnexpected);
               default:
                   ERR("inflate error %d %s",zrc, strm.msg);
                   return RC(rcAlign,rcFile,rcConstructing,rcNoObj,rcUnexpected);
@@ -238,16 +254,17 @@ static rc_t inflater(const KThread * kt, void * in)
             inflateEnd(&strm);
         } else if ((int)GetRCObject(rc)== rcTimeout)
         {
-            INFO("\t\tthread %lu queue empty",threadid);
-            if (KQueueSealed(inflatequeue))
+            DBG("\t\tthread %lu queue empty",threadid);
+            if (KQueueSealed(state->inflatequeue))
             {
-                INFO("\t\tQueue sealed, thread %lu complete", threadid);
+                DBG("\t\tQueue sealed, thread %lu complete", threadid);
+                INFO("\t\tinflater thread %lu terminating.",threadid);
+                KQueueSeal(state->parsequeue);
                 return 0;
             }
-            //            usleep(1);
         } else if ((int)GetRCObject(rc)== rcData)
         {
-            INFO("\t\tthread %lu queue data (empty?)",threadid);
+            DBG("\t\tthread %lu queue data (empty?)",threadid);
             break;
         } else
         {
@@ -256,19 +273,20 @@ static rc_t inflater(const KThread * kt, void * in)
         }
     }
 
-    INFO("\t\tthread %lu terminating.",threadid);
+    DBG("\t\tinflater thread %lu wrongly terminating.",threadid);
+    KQueueSeal(state->parsequeue);
     return 0;
 }
 
 
-static rc_t blocker(const KThread * kt, void * in)
+static rc_t parser(const KThread * kt, void * in)
 {
-    KQueue *blockqueue=(KQueue *)in;
+    Extractor * state=(Extractor *)in;
 
     pthread_t threadid=pthread_self();
-    INFO("\tBlocker thread %lu started.",threadid);
+    DBG("\tParser  thread %lu started.",threadid);
 
-    chunkview cv(blockqueue);
+    chunkview cv(state->parsequeue);
 
     char magic[4];
     if (!cv.getbytes(magic,4)) return 1;
@@ -279,18 +297,55 @@ static rc_t blocker(const KThread * kt, void * in)
     }
     i32 l_text;
     if (!cv.getbytes(&l_text,4)) return 1;
+    DBG("l_text=%d",l_text);
     if (l_text<0)
     {
         ERR("error: invalid l_text");
         return RC(rcAlign,rcFile,rcParsing,rcData,rcInvalid);
     }
 
-    char *text=(char *)calloc(1,l_text+1);
+    char *text=(char *)calloc(1,l_text + 2);
     if (!cv.getbytes(text,l_text)) return 1;
-    text[l_text]='\0';
+    text[l_text+1]='\0';
 
-    DBG("SAM header:%s",text);
-    // TODO: Parse SAM header, make sure no alignments
+    DBG("SAM header:'%s'",text);
+    char * t=text;
+    while (strlen(t))
+    {
+        char * nl=(char *)strchr(t, '\n');
+        if (!nl)
+        {
+            size_t linelen=strlen(t);
+            DBG("noln linelen %d",linelen);
+            memmove(curline,t,linelen);
+            curline[linelen+1]='\n';
+            curline[linelen+2]='\0';
+            t+=linelen;
+        }
+        else
+        {
+            size_t linelen=1+nl-t;
+            DBG("ln   linelen %d",linelen);
+            memmove(curline,t,linelen);
+            curline[linelen]='\0';
+            t+=linelen;
+        }
+        DBG("curline is '%s'",curline);
+        if (curline[0]!='@')
+            ERR("Not a SAM header line");
+        curline_len=strlen(curline);
+        SAMparse(state);
+    }
+    free(text);
+    text=NULL;
+
+    DBG("BAM done with headers");
+    state->file_status=headers;
+    while (state->file_status!=alignments)
+    {
+        DBG("Waiting for alignments");
+        sleep(1);
+    }
 
     i32 n_ref;
     if (!cv.getbytes(&n_ref,4)) return 1;
@@ -326,11 +381,10 @@ static rc_t blocker(const KThread * kt, void * in)
         DBG("length of reference sequence %d=%d",i,l_ref);
     }
 
-    while (1)
+    bamalign align;
+    while (cv.getbytes(&align,sizeof(align)))
     {
-        bamalign align;
-        if (!cv.getbytes(&align,sizeof(align))) return 1;
-        DBG("\n\n\nalignment block_size=%d refID=%d pos=%d",
+        DBG("alignment block_size=%d refID=%d pos=%d",
             align.block_size,
             align.refID,
             align.pos);
@@ -371,13 +425,27 @@ static rc_t blocker(const KThread * kt, void * in)
 
         static const char opmap[]="MIDNSHP=X???????";
         u32 * cigar=(u32 *)calloc(n_cigar_op,sizeof(u32));
+
         if (!cv.getbytes(cigar,n_cigar_op*4)) return 1;
+        // Compute size of expanded CIGAR
+        size_t rleopslen=0;
+        for (int i=0; i!=n_cigar_op; ++i)
+        {
+            i32 oplen=cigar[i] >> 4;
+            if (!oplen) ERR("Bogus CIGAR op length");
+            rleopslen+=oplen;
+        }
+        char * scigar=(char *)calloc(rleopslen+1,1);
+        char * p=scigar;
         for (int i=0; i!=n_cigar_op; ++i)
         {
             i32 oplen=cigar[i] >> 4;
             i32 op=cigar[i] & 0xf;
             DBG("\tcigar %d=%x len=%d %d(%c)", i, cigar[i], oplen, op, opmap[op]);
+            for (int j=0; j!=oplen; ++j)
+                *p++=(char)opmap[op];
         }
+        DBG("scigar is '%s'", scigar);
 
         static const char seqmap[]="=ACMGRSVTWYHKDBN";
         char * seq=(char *)calloc(1,align.l_seq+1);
@@ -400,16 +468,14 @@ static rc_t blocker(const KThread * kt, void * in)
             i+=2;
             j+=1;
         }
-        free(seqbytes);
-        seqbytes=NULL;
 
         char *qual=(char*)calloc(1,align.l_seq);
         if (!cv.getbytes(qual,align.l_seq)) return 1;
 
-        INFO("%d pairs in sequence",align.l_seq);
-        for (int i=0; i!=align.l_seq; ++i)
-            DBG(" seq#%d %c %.2x ",i, seq[i], qual[i]);
-        DBG("\nseq=%s",seq);
+        DBG("%d pairs in sequence",align.l_seq);
+//        for (int i=0; i!=align.l_seq; ++i)
+//            DBG(" seq#%d %c %.2x ",i, seq[i], qual[i]);
+        DBG("seq=%s",seq);
 
         int remain=align.block_size-(sizeof(align)+l_read_name+n_cigar_op*4+bytesofseq+align.l_seq)+4; // TODO, why 4?
         DBG("%d bytes remaining for ttvs",remain);
@@ -493,77 +559,80 @@ static rc_t blocker(const KThread * kt, void * in)
             }
         }
         DBG("no more ttvs");
+
+        // We want read (seq), cigar, rname, pos and flags
+        // name=Qname, reference sequence name
+        // read_name=qname, query template name
+
+        char sflag[16];
+        snprintf(sflag, sizeof sflag, "%u", flag);
+        char spos[16];
+        snprintf(spos, sizeof spos, "%u", align.pos);
+
+        DBG("sflag='%s', spos='%s'",sflag,spos);
+        process_alignment(state,
+                          NULL, // QNAME
+                          sflag,
+                          read_name,  // RNAME
+                          spos,
+                          "0", //mapq
+                          scigar, // cigar
+                          NULL, //rnext
+                          "0", //pnext
+                          "0", //tlen
+                          seq, // read
+                          NULL //qual
+                          );
+
+        free(read_name);
+        read_name=NULL;
+        free(cigar);
+        cigar=NULL;
+        free(seq);
+        seq=NULL;
+        free(seqbytes);
+        seqbytes=NULL;
+        free(qual);
+        qual=NULL;
         free(ttvs);
         ttvs=NULL;
+        free(scigar);
+        scigar=NULL;
     }
-}
+    if (!KQueueSealed(state->parsequeue))
+    {
+        ERR("out of data but queue not sealed");
+        return 1;
+    }
+    INFO("parser thread complete");
+    return 0;
+} // parser
 
-
-static void waitforthreads(Vector * threads)
+static rc_t seeker(const KThread * kt, void * in)
 {
-    for (u32 i=0; i!=VectorLength(threads); ++i)
+    Extractor * state=(Extractor *)in;
+
+    pthread_t threadid=pthread_self();
+    DBG("\tSeeker thread %lu started.",threadid);
+
+    state->file_pos=0;
+    while (true)
     {
-        rc_t rc=0;
-        INFO("waiting for thread %d to complete", i);
-        KThreadWait((KThread*)VectorGet(threads,i),&rc);
-    }
-    INFO("all threads completed");
-}
+        if (state->readbuf_sz < 28)
+        {
+            ERR("Small block");
+        }
 
-static void releasethreads(Vector * threads)
-{
-    INFO("Release threads");
-    for (u32 i=0; i!=VectorLength(threads); ++i)
-    {
-        KThreadRelease((KThread*)VectorGet(threads,i));
-    }
-}
-
-rc_t threadinflate(Extractor * state)
-{
-    rc_t rc=0;
-    struct timeout_t tm;
-    z_stream strm;
-
-    if (state->num_threads<=-1)
-        state->num_threads=sysconf(_SC_NPROCESSORS_ONLN) - 1;
-    KQueue * inflatequeue;
-    KQueue * blockqueue;
-    Vector chunks;
-    Vector threads;
-
-    KQueueMake(&inflatequeue, state->num_threads);
-    KQueueMake(&blockqueue, state->num_threads);
-    VectorInit(&chunks,0,state->num_threads);
-    VectorInit(&threads,0,state->num_threads);
-
-    for (int i=0; i!=state->num_threads; ++i)
-    {
-        chunk * c=(chunk *)calloc(1,sizeof(chunk));
-        c->state=empty;
-        VectorAppend(&chunks,NULL,c);
-
-        KThread * thread=(KThread *)calloc(1,sizeof(KThread));
-        KThreadMake(&thread, inflater, (void *)inflatequeue);
-        VectorAppend(&threads, NULL, thread);
-    }
-    KThread * blockthread=(KThread *)calloc(1,sizeof(KThread));
-    KThreadMake(&blockthread, blocker, (void *)blockqueue);
-    VectorAppend(&threads, NULL, blockthread);
-#if 0
-    while(1)
-    {
-        memset(&strm,0,sizeof strm);
-        //            if (!memcmp(readbuf_pos,"\x1f\x8b\x08\x04\x00\x00\x00\x00\x00\xff\x06\x00\x42\x43\x02\x00\x1b\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00",28))
+        if (!memcmp(state->readbuf, "\x1f\x8b\x08\x04\x00\x00\x00\x00\x00\xff\x06\x00\x42\x43\x02\x00\x1b\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00", 28))
         {
             INFO("EOF marker found");
             break;
         }
-        //            strm.next_in=(Bytef*)state->buf_cur;
-        if (state->buf_sz > INT32_MAX)
-            strm.avail_in=INT32_MAX;
-        else
-            strm.avail_in=(uInt)state->buf_sz;
+
+        z_stream strm;
+        memset(&strm,0,sizeof strm);
+        strm.next_in=(Bytef*)state->readbuf;
+        strm.avail_in=(uInt)state->readbuf_sz;
         int zrc=inflateInit2(&strm, MAX_WBITS + 16); // Only gzip format
         switch (zrc)
         {
@@ -594,100 +663,126 @@ rc_t threadinflate(Extractor * state)
         zrc=inflateGetHeader(&strm,&head);
         while (head.done==0)
         {
+            DBG("inflating gzip header");
             zrc=inflate(&strm,Z_BLOCK);
             if (zrc!=Z_OK)
             {
-                ERR("inflate error");
+                for (int i=0; i!=4; ++i)
+                    DBG("readbuf: %x", (unsigned char)state->readbuf[i]);
+                ERR("inflate error %d %s", zrc, strm.msg);
                 return RC(rcAlign,rcFile,rcConstructing,rcNoObj,rcUnexpected);
             }
         }
-        INFO("found gzip header");
+        DBG("found gzip header");
+        // BC 02 bb
         if (head.extra && head.extra_len==6 && head.extra[0]=='B' && head.extra[1]=='C' && head.extra[2]==2 && head.extra[3]==0)
         {
             u16 bsize=head.extra[4]+head.extra[5]*256;
             inflateEnd(&strm);
-            DBG("extra:   %d",bsize);
             DBG("total_in:%d",strm.avail_in);
-            DBG("buf   in:%p",state->buf_cur);
-            DBG("next_in: %p",strm.next_in);
-            DBG("offset:  %ld",state->buf_cur-state->buf);
             if (bsize<=28)
             {
-                INFO("small block found");
+                DBG("small block found");
                 break;
             }
 
-            chunk * c;
-            // Find unused chunk, busy polls
-            u32 i=0;
-            while (1)
-            {
-                c=(chunk *)VectorGet(&chunks,i);
-                if (c->state==empty) break;
-                ++i;
-                if (i==VectorLength(&chunks))
-                {
-                    DBG("looping");
-                    usleep(1);
-                }
-                i %= VectorLength(&chunks);
-            }
+            size_t block_size=12; // Up to and including XLEN
+            block_size+=head.extra_len;
+            block_size+=(bsize-head.extra_len-19); // CDATA
+            block_size+=8; // CRC32 and isize
+            DBG("block_size is %d bsize is %d", block_size, bsize);
 
-            c->state=compressed;
-            c->in=(Bytef*)state->buf_cur;
-            c->insize=bsize;
+            state->file_pos+=block_size;
+
+            chunk * c=(chunk *)calloc(1,sizeof(chunk));
+            c->insize=bsize+1;
+            memmove(c->in, state->readbuf, block_size+1);
             c->outsize=sizeof(c->out);
+            c->state=compressed;
 
-            while(1)
+//            VectorAppend(&state->chunks,NULL,c);
+            while (true)
             {
+                struct timeout_t tm;
                 TimeoutInit(&tm, 1000); // 1 second
-                rc=KQueuePush(inflatequeue, (void *)c, &tm);
+                rc_t rc=KQueuePush(state->inflatequeue, (void *)c, &tm);
                 if ((int)GetRCObject(rc)== rcTimeout)
                 {
-                    DBG("queue full");
-                    //                    usleep(1);
+                    DBG("inflate queue full");
                 } else if (rc == 0)
                 {
-                    DBG("queued: %p %d:%d %d", c->in, c->insize, rc, rcTimeout);
+                    DBG("inflate queued: %p %d %d %d", c->in, c->insize, rc, rcTimeout);
                     break;
                 } else
                 {
-                    DBG("something queue %d", rc);
+                    DBG("inflate queue %d", rc);
                 }
             }
-
-            while(1)
-            {
-                TimeoutInit(&tm, 1000); // 1 second
-                rc=KQueuePush(blockqueue, (void *)c, &tm);
-                if ((int)GetRCObject(rc)== rcTimeout)
-                {
-                    DBG("block queue full");
-                    //                    usleep(1);
-                } else if (rc == 0)
-                {
-                    DBG("block queued: %p %d:%d %d", c->in, c->insize, rc, rcTimeout);
-                    break;
-                } else
-                {
-                    DBG("block something queue %d", rc);
-                }
-            }
-
-            state->buf_cur=state->buf_cur+bsize+1;
         } else
         {
             ERR("error: BAM required extra extension not found");
             return RC(rcAlign,rcFile,rcParsing,rcData,rcInvalid);
         }
+
+        DBG("Getting more");
+
+        DBG("reading in at %d",state->file_pos);
+        rc_t rc=KFileReadAll(state->infile, state->file_pos, state->readbuf, state->readbuf_sz, &state->readbuf_sz);
+        //state->file_pos+=state->readbuf_sz;
+        if (rc) { ERR("readfile error"); return rc;}
+        DBG("Read in %d",state->readbuf_sz);
+        state->readbuf_pos=0;
+        if (!state->readbuf_sz)
+        {
+            DBG("Buffer complete. EOF");
+        }
     }
-#endif
-    KQueueSeal(inflatequeue);
-    KQueueSeal(blockqueue);
-    waitforthreads(&threads);
-    KQueueRelease(inflatequeue);
-    KQueueRelease(blockqueue);
-    releasethreads(&threads);
+
+    KQueueSeal(state->inflatequeue);
+    INFO("seeker thread complete");
+    return 0;
+}
+
+void waitforthreads(Vector * threads)
+{
+    for (u32 i=0; i!=VectorLength(threads); ++i)
+    {
+        rc_t rc=0;
+        DBG("waiting for thread %d to complete", i);
+        KThreadWait((KThread*)VectorGet(threads,i),&rc);
+    }
+    DBG("all threads completed");
+}
+
+void releasethreads(Vector * threads)
+{
+    DBG("Release threads");
+    for (u32 i=0; i!=VectorLength(threads); ++i)
+    {
+        KThreadRelease((KThread*)VectorGet(threads,i));
+    }
+}
+
+rc_t threadinflate(Extractor * state)
+{
+    // Seeker thread
+    KThread * seekerthread=(KThread *)calloc(1,sizeof(KThread));
+    KThreadMake(&seekerthread, seeker, (void*)state);
+    VectorAppend(&state->threads, NULL, seekerthread);
+
+    sleep(1);
+
+    // Inflater thread
+    KThread * inflaterthread=(KThread *)calloc(1,sizeof(KThread));
+    KThreadMake(&inflaterthread, inflater, (void *)state);
+    VectorAppend(&state->threads, NULL, inflaterthread);
+
+    sleep(1);
+
+    // Parse thread
+    KThread * parserthread=(KThread *)calloc(1,sizeof(KThread));
+    KThreadMake(&parserthread, parser, (void *)state);
+    VectorAppend(&state->threads, NULL, parserthread);
 
     return 0;
 }

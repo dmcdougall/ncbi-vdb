@@ -30,26 +30,47 @@
 #include <klib/rc.h>
 #include <klib/defs.h>
 #include <klib/vector.h>
+#include <kproc/queue.h>
+#include <kproc/lock.h>
 #include <kfs/file.h>
 #include <sys/types.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+    typedef enum file_type { unknown, SAM, BAM, SAMGZUNSUPPORTED } file_type;
+    typedef enum file_status { init, headers, alignments} file_status;
+
     typedef struct Extractor
     {
         const KFile * infile;
 
         Vector headers;
+        KLock * lock_align;
         Vector alignments;
 
         Vector tagvalues;
         Vector * prev_headers;
         Vector * prev_aligns;
 
+        KQueue * inflatequeue;
+        KQueue * parsequeue;
+//        Vector chunks;
+        Vector threads;
+
         uint32_t pos;
+        uint64_t file_pos;
         int32_t num_threads;
+
+        char *readbuf;
+        size_t readbuf_sz;
+        size_t readbuf_pos;
+
+        file_type file_type;
+
         rc_t rc;
+
+        file_status file_status;
         bool hashdvn;
         bool hashdso;
         bool hashdgo;
