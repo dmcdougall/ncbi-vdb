@@ -29,7 +29,6 @@
 #include <klib/rc.h>
 #include <klib/defs.h>
 #include <klib/vector.h>
-#include <kproc/thread.h>
 #include <kfs/file.h>
 #include <kfs/buffile.h>
 #include <zlib.h>
@@ -38,25 +37,14 @@
 
 #define READBUF_SZ 65536
 
-typedef enum chunk_state { empty, compressed, uncompressed } chunk_state;
-
-typedef  int8_t i8;
+typedef int8_t i8;
 typedef uint8_t u8;
-typedef  int16_t i16;
+typedef int16_t i16;
 typedef uint16_t u16;
-typedef  int32_t i32;
+typedef int32_t i32;
 typedef uint32_t u32;
-typedef  int64_t i64;
+typedef int64_t i64;
 typedef uint64_t u64;
-
-typedef struct chunk_s
-{
-    Bytef in[READBUF_SZ+1024];
-    Bytef out[READBUF_SZ+1024];
-    uInt insize;
-    uInt outsize;
-    chunk_state state;
-} chunk;
 
 typedef struct bamalign
 {
@@ -74,47 +62,59 @@ typedef struct bamalign
 #ifdef __cplusplus
 extern "C" {
 #endif
-    int SAMparse (Extractor * state);
-    void SAMerror(Extractor * state, const char * TODOmsg);
-    int SAMlex_destroy  (void);
-    void logmsg (const char * fname, int line, const char * func, const char * severity, const char * fmt, ...);
-    int moredata(char * buf, int * numbytes, size_t maxbytes);
-    rc_t process_header(Extractor * state, const char * type, const char * tag, const char * value);
-    rc_t process_alignment(Extractor * state, const char * qname,const char * flag,const char * rname,const char * pos,const char * mapq,const char * cigar,const char * rnext,const char * pnext,const char * tlen,const char * seq,const char * qual);
-    rc_t mark_headers(Extractor * state, const char * type);
-    bool inrange(const char * str, i64 low, i64 high);
-    bool ismd5(const char * str);
-    bool isfloworder(const char * str);
+int SAMparse(Extractor* state);
+void SAMerror(Extractor* state, const char* TODOmsg);
+int SAMlex_destroy(void);
+void logmsg(const char* fname, int line, const char* func,
+            const char* severity, const char* fmt, ...);
+int moredata(char* buf, int* numbytes, size_t maxbytes);
+rc_t process_header(Extractor* state, const char* type, const char* tag,
+                    const char* value);
+rc_t process_alignment(Extractor* state, const char* qname, const char* flag,
+                       const char* rname, const char* pos, const char* mapq,
+                       const char* cigar, const char* rnext,
+                       const char* pnext, const char* tlen, const char* seq,
+                       const char* qual);
+rc_t mark_headers(Extractor* state, const char* type);
+bool inrange(const char* str, i64 low, i64 high);
+bool ismd5(const char* str);
+bool isfloworder(const char* str);
 
-    void pool_init(void);
-    void pool_release(void);
-    void pool_free(void *);
-    void * pool_alloc(size_t sz);
-    char * pool_strdup(const char * str);
-    char * pool_memdup(const char * str, size_t len);
-    rc_t threadinflate(Extractor * state);
-    void waitforthreads(Vector * threads);
-    void releasethreads(Vector * threads);
-    rc_t readfile(Extractor * state);
-    extern char curline[];
-    extern size_t curline_len;
+void pool_init(void);
+void pool_release(void);
+void pool_free(void*);
+void* pool_alloc(size_t sz);
+char* pool_strdup(const char* str);
+char* pool_memdup(const char* str, size_t len);
+rc_t threadinflate(Extractor* state);
+//    void waitforthreads(Vector * threads);
+rc_t BAMGetHeaders(Extractor* state);
+rc_t BAMGetAlignments(Extractor* state);
+void releasethreads(Extractor* state);
+rc_t readfile(Extractor* state);
+extern char curline[];
+extern size_t curline_len;
 #ifdef __cplusplus
 }
 #endif
 void samload(char const path[]);
 
 #ifndef DEBUG
-#define DEBUG 1
+#define DEBUG 0
 #endif
 
-#define ERR(...) logmsg(__FILE__, __LINE__, __func__, "Error",  __VA_ARGS__)
+#define ERR(...) logmsg(__FILE__, __LINE__, __func__, "Error", __VA_ARGS__)
 
 #define WARN(...) logmsg(__FILE__, __LINE__, __func__, "Warning", __VA_ARGS__)
 #define INFO(...) logmsg(__FILE__, __LINE__, __func__, "Info", __VA_ARGS__)
-#define DBG(...) \
-    do { if (DEBUG) logmsg(__FILE__, __LINE__, __func__, "Debug",  __VA_ARGS__); } while (0)
+#define DBG(...)                                                             \
+    do                                                                       \
+    {                                                                        \
+        if (DEBUG)                                                           \
+            logmsg(__FILE__, __LINE__, __func__, "Debug", __VA_ARGS__);      \
+    } while (0)
 
-#define MIN(a,b)    (((a) < (b)) ? (a) : (b))
-#define MAX(a,b)    (((a) > (b)) ? (a) : (b))
+#define MIN(a, b) (((a) < (b)) ? (a) : (b))
+#define MAX(a, b) (((a) > (b)) ? (a) : (b))
 
 #endif

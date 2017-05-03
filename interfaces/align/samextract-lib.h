@@ -31,88 +31,96 @@
 #include <klib/defs.h>
 #include <klib/vector.h>
 #include <kproc/queue.h>
-#include <kproc/lock.h>
 #include <kfs/file.h>
 #include <sys/types.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-    typedef enum file_type { unknown, SAM, BAM, SAMGZUNSUPPORTED } file_type;
-    typedef enum file_status { init, headers, alignments} file_status;
+typedef enum file_type
+{
+    unknown,
+    SAM,
+    BAM,
+    SAMGZUNSUPPORTED
+} file_type;
+//    typedef enum file_status { init, headers, alignments, done} file_status;
 
-    typedef struct Extractor
-    {
-        const KFile * infile;
+typedef struct Extractor
+{
+    const KFile* infile;
 
-        Vector headers;
-        KLock * lock_align;
-        Vector alignments;
+    Vector headers;
+    Vector alignments;
 
-        Vector tagvalues;
-        Vector * prev_headers;
-        Vector * prev_aligns;
+    Vector tagvalues;
+    //        Vector * prev_headers;
+    //        Vector * prev_aligns;
 
-        KQueue * inflatequeue;
-        KQueue * parsequeue;
-//        Vector chunks;
-        Vector threads;
+    //        Vector chunks;
+    int32_t num_threads;
+    Vector threads;
+    KQueue* inflatequeue;
+    KQueue* parsequeue;
 
-        uint32_t pos;
-        uint64_t file_pos;
-        int32_t num_threads;
+    uint32_t pos;
+    uint64_t file_pos;
 
-        char *readbuf;
-        size_t readbuf_sz;
-        size_t readbuf_pos;
+    char* readbuf;
+    size_t readbuf_sz;
+    size_t readbuf_pos;
 
-        file_type file_type;
+    file_type file_type;
 
-        rc_t rc;
+    int32_t n_ref;
 
-        file_status file_status;
-        bool hashdvn;
-        bool hashdso;
-        bool hashdgo;
-        bool hassqsn;
-        bool hassqln;
-        bool hasrgid;
-        bool haspgid;
-    } Extractor;
+    rc_t rc;
 
-    typedef struct tagvalue
-    {
-        const char * tag; /* VN, SN, LN, ID, ... */
-        const char * value;
-    } TagValue;
+    //        file_status file_status;
+    bool hashdvn;
+    bool hashdso;
+    bool hashdgo;
+    bool hassqsn;
+    bool hassqln;
+    bool hasrgid;
+    bool haspgid;
+} Extractor;
 
-    typedef struct Header
-    {
-        const char * headercode; /* HD, SQ, RG, PG, CO */
-        Vector tagvalues;
-    } Header;
+typedef struct tagvalue
+{
+    const char* tag; /* VN, SN, LN, ID, ... */
+    const char* value;
+} TagValue;
 
-    typedef struct Alignment
-    {
-        const char * read;
-        const char * cigar;
-        const char * rname;
-        uint32_t pos;
-        uint16_t flags;
-    } Alignment;
+typedef struct Header
+{
+    const char* headercode; /* HD, SQ, RG, PG, CO */
+    Vector tagvalues;
+} Header;
 
-    /* TODO: API change: Pass in filename for diagnostics */
-    ALIGN_EXTERN rc_t CC SAMExtractorMake(Extractor **state, const KFile * fin, int32_t num_threads);
-    ALIGN_EXTERN rc_t CC SAMExtractorRelease(Extractor *state); /* dtor */
+typedef struct Alignment
+{
+    const char* read;
+    const char* cigar;
+    const char* rname;
+    uint32_t pos;
+    uint16_t flags;
+} Alignment;
 
-    ALIGN_EXTERN rc_t CC SAMExtractorGetHeaders(Extractor *state, Vector *headers);
-    ALIGN_EXTERN rc_t CC SAMExtractorInvalidateHeaders(Extractor *state);
+/* TODO: API change: Pass in filename for diagnostics */
+ALIGN_EXTERN rc_t CC SAMExtractorMake(Extractor** state, const KFile* fin,
+                                      int32_t num_threads);
+ALIGN_EXTERN rc_t CC SAMExtractorRelease(Extractor* state); /* dtor */
 
-    ALIGN_EXTERN rc_t CC SAMExtractorGetAlignments(Extractor *state, Vector *alignments);
-    ALIGN_EXTERN rc_t CC SAMExtractorInvalidateAlignments(Extractor *state);
+ALIGN_EXTERN rc_t CC
+    SAMExtractorGetHeaders(Extractor* state, Vector* headers);
+ALIGN_EXTERN rc_t CC SAMExtractorInvalidateHeaders(Extractor* state);
+
+ALIGN_EXTERN rc_t CC
+    SAMExtractorGetAlignments(Extractor* state, Vector* alignments);
+ALIGN_EXTERN rc_t CC SAMExtractorInvalidateAlignments(Extractor* state);
 
 #ifdef __cplusplus
 }
 #endif
 #endif /* __h_sam_extract_lib_ */
-

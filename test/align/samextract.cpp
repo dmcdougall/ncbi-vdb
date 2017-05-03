@@ -48,97 +48,97 @@
 #include <unistd.h>
 #include <align/samextract-lib.h>
 
+ver_t CC KAppVersion(void) { return 0x1000000; }
 
-ver_t CC KAppVersion ( void )
-{
-    return 0x1000000;
-}
-
-rc_t CC UsageSummary(char const *name)
+rc_t CC UsageSummary(char const* name)
 {
     fprintf(stderr, "Usage: %s file.{sb}am [file...]\n", name);
     return 0;
 }
 
-rc_t CC Usage(Args const *args)
-{
-    return 0;
-}
+rc_t CC Usage(Args const* args) { return 0; }
 
-rc_t CC KMain(int argc, char *argv[])
+rc_t CC KMain(int argc, char* argv[])
 {
     rc_t rc;
     if (argc == 1) {
         UsageSummary(argv[0]);
         return 0;
     }
-    while (--argc) {
-        const char * fname=*(++argv);
+    while (--argc)
+    {
+        const char* fname = *(++argv);
 
-        struct KDirectory * srcdir = NULL;
-        const struct KFile * infile = NULL;
-        rc=KDirectoryNativeDir(&srcdir);
+        struct KDirectory* srcdir = NULL;
+        const struct KFile* infile = NULL;
+        rc = KDirectoryNativeDir(&srcdir);
         if (rc) return rc;
 
-        rc=KDirectoryOpenFileRead(srcdir, &infile, fname);
+        rc = KDirectoryOpenFileRead(srcdir, &infile, fname);
         KDirectoryRelease(srcdir);
         if (rc) return rc;
-        srcdir=NULL;
+        srcdir = NULL;
 
-        Extractor * extractor;
-        rc_t rc=SAMExtractorMake(&extractor, infile, -1);
-        fprintf(stderr,"Made extractor for %s\n",fname);
+        Extractor* extractor;
+        rc_t rc = SAMExtractorMake(&extractor, infile, -1);
+        fprintf(stderr, "Made extractor for %s\n", fname);
         if (rc) return rc;
 
         Vector headers;
-        rc=SAMExtractorGetHeaders(extractor, &headers);
+        rc = SAMExtractorGetHeaders(extractor, &headers);
         if (rc) return rc;
-        fprintf(stderr,"\n\nGot %d headers\n", VectorLength(&headers));
-        for (uint32_t i=0; i!=VectorLength(&headers); ++i)
+        fprintf(stderr, "\n\nGot %d headers\n", VectorLength(&headers));
+        for (uint32_t i = 0; i != VectorLength(&headers); ++i)
         {
-            Header * hdr=(Header *)VectorGet(&headers,i);
-            Vector * tvs=&hdr->tagvalues;
-            //            fprintf(stderr,"\tHeader%d: %s\n", i, hdr->headercode);
-            for (uint32_t j=0; j!=VectorLength(tvs); ++j)
+            Header* hdr = (Header*)VectorGet(&headers, i);
+            Vector* tvs = &hdr->tagvalues;
+            //            fprintf(stderr,"\tHeader%d: %s\n", i,
+            //            hdr->headercode);
+            for (uint32_t j = 0; j != VectorLength(tvs); ++j)
             {
-                TagValue * tv=(TagValue *)VectorGet(tvs,j);
+                TagValue* tv = (TagValue*)VectorGet(tvs, j);
 
-                //                fprintf(stderr,"\t\t%d\t%s %s\n", j, tv->tag, tv->value);
+                //                fprintf(stderr,"\t\t%d\t%s %s\n", j,
+                //                tv->tag, tv->value);
             }
             // Do stuff with headers
         }
         SAMExtractorInvalidateHeaders(extractor);
 
-
-        fprintf(stderr,"Getting Alignments\n");
-        int total=0;
+        fprintf(stderr, "Getting Alignments\n");
+        int total = 0;
         uint32_t vlen;
         do
         {
             Vector alignments;
-            rc=SAMExtractorGetAlignments(extractor, &alignments);
-            if (rc) { fprintf(stderr,"GetAligned returned rc\n"); return rc; }
-            vlen=VectorLength(&alignments);
-            total+=vlen;
+            rc = SAMExtractorGetAlignments(extractor, &alignments);
+            if (rc) {
+                fprintf(stderr, "GetAligned returned rc\n");
+                return rc;
+            }
+            vlen = VectorLength(&alignments);
+            total += vlen;
+fprintf(stderr,"Got %d alignments\n",total);
             //            fprintf(stderr,"\n\nReturned %d alignments\n",vlen);
-            for (uint32_t i=0; i!=vlen; ++i)
+            for (uint32_t i = 0; i != vlen; ++i)
             {
-                Alignment * align=(Alignment *)VectorGet(&alignments,i);
+                Alignment* align = (Alignment*)VectorGet(&alignments, i);
 
-                //                fprintf(stderr,"\tAlignment%2d: %s\n", i, align->read);
+                //                fprintf(stderr,"\tAlignment%2d: %s\n", i,
+                //                align->read);
                 // Do stuff with headers
             }
             //            fprintf(stderr,"\n");
             SAMExtractorInvalidateAlignments(extractor);
+            // if (total > 100000) break;
         } while (vlen);
 
         SAMExtractorRelease(extractor);
-        fprintf(stderr,"Done with file, %d alignments\n", total);
+        fprintf(stderr, "Done with file, %d alignments\n", total);
 
         KFileRelease(infile);
-        infile=NULL;
+        infile = NULL;
     }
-    fprintf(stderr,"KMain done\n");
+    fprintf(stderr, "KMain done\n");
     return 0;
 }
-

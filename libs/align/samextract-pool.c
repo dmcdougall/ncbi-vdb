@@ -31,85 +31,82 @@
 #include "samextract.h"
 #include <stdint.h>
 
-const size_t BLOCK_SZ=2 * 1024 * 1024;
+const size_t BLOCK_SZ = 2 * 1024 * 1024;
 
 Vector allocs;
 
-void * cur_block=NULL;
+void* cur_block = NULL;
 size_t cur_block_remain;
 
-static void morecore(size_t sz)
+static void morecore(size_t alloc_size)
 {
-    cur_block=malloc(sz);
-    if (cur_block==NULL)
-    {
+    cur_block = malloc(alloc_size);
+    if (cur_block == NULL) {
         ERR("out of memory");
     }
-    cur_block_remain=sz;
+    cur_block_remain = alloc_size;
 
-    VectorAppend(&allocs,NULL,cur_block);
+    VectorAppend(&allocs, NULL, cur_block);
     DBG("morecore %p", cur_block);
 }
 
 void pool_init(void)
 {
     DBG("pool_init");
-    if (cur_block)
-        ERR("Need to release pool");
+    if (cur_block) ERR("Need to release pool");
 
-    VectorInit(&allocs,0,0);
+    VectorInit(&allocs, 0, 0);
     morecore(BLOCK_SZ);
 }
 
 void pool_release(void)
 {
-    if (!cur_block)
-        ERR("Pool double release");
+    if (!cur_block) ERR("Pool double release");
 
     DBG("pool_release");
-    DBG("pool used %d", BLOCK_SZ-cur_block_remain);
+    DBG("pool used %d", BLOCK_SZ - cur_block_remain);
     DBG("pools:%d", VectorLength(&allocs));
-    for (u32 i=0; i!=VectorLength(&allocs); ++i)
+    for (u32 i = 0; i != VectorLength(&allocs); ++i)
     {
-        DBG("freeing %p", VectorGet(&allocs,i));
-        free(VectorGet(&allocs,i));
+        DBG("freeing %p", VectorGet(&allocs, i));
+        free(VectorGet(&allocs, i));
     }
 
-    VectorWhack(&allocs,NULL,NULL);
-    cur_block=NULL;
+    VectorWhack(&allocs, NULL, NULL);
+    cur_block = NULL;
 }
 
-void pool_free(void * buf)
+void pool_free(void* buf)
 {
     /* Could conceivably reclaim last allocation */
     return;
 }
 
-void * pool_alloc(size_t sz)
+void* pool_alloc(size_t alloc_size)
 {
-    if (sz % 8 != 0) sz += 8-(sz % 8); /* Round up for alignment */
-    if (sz > cur_block_remain)
-        morecore(MAX(sz,BLOCK_SZ));
+    if (!alloc_size) ERR("Zero allocation");
 
-    void * buf=cur_block;
-    cur_block += sz;
-    cur_block_remain -= sz;
+    if (alloc_size % 8 != 0) alloc_size += 8 - (alloc_size % 8); /* Round up for alignment */
+    if (sz > cur_block_remain) morecore(MAX(sz, BLOCK_SZ));
+
+    void* buf = cur_block;
+    cur_block += alloc_size;
+    cur_block_remain -= alloc_size;
 
     return buf;
 }
 
-char * pool_strdup(const char * str)
+char* pool_strdup(const char* str)
 {
-    size_t len=strlen(str)+1;
-    void * buf=pool_alloc(len);
-    memmove(buf,str,len);
-    return (char *)buf;
+    size_t len = strlen(str) + 1;
+    void* buf = pool_alloc(len);
+    memmove(buf, str, len);
+    return (char*)buf;
 }
 
-char * pool_memdup(const char * str, size_t len)
+char* pool_memdup(const char* str, size_t len)
 {
-    void * buf=pool_alloc(len);
-    memmove(buf,str,len);
-    return (char *)buf;
+    void* buf = pool_alloc(len);
+    memmove(buf, str, len);
+    return (char*)buf;
 }
-

@@ -50,109 +50,112 @@
 #include <align/samextract-lib.h>
 #include <stdint.h>
 
-char curline[READBUF_SZ+1];
-size_t curline_len=0;
+char curline[READBUF_SZ + 1];
+size_t curline_len = 0;
 
-void logmsg (const char * fname, int line, const char * func, const char * severity, const char * fmt, ...)
+void logmsg(const char* fname, int line, const char* func,
+            const char* severity, const char* fmt, ...)
 {
-    char * buf;
-    size_t bufsize=0;
-    FILE * buffd;
+    char* buf;
+    size_t bufsize = 0;
+    FILE* buffd;
 
-    pthread_t threadid=pthread_self();
+    pthread_t threadid = pthread_self();
 
-    const char * basename=strrchr(fname,'/');
-    if (!basename) basename=strrchr(fname,'\\');
+    const char* basename = strrchr(fname, '/');
+    if (!basename) basename = strrchr(fname, '\\');
     if (basename) ++basename;
-    if (!basename) basename=fname;
+    if (!basename) basename = fname;
     va_list args;
     va_start(args, fmt);
 
-    buffd=open_memstream(&buf,&bufsize);
-    if (buffd==NULL)
-    {
-        fprintf(stderr,"can't open memstream\n");
+    buffd = open_memstream(&buf, &bufsize);
+    if (buffd == NULL) {
+        fprintf(stderr, "can't open memstream\n");
         return;
     }
-    fprintf(buffd, "%s (%lu):", severity, threadid % 10);
+    fprintf(buffd, "%s(%d):", severity, threadid % 100);
     vfprintf(buffd, fmt, args);
     va_end(args);
     fprintf(buffd, "\t[%s:%s():%d]\n", basename, func, line);
     fclose(buffd);
-    size_t r=fwrite(buf, bufsize, 1, stderr);
-    if (r!=1) fprintf(stderr,"previous %zd log message truncated\n", bufsize);
+    size_t r = fwrite(buf, bufsize, 1, stderr);
+    if (r != 1)
+        fprintf(stderr, "previous %zd log message truncated\n", bufsize);
     free(buf);
-    buf=NULL;
+    buf = NULL;
     fflush(stderr);
-    if (!strcmp(severity,"Error")) abort();
+    if (!strcmp(severity, "Error")) abort();
 }
 
-rc_t SAM_parseline(Extractor * state)
+rc_t SAM_parseline(Extractor* state)
 {
-    state->rc=0;
+    state->rc = 0;
     DBG("Parsing line (%d bytes): '%s'", strlen(curline), curline);
     SAMparse(state);
     return state->rc;
 }
 
-int moredata(char * buf, int * numbytes, size_t maxbytes)
+int moredata(char* buf, int* numbytes, size_t maxbytes)
 {
     if (!curline_len)
         DBG("nomoredata");
     else
         DBG("  moredata %p %d\ncurline:'%s'", buf, maxbytes, curline);
-    memmove(buf,curline,curline_len);
-    *numbytes=curline_len;
-    curline_len=0;
+    memmove(buf, curline, curline_len);
+    *numbytes = curline_len;
+    curline_len = 0;
     return 0;
 }
 
-inline rc_t readfile(Extractor * state)
+inline rc_t readfile(Extractor* state)
 {
-    if (state->readbuf_pos == state->readbuf_sz)
-    {
-        state->readbuf_sz=READBUF_SZ;
-        DBG("reading in at %d",state->file_pos);
-        rc_t rc=KFileReadAll(state->infile, state->file_pos, state->readbuf, state->readbuf_sz, &state->readbuf_sz);
+    if (state->readbuf_pos == state->readbuf_sz) {
+        state->readbuf_sz = READBUF_SZ;
+        DBG("reading in at %d", state->file_pos);
+        rc_t rc = KFileReadAll(state->infile, state->file_pos, state->readbuf,
+                               state->readbuf_sz, &state->readbuf_sz);
         state->file_pos += state->readbuf_sz;
-        if (rc) { ERR("readfile error"); return rc;}
-        DBG("Read in %d",state->readbuf_sz);
-        state->readbuf_pos=0;
-        if (!state->readbuf_sz)
-        {
+        if (rc) {
+            ERR("readfile error");
+            return rc;
+        }
+        DBG("Read in %d", state->readbuf_sz);
+        state->readbuf_pos = 0;
+        if (!state->readbuf_sz) {
             DBG("Buffer complete. EOF");
         }
     }
     return 0;
 }
 
-void SAMerror(Extractor * state, const char * s)
+void SAMerror(Extractor* state, const char* s)
 {
-    ERR(" Parsing error: %s\nLine was:'%s'",s, curline);
-    rc_t rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
-    state->rc=rc;
+    ERR(" Parsing error: %s\nLine was:'%s'", s, curline);
+    rc_t rc = RC(rcAlign, rcRow, rcParsing, rcData, rcInvalid);
+    state->rc = rc;
     abort();
 }
 
 /* low<=str<=high */
-bool inrange(const char * str, i64 low, i64 high)
+bool inrange(const char* str, i64 low, i64 high)
 {
-    i64 i=strtoi64(str, NULL, 10);
+    i64 i = strtoi64(str, NULL, 10);
     if (errno) return false;
-    if (i<low || i>high) return false;
+    if (i < low || i > high) return false;
     return true;
 }
 
-bool ismd5(const char * str)
+bool ismd5(const char* str)
 {
     size_t i;
-    size_t len=strlen(str);
+    size_t len = strlen(str);
 
-    if (len!=32) return false;
+    if (len != 32) return false;
 
-    for (i=0; i!=len; ++i)
+    for (i = 0; i != len; ++i)
     {
-        if (!isalnum(str[i]) && str[i]!='*') return false;
+        if (!isalnum(str[i]) && str[i] != '*') return false;
     }
 
     return true;
@@ -161,432 +164,424 @@ bool ismd5(const char * str)
 /* Avoiding handling this as flex token because so many other ReadGroup values
  * could end up looking like flow orders.
  */
-bool isfloworder(const char * str)
+bool isfloworder(const char* str)
 {
     size_t i;
-    size_t len=strlen(str);
+    size_t len = strlen(str);
 
-    if (len==1 && str[0]=='*') return true;
-    for (i=0; i!=len; ++i)
+    if (len == 1 && str[0] == '*') return true;
+    for (i = 0; i != len; ++i)
     {
-        switch(str[i])
+        switch (str[i])
         {
-          case 'A':
-          case 'C':
-          case 'M':
-          case 'G':
-          case 'R':
-          case 'S':
-          case 'V':
-          case 'T':
-          case 'W':
-          case 'Y':
-          case 'H':
-          case 'K':
-          case 'D':
-          case 'B':
-          case 'N':
-              continue;
-          default:
-              return false;
+        case 'A':
+        case 'C':
+        case 'M':
+        case 'G':
+        case 'R':
+        case 'S':
+        case 'V':
+        case 'T':
+        case 'W':
+        case 'Y':
+        case 'H':
+        case 'K':
+        case 'D':
+        case 'B':
+        case 'N':
+            continue;
+        default:
+            return false;
         }
     }
     return true;
 }
 
-rc_t process_header(Extractor * state, const char * type, const char * tag, const char * value)
+rc_t process_header(Extractor* state, const char* type, const char* tag,
+                    const char* value)
 {
     DBG("processing type:%s tag:%s value:%s", type, tag, value);
-    if (strcmp(type,"HD") &&
-        strcmp(type,"SQ") &&
-        strcmp(type,"RG") &&
-        strcmp(type,"PG"))
+    if (strcmp(type, "HD") && strcmp(type, "SQ") && strcmp(type, "RG")
+        && strcmp(type, "PG"))
     {
         ERR("record '%s' must be HD, SQ, RG or PG", type);
-        rc_t rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
-        state->rc=rc;
+        rc_t rc = RC(rcAlign, rcRow, rcParsing, rcData, rcInvalid);
+        state->rc = rc;
         return rc;
     }
 
-    if (strlen(tag)!=2)
-    {
+    if (strlen(tag) != 2) {
         ERR("tag '%s' must be 2 characters", tag);
-        rc_t rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
-        state->rc=rc;
+        rc_t rc = RC(rcAlign, rcRow, rcParsing, rcData, rcInvalid);
+        state->rc = rc;
         return rc;
     }
 
-    if (islower(tag[0] &&
-                islower(tag[1])))
-    {
+    if (islower(tag[0] && islower(tag[1]))) {
         DBG("optional tag");
     }
 
-    TagValue * tv=(TagValue *)pool_alloc(sizeof(TagValue));
-    if (tv==NULL)
-    {
+    TagValue* tv = (TagValue*)pool_alloc(sizeof(TagValue));
+    if (tv == NULL) {
         ERR("out of memory");
-        rc_t rc=RC(rcAlign, rcRow,rcConstructing,rcMemory,rcExhausted);
-        state->rc=rc;
+        rc_t rc = RC(rcAlign, rcRow, rcConstructing, rcMemory, rcExhausted);
+        state->rc = rc;
         return rc;
     }
-    tv->tag=pool_strdup(tag);
-    if (tv->tag==NULL)
-    {
+    tv->tag = pool_strdup(tag);
+    if (tv->tag == NULL) {
         ERR("out of memory");
-        rc_t rc=RC(rcAlign, rcRow,rcConstructing,rcMemory,rcExhausted);
-        state->rc=rc;
+        rc_t rc = RC(rcAlign, rcRow, rcConstructing, rcMemory, rcExhausted);
+        state->rc = rc;
         return rc;
     }
-    tv->value=pool_strdup(value);
-    if (tv->value==NULL)
-    {
+    tv->value = pool_strdup(value);
+    if (tv->value == NULL) {
         ERR("out of memory");
-        rc_t rc=RC(rcAlign, rcRow,rcConstructing,rcMemory,rcExhausted);
-        state->rc=rc;
+        rc_t rc = RC(rcAlign, rcRow, rcConstructing, rcMemory, rcExhausted);
+        state->rc = rc;
         return rc;
     }
-    VectorAppend(&state->tagvalues,NULL,tv);
+    VectorAppend(&state->tagvalues, NULL, tv);
 
     return 0;
 }
 
-rc_t mark_headers(Extractor * state, const char * type)
+rc_t mark_headers(Extractor* state, const char* type)
 {
     DBG("mark_headers");
-    Header * hdr=(Header *)pool_alloc(sizeof(Header));
-    if (hdr==NULL)
-    {
+    Header* hdr = (Header*)pool_alloc(sizeof(Header));
+    if (hdr == NULL) {
         ERR("out of memory");
-        rc_t rc=RC(rcAlign, rcRow,rcConstructing,rcMemory,rcExhausted);
-        state->rc=rc;
+        rc_t rc = RC(rcAlign, rcRow, rcConstructing, rcMemory, rcExhausted);
+        state->rc = rc;
         return rc;
     }
-    hdr->headercode=type;
-    VectorCopy(&state->tagvalues,&hdr->tagvalues);
-    VectorAppend(&state->headers,NULL,hdr);
-    VectorWhack(&state->tagvalues,NULL,NULL);
+    hdr->headercode = type;
+    VectorCopy(&state->tagvalues, &hdr->tagvalues);
+    VectorAppend(&state->headers, NULL, hdr);
+    VectorWhack(&state->tagvalues, NULL, NULL);
     return 0;
 }
 
-rc_t process_alignment(Extractor * state, const char * qname,const char * flag,const
-                       char * rname,const char * pos,const char * mapq,const char * cigar,const char *
-                       rnext,const char * pnext,const char * tlen,const char * seq,const char * qual)
+rc_t process_alignment(Extractor* state, const char* qname, const char* flag,
+                       const char* rname, const char* pos, const char* mapq,
+                       const char* cigar, const char* rnext,
+                       const char* pnext, const char* tlen, const char* seq,
+                       const char* qual)
 {
-    //Alignment * align=(Alignment *)pool_alloc(sizeof(Alignment));
-    Alignment * align=(Alignment *)calloc(1, sizeof(Alignment));
-    if (align==NULL)
-    {
+    Alignment* align = (Alignment*)pool_alloc(sizeof(Alignment));
+    //    Alignment * align=(Alignment *)calloc(1, sizeof(Alignment));
+    if (align == NULL) {
         ERR("out of memory");
-        rc_t rc=RC(rcAlign, rcRow,rcConstructing,rcMemory,rcExhausted);
-        state->rc=rc;
+        rc_t rc = RC(rcAlign, rcRow, rcConstructing, rcMemory, rcExhausted);
+        state->rc = rc;
     }
 
-    INFO("process_alignment %s %s %s", rname, pos, flag);
+    DBG("process_alignment %s %s %s", rname, pos, flag);
 
-    if (!inrange(flag,0,UINT16_MAX))
-        ERR("Flag not in range %s",flag);
+    if (!inrange(flag, 0, UINT16_MAX)) ERR("Flag not in range %s", flag);
 
-    if (!inrange(pos,0,INT32_MAX))
-        ERR("POS not in range %s",pos);
+    if (!inrange(pos, -1, INT32_MAX)) ERR("POS not in range %s", pos);
 
-    if (!inrange(mapq,0,UINT8_MAX))
-        ERR("MAPQ not in range %s",mapq);
+    if (!inrange(mapq, 0, UINT8_MAX)) ERR("MAPQ not in range %s", mapq);
 
-    if (!inrange(pnext,0,INT32_MAX))
-        ERR("PNEXT not in range %s", pnext);
+    if (!inrange(pnext, 0, INT32_MAX)) ERR("PNEXT not in range %s", pnext);
 
-    if (!inrange(tlen,INT32_MIN,INT32_MAX))
+    if (!inrange(tlen, INT32_MIN, INT32_MAX))
         ERR("TLEN not in range %s", tlen);
-/*
-    align->read=pool_strdup(seq);
-    align->cigar=pool_strdup(cigar);
-    align->rname=pool_strdup(rname);
-*/
-    align->read=strdup(seq);
-    align->cigar=strdup(cigar);
-    align->rname=strdup(rname);
-    align->pos=strtou32(pos,NULL,10);
-    align->flags=strtou32(flag,NULL,10);
-    DBG("acquiring lock");
-    KLockAcquire(state->lock_align);
-    VectorAppend(&state->alignments,NULL,align);
-    KLockUnlock(state->lock_align);
-    DBG("unacquiring lock");
+
+    align->read = pool_strdup(seq);
+    align->cigar = pool_strdup(cigar);
+    align->rname = pool_strdup(rname);
+    align->pos = strtou32(pos, NULL, 10);
+    align->flags = strtou32(flag, NULL, 10);
+    VectorAppend(&state->alignments, NULL, align);
 
     return 0;
 }
 
 // Reads next line into curline, returns false if file complete.
-static bool readline(Extractor * state)
+static bool readline(Extractor* state)
 {
     DBG("readline");
     if (readfile(state)) return false;
-    char * line=curline;
-    line[0]='\0';
-    curline_len=0;
+    char* line = curline;
+    line[0] = '\0';
+    curline_len = 0;
     // Is there a newline in current buffer?
-    char * nl=(char *)memchr( (state->readbuf+state->readbuf_pos), '\n', (state->readbuf_sz-state->readbuf_pos) );
-    if (nl)
-    {
-        nl+=1;
-        size_t len=nl - (state->readbuf+state->readbuf_pos);
-        memmove(line, state->readbuf+state->readbuf_pos, len);
-        curline_len+=len;
-        state->readbuf_pos+=len;
-        line[curline_len+1]='\0';
+    char* nl = (char*)memchr((state->readbuf + state->readbuf_pos), '\n',
+                             (state->readbuf_sz - state->readbuf_pos));
+    if (nl) {
+        nl += 1;
+        size_t len = nl - (state->readbuf + state->readbuf_pos);
+        memmove(line, state->readbuf + state->readbuf_pos, len);
+        curline_len += len;
+        state->readbuf_pos += len;
+        line[curline_len + 1] = '\0';
         return true;
     }
 
     // Nope, append and get more
-    size_t len=(state->readbuf_sz - state->readbuf_pos);
+    size_t len = (state->readbuf_sz - state->readbuf_pos);
     DBG("readline more %d/%d", state->readbuf_pos, len);
-    memmove(line, state->readbuf+state->readbuf_pos, len);
+    memmove(line, state->readbuf + state->readbuf_pos, len);
     DBG("moreline was %d '%s'", strlen(line), line);
-    line+=len;
-    curline_len+=len;
+    line += len;
+    curline_len += len;
 
-    state->readbuf_pos=state->readbuf_sz;
+    state->readbuf_pos = state->readbuf_sz;
     if (readfile(state)) return false;
 
     // Better be a newline now
-    nl=(char *)memchr(state->readbuf, '\n', state->readbuf_sz);
-    if (!nl)
-    {
+    nl = (char*)memchr(state->readbuf, '\n', state->readbuf_sz);
+    if (!nl) {
         return false;
     }
-    DBG("found newline at %d", nl-state->readbuf);
-    nl+=1;
-    len=(nl - state->readbuf);
+    DBG("found newline at %d", nl - state->readbuf);
+    nl += 1;
+    len = (nl - state->readbuf);
     memmove(line, state->readbuf, len);
-    curline_len+=len;
-    state->readbuf_pos+=len;
-    line[curline_len+1]='\0';
+    curline_len += len;
+    state->readbuf_pos += len;
+    line[curline_len + 1] = '\0';
     DBG("moreline  is %d %d '%s'", curline_len, strlen(line), line);
 
     return true;
 }
 
-LIB_EXPORT rc_t CC SAMExtractorMake(Extractor **state, const KFile * fin, int32_t num_threads=-1)
+LIB_EXPORT rc_t CC SAMExtractorMake(Extractor** state, const KFile* fin,
+                                    int32_t num_threads = -1)
 {
-    Extractor * s=(Extractor *)calloc(1,sizeof(*s));
-    *state=s;
+    Extractor* s = (Extractor*)calloc(1, sizeof(*s));
+    *state = s;
 
-    VectorInit(&s->headers,0,0);
-    KLockMake(&s->lock_align);
-    VectorInit(&s->alignments,0,0);
-    VectorInit(&s->tagvalues,0,0);
     pool_init();
 
-    s->prev_headers=NULL;
-    s->prev_aligns=NULL;
-    s->pos=0;
+    //    pthread_t threadid=pthread_self();
+    //    lib_threadid=threadid;
 
-    s->file_type=unknown;
+    s->infile = fin;
 
-    s->file_status=init;
-    s->hashdvn=false;
-    s->hashdso=false;
-    s->hashdgo=false;
-    s->hassqsn=false;
-    s->hassqln=false;
-    s->hasrgid=false;
-    s->haspgid=false;
+    VectorInit(&s->headers, 0, 0);
+    VectorInit(&s->alignments, 0, 0);
+    VectorInit(&s->tagvalues, 0, 0);
 
-    s->rc=0;
-    s->file_pos=0;
-    s->readbuf=(char *)calloc(1,READBUF_SZ+1);
-    s->readbuf_sz=0;
-    s->readbuf_pos=0;
+    //    s->prev_headers=NULL;
+    //    s->prev_aligns=NULL;
 
-    s->infile=fin;
+    s->num_threads = num_threads;
 
-    s->num_threads=num_threads;
-
-    if (s->num_threads<=-1)
-        s->num_threads=sysconf(_SC_NPROCESSORS_ONLN) - 1;
+    if (s->num_threads <= -1)
+        s->num_threads = sysconf(_SC_NPROCESSORS_ONLN) - 1;
 
     DBG("%d threads", s->num_threads);
-    KQueueMake(&s->inflatequeue, s->num_threads);
-    KQueueMake(&s->parsequeue, 1);
 
-    VectorInit(&s->threads,0,0);
+    VectorInit(&s->threads, 0, 0);
+    KQueueMake(&s->inflatequeue, s->num_threads);
+    KQueueMake(&s->parsequeue, s->num_threads);
+
+    s->pos = 0;
+    s->file_pos = 0;
+
+    s->readbuf = (char*)calloc(1, READBUF_SZ + 1);
+    s->readbuf_sz = 0;
+    s->readbuf_pos = 0;
+
+    s->file_type = unknown;
+    s->n_ref = -1;
+
+    s->rc = 0;
+    s->hashdvn = false;
+    s->hashdso = false;
+    s->hashdgo = false;
+    s->hassqsn = false;
+    s->hassqln = false;
+    s->hasrgid = false;
+    s->haspgid = false;
 
     return 0;
 }
 
-LIB_EXPORT rc_t CC SAMExtractorRelease(Extractor *s)
+LIB_EXPORT rc_t CC SAMExtractorRelease(Extractor* s)
 {
-    DBG("release_Extractor");
+    DBG("complete release_Extractor");
     SAMlex_destroy();
 
     SAMExtractorInvalidateHeaders(s);
     SAMExtractorInvalidateAlignments(s);
 
-    VectorWhack(&s->headers,NULL,NULL);
-
     pool_release();
 
+    VectorWhack(&s->headers, NULL, NULL);
+
     free(s->readbuf);
+
+    releasethreads(s);
 
     KQueueRelease(s->inflatequeue);
     KQueueRelease(s->parsequeue);
 
-    //waitforthreads(&s->threads);
-    releasethreads(&s->threads);
-    VectorWhack(&s->threads,NULL,NULL);
+    VectorWhack(&s->threads, NULL, NULL);
 
-    memset(s,0,sizeof(Extractor));
+    memset(s, 0, sizeof(Extractor));
     free(s);
 
     return 0;
 }
 
-LIB_EXPORT rc_t CC SAMExtractorGetHeaders(Extractor *s, Vector *headers)
+LIB_EXPORT rc_t CC SAMExtractorGetHeaders(Extractor* s, Vector* headers)
 {
-    rc_t rc=0;
-    DBG("get_headers");
+    rc_t rc = 0;
+    DBG("GetHeaders");
 
-    u64 sz=0;
-    rc=KFileSize(s->infile,&sz);
-    DBG("File size=%'d", sz);
-    if (sz < 12)
-    {
+    u64 sz = 0;
+    rc = KFileSize(s->infile, &sz);
+    DBG("File size=%u", sz);
+    if (sz < 12) {
         ERR("File too small");
-        return RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
+        return RC(rcAlign, rcRow, rcParsing, rcData, rcInvalid);
     }
 
-    rc=readfile(s);
+    rc = readfile(s);
     if (rc) return rc;
 
-    if (!memcmp(s->readbuf,"\x1f\x8b\x08",3))
-    {
+    if (!memcmp(s->readbuf, "\x1f\x8b\x08", 3)) {
         DBG("gzip file, BAM or SAM.gz");
-        s->file_type=BAM;
-        threadinflate(s);
-        while (s->file_status==init)
-        {
-            DBG("waiting for headers complete");
-            sleep(1);
-        }
-        DBG("Done waiting for headers");
-    } else if (s->readbuf[0]=='@')
+        s->file_type = BAM;
+    }
+    else if (s->readbuf[0] == '@')
     {
         DBG("SAM file");
-        s->file_type=SAM;
+        s->file_type = SAM;
+    }
+    else
+    {
+        ERR("Unkown magic, not a SAM file.");
+        return RC(rcAlign, rcFile, rcParsing, rcData, rcInvalid);
+    }
 
+    switch (s->file_type)
+    {
+    case BAM:
+        threadinflate(s);
+        rc = BAMGetHeaders(s);
+        if (rc) return rc;
+        break;
+    case SAM:
         while (readline(s))
         {
-            rc=SAM_parseline(s);
+            rc = SAM_parseline(s);
             if (rc) return rc;
 
-            if (curline[0]!='@')
-            {
+            if (curline[0] != '@') {
                 // First line of alignments will be processed
                 DBG("out of headers");
                 break;
             }
         }
-        DBG("Done parsing headers");
-    }
-    else
-    {
-        ERR("Unkown magic, not a SAM file.");
-        return RC(rcAlign,rcFile,rcParsing,rcData,rcInvalid);
+        break;
+    default:
+        ERR("Unknown file type");
+        return RC(rcAlign, rcFile, rcParsing, rcData, rcInvalid);
     }
 
-    VectorInit(headers,0,0);
-    VectorCopy(&s->headers,headers);
-    s->prev_headers=headers;
-    s->file_status=alignments;
+    DBG("Done parsing headers");
+    VectorInit(headers, 0, 0);
+    VectorCopy(&s->headers, headers);
+    //    s->prev_headers=headers;
     return 0;
 }
 
-LIB_EXPORT rc_t CC SAMExtractorInvalidateHeaders(Extractor *s)
+LIB_EXPORT rc_t CC SAMExtractorInvalidateHeaders(Extractor* s)
 {
     DBG("invalidate_headers");
-    for (u32 i=0; i!=VectorLength(&s->headers); ++i)
+    for (u32 i = 0; i != VectorLength(&s->headers); ++i)
     {
-        Header * hdr=(Header *)VectorGet(&s->headers,i);
+        Header* hdr = (Header*)VectorGet(&s->headers, i);
 
-        hdr->headercode=NULL;
+        hdr->headercode = NULL;
 
-        Vector * tvs=&hdr->tagvalues;
-        for (u32 j=0; j!=VectorLength(tvs); ++j)
+        Vector* tvs = &hdr->tagvalues;
+        for (u32 j = 0; j != VectorLength(tvs); ++j)
         {
-            TagValue * tv=(TagValue *)VectorGet(tvs,j);
-            tv->tag=NULL;
-            tv->value=NULL;
+            TagValue* tv = (TagValue*)VectorGet(tvs, j);
+            tv->tag = NULL;
+            tv->value = NULL;
         }
-        VectorWhack(&hdr->tagvalues,NULL,NULL);
-        hdr=NULL;
+        VectorWhack(&hdr->tagvalues, NULL, NULL);
+        hdr = NULL;
     }
-    //pool_release();
-    //pool_init();
-    VectorWhack(&s->headers,NULL,NULL);
-    VectorWhack(&s->tagvalues,NULL,NULL);
-    VectorWhack(s->prev_headers,NULL,NULL);
-    s->prev_headers=NULL;
+    pool_release();
+    pool_init();
+    VectorWhack(&s->headers, NULL, NULL);
+    VectorWhack(&s->tagvalues, NULL, NULL);
+    //    VectorWhack(s->prev_headers,NULL,NULL);
+    //    s->prev_headers=NULL;
     return 0;
 }
 
-LIB_EXPORT rc_t CC SAMExtractorGetAlignments(Extractor *s, Vector *alignments)
+LIB_EXPORT rc_t CC SAMExtractorGetAlignments(Extractor* s, Vector* alignments)
 {
-    rc_t rc=0;
-    DBG("get_alignments, acquiring lock");
+    rc_t rc = 0;
     SAMExtractorInvalidateAlignments(s);
-    VectorInit(&s->alignments,0,0);
+    VectorInit(&s->alignments, 0, 0);
+    VectorInit(alignments, 0, 0);
 
-    if (s->file_type==SAM)
-    {
-        while (VectorLength(&s->alignments) < 20)
+    if (s->file_type == SAM) {
+        while (VectorLength(&s->alignments) < 64)
         {
             if (!readline(s)) break;
 
-            if (curline[0]=='@')
-            {
+            if (curline[0] == '@') {
                 ERR("header restarted");
                 break;
             }
 
-            rc=SAM_parseline(s);
+            rc = SAM_parseline(s);
             if (rc) return rc;
         }
 
         DBG("Done parsing %d alignments", VectorLength(&s->alignments));
-    } else if (s->file_type==BAM)
+    }
+    else if (s->file_type == BAM)
     {
-        // TODO: Handle BAM threads
-        while (VectorLength(&s->alignments) < 20)
-        {
-            DBG("Have %d BAM alignments", VectorLength(&s->alignments));
-            usleep(100);
-        }
-
-    } else
+        rc = BAMGetAlignments(s);
+        DBG("complete parsing %d alignments", VectorLength(&s->alignments));
+        if (rc) return rc;
+    }
+    else
     {
         ERR("Unknown file type");
     }
-    KLockAcquire(s->lock_align);
-    VectorInit(alignments,0,0);
-    VectorCopy(&s->alignments,alignments);
-    VectorWhack(&s->alignments,NULL,NULL);
-    s->prev_aligns=alignments;
-    KLockUnlock(s->lock_align);
-    DBG("got_alignments, unacquire lock");
+
+    VectorCopy(&s->alignments, alignments);
+    VectorWhack(&s->alignments, NULL, NULL);
+    //    s->prev_aligns=alignments;
 
     return 0;
 }
 
-LIB_EXPORT rc_t CC SAMExtractorInvalidateAlignments(Extractor *s)
+LIB_EXPORT rc_t CC SAMExtractorInvalidateAlignments(Extractor* s)
 {
-    DBG("invalidate_alignments");
-    //pool_release();
-    //pool_init();
-    VectorWhack(&s->alignments,NULL,NULL);
-    VectorWhack(s->prev_aligns,NULL,NULL);
-    s->prev_aligns=NULL;
+    size_t num = VectorLength(&s->alignments);
+    DBG("invalidate_alignments %d", num);
+    for (u32 i = 0; i != num; ++i)
+    {
+        Alignment* align = (Alignment*)VectorGet(&s->alignments, i);
+        free((void*)align->read);
+        align->read = NULL;
+        free((void*)align->cigar);
+        align->cigar = NULL;
+        free((void*)align->rname);
+        align->rname = NULL;
+        free(align);
+    }
+    pool_release();
+    pool_init();
+    VectorWhack(&s->alignments, NULL, NULL);
+    //    VectorWhack(s->prev_aligns,NULL,NULL);
+    //    s->prev_aligns=NULL;
 
     return 0;
 }
-
