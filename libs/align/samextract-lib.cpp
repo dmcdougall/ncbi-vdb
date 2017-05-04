@@ -74,7 +74,7 @@ void logmsg(const char* fname, int line, const char* func,
         fprintf(stderr, "can't open memstream\n");
         return;
     }
-    fprintf(buffd, "%s(%d):", severity, threadid % 100);
+    fprintf(buffd, "%s(%lu):", severity, threadid % 100);
     vfprintf(buffd, fmt, args);
     va_end(args);
     fprintf(buffd, "\t[%s:%s():%d]\n", basename, func, line);
@@ -264,8 +264,8 @@ rc_t mark_headers(Extractor* state, const char* type)
     return 0;
 }
 
-rc_t process_alignment(Extractor* state, const char* qname, const char* flag,
-                       const char* rname, const char* pos, const char* mapq,
+rc_t process_alignment(Extractor* state, const char* qname, u16 flag,
+                       const char* rname, i32 pos, const char* mapq,
                        const char* cigar, const char* rnext,
                        const char* pnext, const char* tlen, const char* seq,
                        const char* qual)
@@ -278,24 +278,26 @@ rc_t process_alignment(Extractor* state, const char* qname, const char* flag,
         state->rc = rc;
     }
 
-    DBG("process_alignment %s %s %s", rname, pos, flag);
+    DBG("process_alignment %s %d %u %s %s %s", rname, pos, flag, qname, rnext,
+        qual);
 
-    if (!inrange(flag, 0, UINT16_MAX)) ERR("Flag not in range %s", flag);
+    if (pos < -1) ERR("POS not in range %d", pos);
 
-    if (!inrange(pos, -1, INT32_MAX)) ERR("POS not in range %s", pos);
+    if (state->file_type == SAM) {
+        if (!inrange(mapq, 0, UINT8_MAX)) ERR("MAPQ not in range %s", mapq);
 
-    if (!inrange(mapq, 0, UINT8_MAX)) ERR("MAPQ not in range %s", mapq);
+        if (!inrange(pnext, 0, INT32_MAX))
+            ERR("PNEXT not in range %s", pnext);
 
-    if (!inrange(pnext, 0, INT32_MAX)) ERR("PNEXT not in range %s", pnext);
-
-    if (!inrange(tlen, INT32_MIN, INT32_MAX))
-        ERR("TLEN not in range %s", tlen);
+        if (!inrange(tlen, INT32_MIN, INT32_MAX))
+            ERR("TLEN not in range %s", tlen);
+    }
 
     align->read = pool_strdup(seq);
     align->cigar = pool_strdup(cigar);
     align->rname = pool_strdup(rname);
-    align->pos = strtou32(pos, NULL, 10);
-    align->flags = strtou32(flag, NULL, 10);
+    align->pos = pos;
+    align->flags = flag;
     VectorAppend(&state->alignments, NULL, align);
 
     return 0;
@@ -367,8 +369,8 @@ LIB_EXPORT rc_t CC SAMExtractorMake(Extractor** state, const KFile* fin,
     VectorInit(&s->alignments, 0, 0);
     VectorInit(&s->tagvalues, 0, 0);
 
-    //    s->prev_headers=NULL;
-    //    s->prev_aligns=NULL;
+    s->prev_headers = NULL;
+    s->prev_aligns = NULL;
 
     s->num_threads = num_threads;
 
@@ -405,6 +407,8 @@ LIB_EXPORT rc_t CC SAMExtractorMake(Extractor** state, const KFile* fin,
 
 LIB_EXPORT rc_t CC SAMExtractorRelease(Extractor* s)
 {
+    rc_t rc;
+
     DBG("complete release_Extractor");
     SAMlex_destroy();
 
@@ -417,7 +421,8 @@ LIB_EXPORT rc_t CC SAMExtractorRelease(Extractor* s)
 
     free(s->readbuf);
 
-    releasethreads(s);
+    rc = releasethreads(s);
+    if (rc) return rc;
 
     KQueueRelease(s->inflatequeue);
     KQueueRelease(s->parsequeue);
@@ -464,7 +469,8 @@ LIB_EXPORT rc_t CC SAMExtractorGetHeaders(Extractor* s, Vector* headers)
     switch (s->file_type)
     {
     case BAM:
-        threadinflate(s);
+        rc = threadinflate(s);
+        if (rc) return rc;
         rc = BAMGetHeaders(s);
         if (rc) return rc;
         break;
@@ -489,7 +495,7 @@ LIB_EXPORT rc_t CC SAMExtractorGetHeaders(Extractor* s, Vector* headers)
     DBG("Done parsing headers");
     VectorInit(headers, 0, 0);
     VectorCopy(&s->headers, headers);
-    //    s->prev_headers=headers;
+    s->prev_headers = headers;
     return 0;
 }
 
@@ -516,8 +522,8 @@ LIB_EXPORT rc_t CC SAMExtractorInvalidateHeaders(Extractor* s)
     pool_init();
     VectorWhack(&s->headers, NULL, NULL);
     VectorWhack(&s->tagvalues, NULL, NULL);
-    //    VectorWhack(s->prev_headers,NULL,NULL);
-    //    s->prev_headers=NULL;
+    VectorWhack(s->prev_headers, NULL, NULL);
+    s->prev_headers = NULL;
     return 0;
 }
 
@@ -557,7 +563,7 @@ LIB_EXPORT rc_t CC SAMExtractorGetAlignments(Extractor* s, Vector* alignments)
 
     VectorCopy(&s->alignments, alignments);
     VectorWhack(&s->alignments, NULL, NULL);
-    //    s->prev_aligns=alignments;
+    s->prev_aligns = alignments;
 
     return 0;
 }
@@ -568,20 +574,22 @@ LIB_EXPORT rc_t CC SAMExtractorInvalidateAlignments(Extractor* s)
     DBG("invalidate_alignments %d", num);
     for (u32 i = 0; i != num; ++i)
     {
-        Alignment* align = (Alignment*)VectorGet(&s->alignments, i);
-        free((void*)align->read);
-        align->read = NULL;
-        free((void*)align->cigar);
-        align->cigar = NULL;
-        free((void*)align->rname);
-        align->rname = NULL;
-        free(align);
+        /*
+                Alignment* align = (Alignment*)VectorGet(&s->alignments, i);
+                free((void*)align->read);
+                align->read = NULL;
+                free((void*)align->cigar);
+                align->cigar = NULL;
+                free((void*)align->rname);
+                align->rname = NULL;
+                free(align);
+        */
     }
     pool_release();
     pool_init();
     VectorWhack(&s->alignments, NULL, NULL);
-    //    VectorWhack(s->prev_aligns,NULL,NULL);
-    //    s->prev_aligns=NULL;
+    VectorWhack(s->prev_aligns, NULL, NULL);
+    s->prev_aligns = NULL;
 
     return 0;
 }

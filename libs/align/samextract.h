@@ -70,8 +70,8 @@ void logmsg(const char* fname, int line, const char* func,
 int moredata(char* buf, int* numbytes, size_t maxbytes);
 rc_t process_header(Extractor* state, const char* type, const char* tag,
                     const char* value);
-rc_t process_alignment(Extractor* state, const char* qname, const char* flag,
-                       const char* rname, const char* pos, const char* mapq,
+rc_t process_alignment(Extractor* state, const char* qname, u16 flag,
+                       const char* rname, i32 pos, const char* mapq,
                        const char* cigar, const char* rnext,
                        const char* pnext, const char* tlen, const char* seq,
                        const char* qual);
@@ -84,13 +84,14 @@ void pool_init(void);
 void pool_release(void);
 void pool_free(void*);
 void* pool_alloc(size_t sz);
+void* pool_calloc(size_t sz);
 char* pool_strdup(const char* str);
 char* pool_memdup(const char* str, size_t len);
 rc_t threadinflate(Extractor* state);
 //    void waitforthreads(Vector * threads);
 rc_t BAMGetHeaders(Extractor* state);
 rc_t BAMGetAlignments(Extractor* state);
-void releasethreads(Extractor* state);
+rc_t releasethreads(Extractor* state);
 rc_t readfile(Extractor* state);
 extern char curline[];
 extern size_t curline_len;

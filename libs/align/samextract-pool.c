@@ -68,17 +68,20 @@ void pool_release(void)
     DBG("pools:%d", VectorLength(&allocs));
     for (u32 i = 0; i != VectorLength(&allocs); ++i)
     {
-        DBG("freeing %p", VectorGet(&allocs, i));
-        free(VectorGet(&allocs, i));
+        void* pool = VectorGet(&allocs, i);
+        DBG("freeing %p", pool);
+        //        memset(pool, 0, BLOCK_SZ); // Assist with UAF
+        free(pool);
     }
 
     VectorWhack(&allocs, NULL, NULL);
     cur_block = NULL;
 }
 
+/* Could conceivably reclaim last allocation  */
 void pool_free(void* buf)
 {
-    /* Could conceivably reclaim last allocation */
+    memset(buf, 0, 8); // Assist with UAF
     return;
 }
 
@@ -86,13 +89,21 @@ void* pool_alloc(size_t alloc_size)
 {
     if (!alloc_size) ERR("Zero allocation");
 
-    if (alloc_size % 8 != 0) alloc_size += 8 - (alloc_size % 8); /* Round up for alignment */
-    if (sz > cur_block_remain) morecore(MAX(sz, BLOCK_SZ));
+    if (alloc_size % 8 != 0)
+        alloc_size += 8 - (alloc_size % 8); /* Round up for alignment */
+    if (alloc_size > cur_block_remain) morecore(MAX(alloc_size, BLOCK_SZ));
 
     void* buf = cur_block;
-    cur_block += alloc_size;
+    cur_block = (void*)((char*)cur_block + alloc_size);
     cur_block_remain -= alloc_size;
 
+    return buf;
+}
+
+void* pool_calloc(size_t alloc_size)
+{
+    void* buf = pool_alloc(alloc_size);
+    memset(buf, 0, alloc_size);
     return buf;
 }
 

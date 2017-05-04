@@ -54,8 +54,8 @@ typedef struct Extractor
     Vector alignments;
 
     Vector tagvalues;
-    //        Vector * prev_headers;
-    //        Vector * prev_aligns;
+    Vector* prev_headers;
+    Vector* prev_aligns;
 
     //        Vector chunks;
     int32_t num_threads;

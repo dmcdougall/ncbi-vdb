@@ -112,7 +112,7 @@ class BGZFview
         releasebuf();
 
         struct timeout_t tm;
-        TimeoutInit(&tm, 5000); // 5 seconds
+        TimeoutInit(&tm, 1000); // 1 second
 
         while (true)
         {
@@ -156,9 +156,10 @@ class BGZFview
     }
 
   public:
-    bool getbytes(KQueue* que, void* dest, size_t len)
+    bool getbytes(KQueue* que, char* dest, size_t len)
     {
         DBG("Getting %d", len);
+        if (len == 0) ERR("Empty get");
         while (len)
         {
             if (bgzf == NULL || bgzf->outsize == 0) {
@@ -189,7 +190,7 @@ static rc_t seeker(const KThread* kt, void* in)
 {
     Extractor* state = (Extractor*)in;
     pthread_t threadid = pthread_self();
-    DBG("\tSeeker thread %lu started.", threadid);
+    DBG("\tSeeker thread %p %lu started.", kt, threadid);
 
     state->file_pos = 0;
     while (true)
@@ -293,7 +294,6 @@ static rc_t seeker(const KThread* kt, void* in)
                 rc_t rc = KQueuePush(state->inflatequeue, (void*)bgzf, &tm);
                 if ((int)GetRCObject(rc) == rcTimeout) {
                     DBG("inflate queue full");
-                    sleep(1);
                 }
                 else if (rc == 0)
                 {
@@ -344,6 +344,8 @@ static rc_t seeker(const KThread* kt, void* in)
         }
         DBG("Read in %d", state->readbuf_sz);
         state->readbuf_pos = 0;
+        //        if (state->file_pos > 10000000) state->readbuf_sz = 0; //
+        //        TODO
         if (state->readbuf_sz == 0) {
             DBG("Buffer complete. EOF");
             break;
@@ -362,13 +364,13 @@ static rc_t inflater(const KThread* kt, void* in)
 
     z_stream strm;
     pthread_t threadid = pthread_self();
-    DBG("\tInflater thread %lu started.", threadid);
+    DBG("\tInflater thread %p %lu started.", kt, threadid);
 
     while (true)
     {
         void* where = NULL;
         DBG("\t\tthread %lu checking queue", threadid);
-        TimeoutInit(&tm, 5000); // 5 seconds
+        TimeoutInit(&tm, 1000); // 1 seconds
         rc_t rc = KQueuePop(state->inflatequeue, &where, &tm);
         if (rc == 0) {
             BGZF* bgzf = (BGZF*)where;
@@ -478,15 +480,14 @@ rc_t BAMGetHeaders(Extractor* state)
         return RC(rcAlign, rcFile, rcParsing, rcData, rcInvalid);
     }
     i32 l_text;
-    if (!bview.getbytes(state->parsequeue, &l_text, 4)) return 1;
+    if (!bview.getbytes(state->parsequeue, (char*)&l_text, 4)) return 1;
     if (l_text < 0) {
         ERR("error: invalid l_text");
         return RC(rcAlign, rcFile, rcParsing, rcData, rcInvalid);
     }
 
-    char* text = (char*)calloc(1, l_text + 2);
+    char* text = (char*)pool_calloc(l_text + 2);
     if (!bview.getbytes(state->parsequeue, text, l_text)) return 1;
-    text[l_text + 1] = '\0';
 
     DBG("SAM header %d %d:'%s'", l_text, strlen(text), text);
     char* t = text;
@@ -514,10 +515,10 @@ rc_t BAMGetHeaders(Extractor* state)
         curline_len = strlen(curline);
         SAMparse(state);
     }
-    free(text);
+    pool_free(text);
     text = NULL;
 
-    if (!bview.getbytes(state->parsequeue, &state->n_ref, 4)) return 1;
+    if (!bview.getbytes(state->parsequeue, (char*)&state->n_ref, 4)) return 1;
     if (state->n_ref < 0) {
         ERR("error: invalid n_ref: %d", state->n_ref);
         return RC(rcAlign, rcFile, rcParsing, rcData, rcInvalid);
@@ -527,7 +528,7 @@ rc_t BAMGetHeaders(Extractor* state)
     for (int i = 0; i != state->n_ref; ++i)
     {
         i32 l_name;
-        if (!bview.getbytes(state->parsequeue, &l_name, 4)) return 1;
+        if (!bview.getbytes(state->parsequeue, (char*)&l_name, 4)) return 1;
         DBG("ref #%d/%d: l_name=%d", i, state->n_ref, l_name);
         if (l_name < 0) {
             ERR("error: invalid reference name length:%d", l_name);
@@ -537,13 +538,13 @@ rc_t BAMGetHeaders(Extractor* state)
             ERR("warning: Long reference name:%d", l_name);
             //            return 0;
         }
-        char* name = (char*)calloc(1, l_name + 1);
+        char* name = (char*)pool_alloc(l_name + 1);
         if (!bview.getbytes(state->parsequeue, name, l_name)) return 1;
         DBG("ref #%d:'%s'", i, name);
-        free(name);
+        pool_free(name);
         name = NULL;
         i32 l_ref;
-        if (!bview.getbytes(state->parsequeue, &l_ref, 4)) return 1;
+        if (!bview.getbytes(state->parsequeue, (char*)&l_ref, 4)) return 1;
         DBG("length of reference sequence %d=%d", i, l_ref);
     }
     DBG("End of references");
@@ -557,7 +558,7 @@ rc_t BAMGetAlignments(Extractor* state)
 {
     bamalign align;
 
-    while (bview.getbytes(state->parsequeue, &align, sizeof(align)))
+    while (bview.getbytes(state->parsequeue, (char*)&align, sizeof(align)))
     {
         DBG("alignment block_size=%d refID=%d pos=%d", align.block_size,
             align.refID, align.pos);
@@ -599,41 +600,53 @@ rc_t BAMGetAlignments(Extractor* state)
         u16 n_cigar_op = align.flag_nc & 0xffff;
         DBG("flag=%x n_cigar_op=%d", flag, n_cigar_op);
 
-        char* read_name = (char*)calloc(1, l_read_name);
+        char* read_name = (char*)pool_alloc(l_read_name);
         if (!bview.getbytes(state->parsequeue, read_name, l_read_name))
             return RC(rcAlign, rcFile, rcParsing, rcData, rcInvalid);
         DBG("read_name='%s'", read_name);
 
-        static const char opmap[] = "MIDNSHP=X???????";
-        u32* cigar = (u32*)calloc(n_cigar_op, sizeof(u32));
+        char* scigar = NULL;
+        if (n_cigar_op > 0) {
+            static const char opmap[] = "MIDNSHP=X???????";
+            u32* cigar = (u32*)pool_alloc(n_cigar_op * sizeof(u32));
 
-        if (!bview.getbytes(state->parsequeue, cigar, n_cigar_op * 4))
-            return RC(rcAlign, rcFile, rcParsing, rcData, rcInvalid);
-        // Compute size of expanded CIGAR
-        size_t rleopslen = 0;
-        for (int i = 0; i != n_cigar_op; ++i)
-        {
-            i32 oplen = cigar[i] >> 4;
-            if (!oplen) ERR("Bogus CIGAR op length");
-            rleopslen += oplen;
+            if (!bview.getbytes(state->parsequeue, (char*)cigar,
+                                n_cigar_op * 4))
+                return RC(rcAlign, rcFile, rcParsing, rcData, rcInvalid);
+            // Compute size of expanded CIGAR
+            size_t rleopslen = 0;
+            for (int i = 0; i != n_cigar_op; ++i)
+            {
+                i32 oplen = cigar[i] >> 4;
+                if (!oplen) ERR("Bogus CIGAR op length");
+                rleopslen += oplen;
+            }
+            DBG("rleopslen %d", rleopslen);
+            scigar = (char*)pool_calloc(rleopslen + 1);
+            char* p = scigar;
+            for (int i = 0; i != n_cigar_op; ++i)
+            {
+                i32 oplen = cigar[i] >> 4;
+                i32 op = cigar[i] & 0xf;
+                DBG("\tcigar %d=%x len=%d %d(%c)", i, cigar[i], oplen, op,
+                    opmap[op]);
+                for (int j = 0; j != oplen; ++j)
+                    *p++ = (char)opmap[op];
+            }
+            *p = '\0';
+            pool_free(cigar);
+            cigar = NULL;
         }
-        char* scigar = (char*)calloc(rleopslen + 1, 1);
-        char* p = scigar;
-        for (int i = 0; i != n_cigar_op; ++i)
+        else
         {
-            i32 oplen = cigar[i] >> 4;
-            i32 op = cigar[i] & 0xf;
-            DBG("\tcigar %d=%x len=%d %d(%c)", i, cigar[i], oplen, op,
-                opmap[op]);
-            for (int j = 0; j != oplen; ++j)
-                *p++ = (char)opmap[op];
+            scigar = pool_strdup("");
         }
         DBG("scigar is '%s'", scigar);
 
         static const char seqmap[] = "=ACMGRSVTWYHKDBN";
-        char* seq = (char*)calloc(1, align.l_seq + 1);
+        char* seq = (char*)pool_calloc(align.l_seq + 1);
         int bytesofseq = (align.l_seq + 1) / 2;
-        u8* seqbytes = (u8*)calloc(1, bytesofseq);
+        char* seqbytes = (char*)pool_alloc(bytesofseq);
         if (!bview.getbytes(state->parsequeue, seqbytes, bytesofseq))
             return RC(rcAlign, rcFile, rcParsing, rcData, rcInvalid);
         int i = 0;
@@ -653,7 +666,7 @@ rc_t BAMGetAlignments(Extractor* state)
             j += 1;
         }
 
-        char* qual = (char*)calloc(1, align.l_seq);
+        char* qual = (char*)pool_alloc(align.l_seq);
         if (!bview.getbytes(state->parsequeue, qual, align.l_seq))
             return RC(rcAlign, rcFile, rcParsing, rcData, rcInvalid);
 
@@ -666,7 +679,7 @@ rc_t BAMGetAlignments(Extractor* state)
                      - (sizeof(align) + l_read_name + n_cigar_op * 4
                         + bytesofseq + align.l_seq) + 4; // TODO, why 4?
         DBG("%d bytes remaining for ttvs", remain);
-        char* ttvs = (char*)calloc(1, remain);
+        char* ttvs = (char*)pool_alloc(remain);
         if (!bview.getbytes(state->parsequeue, ttvs, remain))
             return RC(rcAlign, rcFile, rcParsing, rcData, rcInvalid);
         char* cur = ttvs;
@@ -751,18 +764,11 @@ rc_t BAMGetAlignments(Extractor* state)
         // We want read (seq), cigar, rname, pos and flags
         // name=Qname, reference sequence name
         // read_name=qname, query template name
-
-        char sflag[16];
-        snprintf(sflag, sizeof sflag, "%u", flag);
-        char spos[16];
-        snprintf(spos, sizeof spos, "%d", align.pos);
-
-        DBG("sflag='%s', spos='%s'", sflag, spos);
         process_alignment(state,
                           NULL, // QNAME
-                          sflag,
+                          flag,
                           read_name, // RNAME
-                          spos,
+                          align.pos,
                           "0",    // mapq
                           scigar, // cigar
                           NULL,   // rnext
@@ -772,19 +778,17 @@ rc_t BAMGetAlignments(Extractor* state)
                           NULL    // qual
                           );
 
-        free(read_name);
+        pool_free(read_name);
         read_name = NULL;
-        free(cigar);
-        cigar = NULL;
-        free(seq);
+        pool_free(seq);
         seq = NULL;
-        free(seqbytes);
+        pool_free(seqbytes);
         seqbytes = NULL;
-        free(qual);
+        pool_free(qual);
         qual = NULL;
-        free(ttvs);
+        pool_free(ttvs);
         ttvs = NULL;
-        free(scigar);
+        pool_free(scigar);
         scigar = NULL;
 
         if (VectorLength(&state->alignments) == 64) {
@@ -802,33 +806,43 @@ rc_t BAMGetAlignments(Extractor* state)
     return 0;
 }
 
-void releasethreads(Extractor* state)
+rc_t releasethreads(Extractor* state)
 {
+    rc_t rc;
     DBG("complete Release threads");
     for (u32 i = 0; i != VectorLength(&state->threads); ++i)
     {
         KThread* t = (KThread*)VectorGet(&state->threads, i);
-        KThreadCancel(t);
-        KThreadRelease(t);
-        free(t);
+        //        rc=KThreadCancel(t);
+        //        if (rc) return rc;
+        rc = KThreadRelease(t);
+        if (rc) return rc;
     }
     DBG("Released threads");
+    return 0;
 }
 
 rc_t threadinflate(Extractor* state)
 {
+    rc_t rc;
     DBG("Starting threads");
     // Inflater threads
     for (i32 i = 0; i != MAX(1, state->num_threads - 1); ++i)
     {
-        KThread* inflaterthread = (KThread*)calloc(1, sizeof(KThread));
-        KThreadMake(&inflaterthread, inflater, (void*)state);
+        KThread* inflaterthread;
+        rc = KThreadMake(&inflaterthread, inflater, (void*)state);
+        if (rc) return rc;
+        rc = KThreadDetach(inflaterthread);
+        if (rc) return rc;
         VectorAppend(&state->threads, NULL, inflaterthread);
     }
 
     // Seeker thread
-    KThread* seekerthread = (KThread*)calloc(1, sizeof(KThread));
-    KThreadMake(&seekerthread, seeker, (void*)state);
+    KThread* seekerthread;
+    rc = KThreadMake(&seekerthread, seeker, (void*)state);
+    if (rc) return rc;
+    rc = KThreadDetach(seekerthread);
+    if (rc) return rc;
     VectorAppend(&state->threads, NULL, seekerthread);
 
     DBG("Threads started.");

@@ -118,7 +118,7 @@ rc_t CC KMain(int argc, char* argv[])
             }
             vlen = VectorLength(&alignments);
             total += vlen;
-fprintf(stderr,"Got %d alignments\n",total);
+            fprintf(stderr, "Got %d alignments\n", total);
             //            fprintf(stderr,"\n\nReturned %d alignments\n",vlen);
             for (uint32_t i = 0; i != vlen; ++i)
             {
@@ -133,7 +133,12 @@ fprintf(stderr,"Got %d alignments\n",total);
             // if (total > 100000) break;
         } while (vlen);
 
-        SAMExtractorRelease(extractor);
+        rc = SAMExtractorRelease(extractor);
+        if (rc) {
+            fprintf(stderr, "ExtractorRelease returned rc\n");
+            return rc;
+        }
+
         fprintf(stderr, "Done with file, %d alignments\n", total);
 
         KFileRelease(infile);
