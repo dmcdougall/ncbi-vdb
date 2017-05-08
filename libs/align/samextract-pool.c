@@ -81,7 +81,8 @@ void pool_release(void)
 /* Could conceivably reclaim last allocation  */
 void pool_free(void* buf)
 {
-    memset(buf, 0, 8); // Assist with UAF
+    if (buf)
+        memset(buf, 0, 8); // Assist with UAF
     return;
 }
 

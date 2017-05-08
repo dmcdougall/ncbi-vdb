@@ -679,84 +679,88 @@ rc_t BAMGetAlignments(Extractor* state)
                      - (sizeof(align) + l_read_name + n_cigar_op * 4
                         + bytesofseq + align.l_seq) + 4; // TODO, why 4?
         DBG("%d bytes remaining for ttvs", remain);
-        char* ttvs = (char*)pool_alloc(remain);
-        if (!bview.getbytes(state->parsequeue, ttvs, remain))
-            return RC(rcAlign, rcFile, rcParsing, rcData, rcInvalid);
-        char* cur = ttvs;
-        while (cur < ttvs + remain)
+        char* ttvs = NULL;
+        if (remain)
         {
-            char tag[2];
-            char c;
-            i8 i8;
-            u8 u8;
-            i16 i16;
-            u16 u16;
-            i32 i32;
-            u32 u32;
-            char* z;
-            tag[0] = *cur++;
-            tag[1] = *cur++;
-            char val_type = *cur++;
-            DBG("ttv: %c%c:%c", tag[0], tag[1], val_type);
-            switch (val_type)
-            {
-            case 'A':
-                c = *cur++;
-                DBG("val='%c'", c);
-                break;
-            case 'c':
-                i8 = *cur++;
-                DBG("val=%d", i8);
-                break;
-            case 'C':
-                u8 = *cur++;
-                DBG("val=%d", u8);
-                break;
-            case 's':
-                memmove(&i16, cur, 2);
-                DBG("val=%d", i16);
-                cur += 2;
-                break;
-            case 'S':
-                memmove(&u16, cur, 2);
-                DBG("val=%d", u16);
-                cur += 2;
-                break;
-            case 'i':
-                memmove(&i32, cur, 4);
-                cur += 4;
-                break;
-            case 'I':
-                memmove(&u32, cur, 4);
-                cur += 4;
-                break;
-            case 'f':
-                // float f;
-                break;
-            case 'Z':
-                z = cur;
-                while (isprint(*cur))
-                    ++cur;
-                DBG("val='%s'", z);
-                ++cur;
-                break;
-            case 'H':
-                z = cur;
-                while (isalnum(*cur))
-                    ++cur;
-                DBG("val='%s'", z);
-                // TODO: Convert to ?
-                ++cur;
-                break;
-            case 'B':
-                val_type = *cur++;
-                memmove(&u32, cur, 4);
-                cur += 4;
-                cur += u32 * 1; // TODO, based on size of val_type
-                break;
-            default:
-                ERR("Bad val_type:%c", val_type);
+            ttvs = (char*)pool_alloc(remain);
+            if (!bview.getbytes(state->parsequeue, ttvs, remain))
                 return RC(rcAlign, rcFile, rcParsing, rcData, rcInvalid);
+            char* cur = ttvs;
+            while (cur < ttvs + remain)
+            {
+                char tag[2];
+                char c;
+                i8 i8;
+                u8 u8;
+                i16 i16;
+                u16 u16;
+                i32 i32;
+                u32 u32;
+                char* z;
+                tag[0] = *cur++;
+                tag[1] = *cur++;
+                char val_type = *cur++;
+                DBG("ttv: %c%c:%c", tag[0], tag[1], val_type);
+                switch (val_type)
+                {
+                case 'A':
+                    c = *cur++;
+                    DBG("val='%c'", c);
+                    break;
+                case 'c':
+                    i8 = *cur++;
+                    DBG("val=%d", i8);
+                    break;
+                case 'C':
+                    u8 = *cur++;
+                    DBG("val=%d", u8);
+                    break;
+                case 's':
+                    memmove(&i16, cur, 2);
+                    DBG("val=%d", i16);
+                    cur += 2;
+                    break;
+                case 'S':
+                    memmove(&u16, cur, 2);
+                    DBG("val=%d", u16);
+                    cur += 2;
+                    break;
+                case 'i':
+                    memmove(&i32, cur, 4);
+                    cur += 4;
+                    break;
+                case 'I':
+                    memmove(&u32, cur, 4);
+                    cur += 4;
+                    break;
+                case 'f':
+                    // float f;
+                    break;
+                case 'Z':
+                    z = cur;
+                    while (isprint(*cur))
+                        ++cur;
+                    DBG("val='%s'", z);
+                    ++cur;
+                    break;
+                case 'H':
+                    z = cur;
+                    while (isalnum(*cur))
+                        ++cur;
+                    DBG("val='%s'", z);
+                    // TODO: Convert to ?
+                    ++cur;
+                    break;
+                case 'B':
+                    val_type = *cur++;
+                    memmove(&u32, cur, 4);
+                    cur += 4;
+                    cur += u32 * 1; // TODO, based on size of val_type
+                    break;
+                default:
+                    ERR("Bad val_type:%c", val_type);
+                    return RC(rcAlign, rcFile, rcParsing, rcData, rcInvalid);
+                }
             }
         }
         DBG("no more ttvs");
