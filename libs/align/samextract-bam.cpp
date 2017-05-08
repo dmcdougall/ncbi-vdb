@@ -222,7 +222,8 @@ static rc_t seeker(const KThread* kt, void* in)
             ERR("error: Out of memory in zlib");
             return RC(rcAlign, rcFile, rcReading, rcMemory, rcExhausted);
         case Z_VERSION_ERROR:
-            ERR("zlib version is not compatible; need version %s but have %s",
+            ERR("zlib version is not compatible; need version %s but "
+                "have %s",
                 ZLIB_VERSION, zlibVersion());
             return RC(rcAlign, rcFile, rcConstructing, rcNoObj, rcUnexpected);
         case Z_STREAM_ERROR:
@@ -285,7 +286,6 @@ static rc_t seeker(const KThread* kt, void* in)
             memmove(bgzf->in, state->readbuf, block_size + 1);
             bgzf->outsize = sizeof(bgzf->out);
 
-            //            VectorAppend(&state->BGZFs,NULL,c);
             struct timeout_t tm;
             TimeoutInit(&tm, 1000); // 1 second
             while (true)
@@ -303,14 +303,14 @@ static rc_t seeker(const KThread* kt, void* in)
                 }
                 else
                 {
-                    DBG("inflate queue %d", rc);
+                    ERR("inflate queue %d", rc);
                 }
             }
 
             while (true)
             {
-                // Add to parse queue, lock will prevent parsing until
-                // inflater
+                // Add to parse queue
+                // lock will prevent parsing until inflater
                 // thread finished with this chunk.
                 rc_t rc = KQueuePush(state->parsequeue, (void*)bgzf, &tm);
                 if ((int)GetRCObject(rc) == rcTimeout) {
@@ -344,7 +344,7 @@ static rc_t seeker(const KThread* kt, void* in)
         }
         DBG("Read in %d", state->readbuf_sz);
         state->readbuf_pos = 0;
-        //        if (state->file_pos > 10000000) state->readbuf_sz = 0; //
+        //        if (state->file_pos > 10000000) state->readbuf_sz = 0;
         //        TODO
         if (state->readbuf_sz == 0) {
             DBG("Buffer complete. EOF");
@@ -352,8 +352,8 @@ static rc_t seeker(const KThread* kt, void* in)
         }
     }
 
-    KQueueSeal(state->inflatequeue);
     DBG("seeker thread complete");
+    KQueueSeal(state->parsequeue);
     return 0;
 }
 
@@ -396,7 +396,8 @@ static rc_t inflater(const KThread* kt, void* in)
                 ERR("Out of memory in zlib");
                 return RC(rcAlign, rcFile, rcReading, rcMemory, rcExhausted);
             case Z_VERSION_ERROR:
-                ERR("zlib version is not compatible; need version %s but "
+                ERR("zlib version is not compatible; need "
+                    "version %s but "
                     "have %s",
                     ZLIB_VERSION, zlibVersion());
                 return RC(rcAlign, rcFile, rcConstructing, rcNoObj,
@@ -427,7 +428,8 @@ static rc_t inflater(const KThread* kt, void* in)
                 ERR("error: Out of memory in zlib");
                 return RC(rcAlign, rcFile, rcReading, rcMemory, rcExhausted);
             case Z_VERSION_ERROR:
-                ERR("zlib version is not compatible; need version %s but "
+                ERR("zlib version is not compatible; need "
+                    "version %s but "
                     "have %s",
                     ZLIB_VERSION, zlibVersion());
                 return RC(rcAlign, rcFile, rcConstructing, rcNoObj,
@@ -443,20 +445,15 @@ static rc_t inflater(const KThread* kt, void* in)
             }
             inflateEnd(&strm);
         }
-        else if ((int)GetRCObject(rc) == rcTimeout)
+        else if ((int)GetRCObject(rc) == rcTimeout
+                 || (int)GetRCObject(rc) == rcData)
         {
             DBG("\t\tthread %lu queue empty", threadid);
-            if (KQueueSealed(state->inflatequeue)) {
-                DBG("\t\tQueue sealed, thread %lu complete", threadid);
-                DBG("\t\tinflater thread %lu terminating.", threadid);
-                KQueueSeal(state->parsequeue);
+            if (KQueueSealed(state->parsequeue)) {
+                DBG("\t\tqueue sealed, inflater thread %lu terminating.",
+                    threadid);
                 return 0;
             }
-        }
-        else if ((int)GetRCObject(rc) == rcData)
-        {
-            DBG("\t\tthread %lu queue data (empty?)", threadid);
-            break;
         }
         else
         {
@@ -465,8 +462,7 @@ static rc_t inflater(const KThread* kt, void* in)
         }
     }
 
-    DBG("\t\tinflater thread %lu wrongly terminating.", threadid);
-    KQueueSeal(state->parsequeue);
+    ERR("\t\tinflater thread %lu wrongly terminating.", threadid);
     return 0;
 }
 
@@ -671,8 +667,6 @@ rc_t BAMGetAlignments(Extractor* state)
             return RC(rcAlign, rcFile, rcParsing, rcData, rcInvalid);
 
         DBG("%d pairs in sequence", align.l_seq);
-        //        for (int i=0; i!=align.l_seq; ++i)
-        //            DBG(" seq#%d %c %.2x ",i, seq[i], qual[i]);
         DBG("seq='%s'", seq);
 
         int remain = align.block_size
@@ -680,8 +674,7 @@ rc_t BAMGetAlignments(Extractor* state)
                         + bytesofseq + align.l_seq) + 4; // TODO, why 4?
         DBG("%d bytes remaining for ttvs", remain);
         char* ttvs = NULL;
-        if (remain)
-        {
+        if (remain) {
             ttvs = (char*)pool_alloc(remain);
             if (!bview.getbytes(state->parsequeue, ttvs, remain))
                 return RC(rcAlign, rcFile, rcParsing, rcData, rcInvalid);
@@ -755,7 +748,8 @@ rc_t BAMGetAlignments(Extractor* state)
                     val_type = *cur++;
                     memmove(&u32, cur, 4);
                     cur += 4;
-                    cur += u32 * 1; // TODO, based on size of val_type
+                    cur += u32 * 1; // TODO, based on size of
+                                    // val_type
                     break;
                 default:
                     ERR("Bad val_type:%c", val_type);
@@ -813,12 +807,10 @@ rc_t BAMGetAlignments(Extractor* state)
 rc_t releasethreads(Extractor* state)
 {
     rc_t rc;
-    DBG("complete Release threads");
+    DBG("Releasing threads");
     for (u32 i = 0; i != VectorLength(&state->threads); ++i)
     {
         KThread* t = (KThread*)VectorGet(&state->threads, i);
-        //        rc=KThreadCancel(t);
-        //        if (rc) return rc;
         rc = KThreadRelease(t);
         if (rc) return rc;
     }
@@ -830,6 +822,7 @@ rc_t threadinflate(Extractor* state)
 {
     rc_t rc;
     DBG("Starting threads");
+
     // Inflater threads
     for (i32 i = 0; i != MAX(1, state->num_threads - 1); ++i)
     {

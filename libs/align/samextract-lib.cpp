@@ -271,7 +271,6 @@ rc_t process_alignment(Extractor* state, const char* qname, u16 flag,
                        const char* qual)
 {
     Alignment* align = (Alignment*)pool_alloc(sizeof(Alignment));
-    //    Alignment * align=(Alignment *)calloc(1, sizeof(Alignment));
     if (align == NULL) {
         ERR("out of memory");
         rc_t rc = RC(rcAlign, rcRow, rcConstructing, rcMemory, rcExhausted);
@@ -359,9 +358,6 @@ LIB_EXPORT rc_t CC SAMExtractorMake(Extractor** state, const KFile* fin,
     *state = s;
 
     pool_init();
-
-    //    pthread_t threadid=pthread_self();
-    //    lib_threadid=threadid;
 
     s->infile = fin;
 
@@ -572,19 +568,6 @@ LIB_EXPORT rc_t CC SAMExtractorInvalidateAlignments(Extractor* s)
 {
     size_t num = VectorLength(&s->alignments);
     DBG("invalidate_alignments %d", num);
-    for (u32 i = 0; i != num; ++i)
-    {
-        /*
-                Alignment* align = (Alignment*)VectorGet(&s->alignments, i);
-                free((void*)align->read);
-                align->read = NULL;
-                free((void*)align->cigar);
-                align->cigar = NULL;
-                free((void*)align->rname);
-                align->rname = NULL;
-                free(align);
-        */
-    }
     pool_release();
     pool_init();
     VectorWhack(&s->alignments, NULL, NULL);
