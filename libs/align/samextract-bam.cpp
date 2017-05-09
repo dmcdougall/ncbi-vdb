@@ -28,7 +28,6 @@
 #include <klib/rc.h>
 #include <klib/defs.h>
 #include <klib/vector.h>
-#include <klib/text.h>
 #include <kproc/queue.h>
 #include <kproc/thread.hpp>
 #include <kproc/timeout.h>

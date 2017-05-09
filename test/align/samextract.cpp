@@ -31,6 +31,7 @@
 #include <klib/rc.h>
 #include <klib/defs.h>
 #include <klib/vector.h>
+#include <klib/text.h>
 #include <kproc/queue.h>
 #include <kproc/thread.hpp>
 #include <kproc/timeout.h>
@@ -79,8 +80,11 @@ rc_t CC KMain(int argc, char* argv[])
         if (rc) return rc;
         srcdir = NULL;
 
+        String sfname;
+        StringInitCString(&sfname, fname);
+
         SAMExtractor* extractor;
-        rc_t rc = SAMExtractorMake(&extractor, infile, -1);
+        rc_t rc = SAMExtractorMake(&extractor, infile, &sfname, -1);
         fprintf(stderr, "Made extractor for %s\n", fname);
         if (rc) return rc;
 

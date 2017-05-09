@@ -1,7 +1,7 @@
 /* ===========================================================================
  *
  *                            PUBLIC DOMAIN NOTICE
- *               National Center for Biotechnologmsgy Information
+ *               National Center for Biotechnology Information
  *
  *  This software/database is a "United States Government Work" under the
  *  terms of the United States Copyright Act.  It was written as part of
@@ -30,6 +30,7 @@
 #include <klib/rc.h>
 #include <klib/defs.h>
 #include <klib/vector.h>
+#include <klib/text.h>
 #include <kproc/queue.h>
 #include <kfs/file.h>
 #include <sys/types.h>
@@ -49,6 +50,7 @@ typedef enum file_type
 typedef struct SAMExtractor
 {
     const KFile* infile;
+    String* fname;
 
     Vector headers;
     Vector alignments;
@@ -109,6 +111,7 @@ typedef struct Alignment
 
 /* TODO: API change: Pass in filename for diagnostics */
 ALIGN_EXTERN rc_t CC SAMExtractorMake(SAMExtractor** state, const KFile* fin,
+                                      String* fname_desc,
                                       int32_t num_threads);
 ALIGN_EXTERN rc_t CC SAMExtractorRelease(SAMExtractor* state); /* dtor */
 

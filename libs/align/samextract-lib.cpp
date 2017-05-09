@@ -52,6 +52,7 @@
 
 char curline[READBUF_SZ + 1];
 size_t curline_len = 0;
+String* fname_desc;
 
 void logmsg(const char* fname, int line, const char* func,
             const char* severity, const char* fmt, ...)
@@ -74,7 +75,8 @@ void logmsg(const char* fname, int line, const char* func,
         fprintf(stderr, "can't open memstream\n");
         return;
     }
-    fprintf(buffd, "%s(%lu):", severity, threadid % 100);
+    fprintf(buffd, "%s(%lu) ", severity, threadid % 100);
+    fprintf(buffd, "`%s`:", fname_desc->addr);
     vfprintf(buffd, fmt, args);
     va_end(args);
     fprintf(buffd, "\t[%s:%s():%d]\n", basename, func, line);
@@ -352,7 +354,7 @@ static bool readline(SAMExtractor* state)
 }
 
 LIB_EXPORT rc_t CC SAMExtractorMake(SAMExtractor** state, const KFile* fin,
-                                    int32_t num_threads = -1)
+                                    String* fname, int32_t num_threads = -1)
 {
     SAMExtractor* s = (SAMExtractor*)calloc(1, sizeof(*s));
     *state = s;
@@ -360,6 +362,8 @@ LIB_EXPORT rc_t CC SAMExtractorMake(SAMExtractor** state, const KFile* fin,
     pool_init();
 
     s->infile = fin;
+    s->fname = fname;
+    fname_desc = fname;
 
     VectorInit(&s->headers, 0, 0);
     VectorInit(&s->alignments, 0, 0);
