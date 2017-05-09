@@ -46,7 +46,7 @@ typedef enum file_type
 } file_type;
 //    typedef enum file_status { init, headers, alignments, done} file_status;
 
-typedef struct Extractor
+typedef struct SAMExtractor
 {
     const KFile* infile;
 
@@ -84,7 +84,7 @@ typedef struct Extractor
     bool hassqln;
     bool hasrgid;
     bool haspgid;
-} Extractor;
+} SAMExtractor;
 
 typedef struct tagvalue
 {
@@ -108,17 +108,17 @@ typedef struct Alignment
 } Alignment;
 
 /* TODO: API change: Pass in filename for diagnostics */
-ALIGN_EXTERN rc_t CC SAMExtractorMake(Extractor** state, const KFile* fin,
+ALIGN_EXTERN rc_t CC SAMExtractorMake(SAMExtractor** state, const KFile* fin,
                                       int32_t num_threads);
-ALIGN_EXTERN rc_t CC SAMExtractorRelease(Extractor* state); /* dtor */
+ALIGN_EXTERN rc_t CC SAMExtractorRelease(SAMExtractor* state); /* dtor */
 
 ALIGN_EXTERN rc_t CC
-    SAMExtractorGetHeaders(Extractor* state, Vector* headers);
-ALIGN_EXTERN rc_t CC SAMExtractorInvalidateHeaders(Extractor* state);
+    SAMExtractorGetHeaders(SAMExtractor* state, Vector* headers);
+ALIGN_EXTERN rc_t CC SAMExtractorInvalidateHeaders(SAMExtractor* state);
 
 ALIGN_EXTERN rc_t CC
-    SAMExtractorGetAlignments(Extractor* state, Vector* alignments);
-ALIGN_EXTERN rc_t CC SAMExtractorInvalidateAlignments(Extractor* state);
+    SAMExtractorGetAlignments(SAMExtractor* state, Vector* alignments);
+ALIGN_EXTERN rc_t CC SAMExtractorInvalidateAlignments(SAMExtractor* state);
 
 #ifdef __cplusplus
 }

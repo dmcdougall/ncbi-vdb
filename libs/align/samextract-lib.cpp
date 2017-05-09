@@ -88,7 +88,7 @@ void logmsg(const char* fname, int line, const char* func,
     if (!strcmp(severity, "Error")) abort();
 }
 
-rc_t SAM_parseline(Extractor* state)
+rc_t SAM_parseline(SAMExtractor* state)
 {
     state->rc = 0;
     DBG("Parsing line (%d bytes): '%s'", strlen(curline), curline);
@@ -108,7 +108,7 @@ int moredata(char* buf, int* numbytes, size_t maxbytes)
     return 0;
 }
 
-inline rc_t readfile(Extractor* state)
+inline rc_t readfile(SAMExtractor* state)
 {
     if (state->readbuf_pos == state->readbuf_sz) {
         state->readbuf_sz = READBUF_SZ;
@@ -129,7 +129,7 @@ inline rc_t readfile(Extractor* state)
     return 0;
 }
 
-void SAMerror(Extractor* state, const char* s)
+void SAMerror(SAMExtractor* state, const char* s)
 {
     ERR(" Parsing error: %s\nLine was:'%s'", s, curline);
     rc_t rc = RC(rcAlign, rcRow, rcParsing, rcData, rcInvalid);
@@ -197,7 +197,7 @@ bool isfloworder(const char* str)
     return true;
 }
 
-rc_t process_header(Extractor* state, const char* type, const char* tag,
+rc_t process_header(SAMExtractor* state, const char* type, const char* tag,
                     const char* value)
 {
     DBG("processing type:%s tag:%s value:%s", type, tag, value);
@@ -247,7 +247,7 @@ rc_t process_header(Extractor* state, const char* type, const char* tag,
     return 0;
 }
 
-rc_t mark_headers(Extractor* state, const char* type)
+rc_t mark_headers(SAMExtractor* state, const char* type)
 {
     DBG("mark_headers");
     Header* hdr = (Header*)pool_alloc(sizeof(Header));
@@ -264,7 +264,7 @@ rc_t mark_headers(Extractor* state, const char* type)
     return 0;
 }
 
-rc_t process_alignment(Extractor* state, const char* qname, u16 flag,
+rc_t process_alignment(SAMExtractor* state, const char* qname, u16 flag,
                        const char* rname, i32 pos, const char* mapq,
                        const char* cigar, const char* rnext,
                        const char* pnext, const char* tlen, const char* seq,
@@ -303,7 +303,7 @@ rc_t process_alignment(Extractor* state, const char* qname, u16 flag,
 }
 
 // Reads next line into curline, returns false if file complete.
-static bool readline(Extractor* state)
+static bool readline(SAMExtractor* state)
 {
     DBG("readline");
     if (readfile(state)) return false;
@@ -351,10 +351,10 @@ static bool readline(Extractor* state)
     return true;
 }
 
-LIB_EXPORT rc_t CC SAMExtractorMake(Extractor** state, const KFile* fin,
+LIB_EXPORT rc_t CC SAMExtractorMake(SAMExtractor** state, const KFile* fin,
                                     int32_t num_threads = -1)
 {
-    Extractor* s = (Extractor*)calloc(1, sizeof(*s));
+    SAMExtractor* s = (SAMExtractor*)calloc(1, sizeof(*s));
     *state = s;
 
     pool_init();
@@ -401,7 +401,7 @@ LIB_EXPORT rc_t CC SAMExtractorMake(Extractor** state, const KFile* fin,
     return 0;
 }
 
-LIB_EXPORT rc_t CC SAMExtractorRelease(Extractor* s)
+LIB_EXPORT rc_t CC SAMExtractorRelease(SAMExtractor* s)
 {
     rc_t rc;
 
@@ -425,13 +425,13 @@ LIB_EXPORT rc_t CC SAMExtractorRelease(Extractor* s)
 
     VectorWhack(&s->threads, NULL, NULL);
 
-    memset(s, 0, sizeof(Extractor));
+    memset(s, 0, sizeof(SAMExtractor));
     free(s);
 
     return 0;
 }
 
-LIB_EXPORT rc_t CC SAMExtractorGetHeaders(Extractor* s, Vector* headers)
+LIB_EXPORT rc_t CC SAMExtractorGetHeaders(SAMExtractor* s, Vector* headers)
 {
     rc_t rc = 0;
     DBG("GetHeaders");
@@ -495,7 +495,7 @@ LIB_EXPORT rc_t CC SAMExtractorGetHeaders(Extractor* s, Vector* headers)
     return 0;
 }
 
-LIB_EXPORT rc_t CC SAMExtractorInvalidateHeaders(Extractor* s)
+LIB_EXPORT rc_t CC SAMExtractorInvalidateHeaders(SAMExtractor* s)
 {
     DBG("invalidate_headers");
     for (u32 i = 0; i != VectorLength(&s->headers); ++i)
@@ -523,7 +523,8 @@ LIB_EXPORT rc_t CC SAMExtractorInvalidateHeaders(Extractor* s)
     return 0;
 }
 
-LIB_EXPORT rc_t CC SAMExtractorGetAlignments(Extractor* s, Vector* alignments)
+LIB_EXPORT rc_t CC
+    SAMExtractorGetAlignments(SAMExtractor* s, Vector* alignments)
 {
     rc_t rc = 0;
     SAMExtractorInvalidateAlignments(s);
@@ -564,7 +565,7 @@ LIB_EXPORT rc_t CC SAMExtractorGetAlignments(Extractor* s, Vector* alignments)
     return 0;
 }
 
-LIB_EXPORT rc_t CC SAMExtractorInvalidateAlignments(Extractor* s)
+LIB_EXPORT rc_t CC SAMExtractorInvalidateAlignments(SAMExtractor* s)
 {
     size_t num = VectorLength(&s->alignments);
     DBG("invalidate_alignments %d", num);

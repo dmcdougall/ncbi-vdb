@@ -84,7 +84,7 @@ opttag [A-Za-z][A-Za-z0-9]
 %option never-interactive
  /* %option yylineno */
 %option nounistd
-%option extra-type="Extractor *"
+%option extra-type="SAMExtractor *"
  /*%option bison-bridge */
 
  /* Start states */
@@ -186,7 +186,7 @@ opttag [A-Za-z][A-Za-z0-9]
 <INRG>\t[A-Z][A-Z]: { ERR("Undefined RG tag:%s",yytext+1); yyterminate();}
 <INRG>"\tLNID:" { WARN("LNID is improper RG tag"); yyterminate();}
 <INRG>\t[^: -~]+: { ERR("Undefined long RG tag: %s",yytext+1); yyterminate();}
-<INRG>CAPILLARY|LS454|ILLUMINA|illumina|Illumina|Illumina[ A-z]+|SOLID|HELICOS|IONTORRENT|ONT|PACBIO {
+<INRG>CAPILLARY|LS454|ILLUMINA|illumina|Illumina|Illumina[ A-z]+|SOLID|SOLiD|HELICOS|IONTORRENT|ONT|PACBIO {
     SAMlval.strval=pool_memdup(SAMtext,SAMleng+1);
     return PLATFORM; }
 <INRG>[^\t\r\n]+ {

@@ -39,7 +39,7 @@
     #include <klib/rc.h>
     #include "samextract.h"
     #include <align/samextract-lib.h>
-    int SAMlex(Extractor *);
+    int SAMlex(SAMExtractor *);
 %}
 
 /* Bison Declarations */
@@ -48,7 +48,7 @@
 }
 
 %name-prefix "SAM"
-%param { Extractor * state}
+%param { SAMExtractor * state}
 %require "3.0"
 %define parse.error verbose
 

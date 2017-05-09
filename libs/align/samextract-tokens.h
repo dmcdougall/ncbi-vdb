@@ -134,6 +134,6 @@ typedef union YYSTYPE YYSTYPE;
 
 extern YYSTYPE SAMlval;
 
-int SAMparse (Extractor * state);
+int SAMparse (SAMExtractor * state);
 
 #endif /* !YY_SAM_HOME_VARTANIANMH_DEVEL_NCBI_VDB_LIBS_ALIGN_SAMEXTRACT_TOKENS_H_INCLUDED  */

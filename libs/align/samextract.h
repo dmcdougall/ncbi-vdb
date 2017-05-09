@@ -62,20 +62,20 @@ typedef struct bamalign
 #ifdef __cplusplus
 extern "C" {
 #endif
-int SAMparse(Extractor* state);
-void SAMerror(Extractor* state, const char* TODOmsg);
+int SAMparse(SAMExtractor* state);
+void SAMerror(SAMExtractor* state, const char* TODOmsg);
 int SAMlex_destroy(void);
 void logmsg(const char* fname, int line, const char* func,
             const char* severity, const char* fmt, ...);
 int moredata(char* buf, int* numbytes, size_t maxbytes);
-rc_t process_header(Extractor* state, const char* type, const char* tag,
+rc_t process_header(SAMExtractor* state, const char* type, const char* tag,
                     const char* value);
-rc_t process_alignment(Extractor* state, const char* qname, u16 flag,
+rc_t process_alignment(SAMExtractor* state, const char* qname, u16 flag,
                        const char* rname, i32 pos, const char* mapq,
                        const char* cigar, const char* rnext,
                        const char* pnext, const char* tlen, const char* seq,
                        const char* qual);
-rc_t mark_headers(Extractor* state, const char* type);
+rc_t mark_headers(SAMExtractor* state, const char* type);
 bool inrange(const char* str, i64 low, i64 high);
 bool ismd5(const char* str);
 bool isfloworder(const char* str);
@@ -87,12 +87,12 @@ void* pool_alloc(size_t sz);
 void* pool_calloc(size_t sz);
 char* pool_strdup(const char* str);
 char* pool_memdup(const char* str, size_t len);
-rc_t threadinflate(Extractor* state);
+rc_t threadinflate(SAMExtractor* state);
 //    void waitforthreads(Vector * threads);
-rc_t BAMGetHeaders(Extractor* state);
-rc_t BAMGetAlignments(Extractor* state);
-rc_t releasethreads(Extractor* state);
-rc_t readfile(Extractor* state);
+rc_t BAMGetHeaders(SAMExtractor* state);
+rc_t BAMGetAlignments(SAMExtractor* state);
+rc_t releasethreads(SAMExtractor* state);
+rc_t readfile(SAMExtractor* state);
 extern char curline[];
 extern size_t curline_len;
 #ifdef __cplusplus

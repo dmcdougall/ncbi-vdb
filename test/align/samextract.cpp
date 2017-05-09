@@ -79,7 +79,7 @@ rc_t CC KMain(int argc, char* argv[])
         if (rc) return rc;
         srcdir = NULL;
 
-        Extractor* extractor;
+        SAMExtractor* extractor;
         rc_t rc = SAMExtractorMake(&extractor, infile, -1);
         fprintf(stderr, "Made extractor for %s\n", fname);
         if (rc) return rc;

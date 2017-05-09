@@ -188,7 +188,7 @@ static BGZFview bview;
 
 static rc_t seeker(const KThread* kt, void* in)
 {
-    Extractor* state = (Extractor*)in;
+    SAMExtractor* state = (SAMExtractor*)in;
     pthread_t threadid = pthread_self();
     DBG("\tSeeker thread %p %lu started.", kt, threadid);
 
@@ -250,7 +250,7 @@ static rc_t seeker(const KThread* kt, void* in)
             if (zrc != Z_OK) {
                 for (int i = 0; i != 4; ++i)
                     DBG("readbuf: %x", (unsigned char)state->readbuf[i]);
-                ERR("inflate error %d %s", zrc, strm.msg);
+                ERR("zlib inflate error %d %s", zrc, strm.msg);
                 return RC(rcAlign, rcFile, rcConstructing, rcNoObj,
                           rcUnexpected);
             }
@@ -359,7 +359,7 @@ static rc_t seeker(const KThread* kt, void* in)
 
 static rc_t inflater(const KThread* kt, void* in)
 {
-    Extractor* state = (Extractor*)in;
+    SAMExtractor* state = (SAMExtractor*)in;
     struct timeout_t tm;
 
     z_stream strm;
@@ -383,6 +383,8 @@ static rc_t inflater(const KThread* kt, void* in)
 
             memset(&strm, 0, sizeof strm);
             DBG("\tinflating %d bytes", bgzf->insize);
+            if (!bgzf->insize || !bgzf->outsize)
+                ERR("Empty buffers %d %d", bgzf->insize, bgzf->outsize);
             strm.next_in = bgzf->in;
             strm.avail_in = bgzf->insize;
             strm.next_out = bgzf->out;
@@ -439,7 +441,7 @@ static rc_t inflater(const KThread* kt, void* in)
                 return RC(rcAlign, rcFile, rcConstructing, rcNoObj,
                           rcUnexpected);
             default:
-                ERR("inflate error %d %s", zrc, strm.msg);
+                ERR("zlib inflate error %d %s", zrc, strm.msg);
                 return RC(rcAlign, rcFile, rcConstructing, rcNoObj,
                           rcUnexpected);
             }
@@ -466,7 +468,7 @@ static rc_t inflater(const KThread* kt, void* in)
     return 0;
 }
 
-rc_t BAMGetHeaders(Extractor* state)
+rc_t BAMGetHeaders(SAMExtractor* state)
 {
     DBG("BAMGetHeaders");
     char magic[4];
@@ -481,38 +483,44 @@ rc_t BAMGetHeaders(Extractor* state)
         ERR("error: invalid l_text");
         return RC(rcAlign, rcFile, rcParsing, rcData, rcInvalid);
     }
+    if (l_text) {
+        char* text = (char*)pool_calloc(l_text + 2);
+        if (!bview.getbytes(state->parsequeue, text, l_text)) return 1;
 
-    char* text = (char*)pool_calloc(l_text + 2);
-    if (!bview.getbytes(state->parsequeue, text, l_text)) return 1;
-
-    DBG("SAM header %d %d:'%s'", l_text, strlen(text), text);
-    char* t = text;
-    while (strlen(t))
-    {
-        char* nl = (char*)strchr(t, '\n');
-        if (!nl) {
-            size_t linelen = strlen(t);
-            DBG("noln linelen %d", linelen);
-            memmove(curline, t, linelen);
-            curline[linelen + 1] = '\n';
-            curline[linelen + 2] = '\0';
-            t += linelen;
-        }
-        else
+        DBG("SAM header %d %d:'%s'", l_text, strlen(text), text);
+        char* t = text;
+        while (strlen(t))
         {
-            size_t linelen = 1 + nl - t;
-            DBG("ln   linelen %d", linelen);
-            memmove(curline, t, linelen);
-            curline[linelen] = '\0';
-            t += linelen;
+            char* nl = (char*)strchr(t, '\n');
+            if (!nl) {
+                size_t linelen = strlen(t);
+                DBG("noln linelen %d", linelen);
+                memmove(curline, t, linelen);
+                curline[linelen + 1] = '\n';
+                curline[linelen + 2] = '\0';
+                t += linelen;
+            }
+            else
+            {
+                size_t linelen = 1 + nl - t;
+                DBG("ln   linelen %d", linelen);
+                memmove(curline, t, linelen);
+                curline[linelen] = '\0';
+                t += linelen;
+            }
+            DBG("curline is '%s'", curline);
+            if (curline[0] != '@')
+                ERR("Not a SAM header line: '%s'", curline);
+            curline_len = strlen(curline);
+            SAMparse(state);
         }
-        DBG("curline is '%s'", curline);
-        if (curline[0] != '@') ERR("Not a SAM header line: '%s'", curline);
-        curline_len = strlen(curline);
-        SAMparse(state);
+        pool_free(text);
+        text = NULL;
     }
-    pool_free(text);
-    text = NULL;
+    else
+    {
+        WARN("No SAM header");
+    }
 
     if (!bview.getbytes(state->parsequeue, (char*)&state->n_ref, 4)) return 1;
     if (state->n_ref < 0) {
@@ -540,6 +548,7 @@ rc_t BAMGetHeaders(Extractor* state)
         pool_free(name);
         name = NULL;
         i32 l_ref;
+        if (l_ref < 0) ERR("Bad l_ref %d", l_ref);
         if (!bview.getbytes(state->parsequeue, (char*)&l_ref, 4)) return 1;
         DBG("length of reference sequence %d=%d", i, l_ref);
     }
@@ -550,7 +559,7 @@ rc_t BAMGetHeaders(Extractor* state)
     return 0;
 }
 
-rc_t BAMGetAlignments(Extractor* state)
+rc_t BAMGetAlignments(SAMExtractor* state)
 {
     bamalign align;
 
@@ -579,7 +588,6 @@ rc_t BAMGetAlignments(Extractor* state)
             ERR("error: bad next_pos:%d", align.next_pos);
             return RC(rcAlign, rcFile, rcParsing, rcData, rcInvalid);
         }
-
         if (align.tlen < 0) {
             ERR("error: bad tlen:%d", align.tlen);
             return RC(rcAlign, rcFile, rcParsing, rcData, rcInvalid);
@@ -804,7 +812,7 @@ rc_t BAMGetAlignments(Extractor* state)
     return 0;
 }
 
-rc_t releasethreads(Extractor* state)
+rc_t releasethreads(SAMExtractor* state)
 {
     rc_t rc;
     DBG("Releasing threads");
@@ -818,7 +826,7 @@ rc_t releasethreads(Extractor* state)
     return 0;
 }
 
-rc_t threadinflate(Extractor* state)
+rc_t threadinflate(SAMExtractor* state)
 {
     rc_t rc;
     DBG("Starting threads");

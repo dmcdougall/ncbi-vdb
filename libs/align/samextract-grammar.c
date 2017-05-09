@@ -76,7 +76,7 @@
     #include <klib/rc.h>
     #include "samextract.h"
     #include <align/samextract-lib.h>
-    int SAMlex(Extractor *);
+    int SAMlex(SAMExtractor *);
 
 #line 82 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:339  */
 
@@ -202,7 +202,7 @@ typedef union YYSTYPE YYSTYPE;
 
 extern YYSTYPE SAMlval;
 
-int SAMparse (Extractor * state);
+int SAMparse (SAMExtractor * state);
 
 #endif /* !YY_SAM_HOME_VARTANIANMH_DEVEL_NCBI_VDB_LIBS_ALIGN_SAMEXTRACT_TOKENS_H_INCLUDED  */
 
@@ -788,7 +788,7 @@ do {                                                                      \
 `----------------------------------------*/
 
 static void
-yy_symbol_value_print (FILE *yyoutput, int yytype, YYSTYPE const * const yyvaluep, Extractor * state)
+yy_symbol_value_print (FILE *yyoutput, int yytype, YYSTYPE const * const yyvaluep, SAMExtractor * state)
 {
   FILE *yyo = yyoutput;
   YYUSE (yyo);
@@ -808,7 +808,7 @@ yy_symbol_value_print (FILE *yyoutput, int yytype, YYSTYPE const * const yyvalue
 `--------------------------------*/
 
 static void
-yy_symbol_print (FILE *yyoutput, int yytype, YYSTYPE const * const yyvaluep, Extractor * state)
+yy_symbol_print (FILE *yyoutput, int yytype, YYSTYPE const * const yyvaluep, SAMExtractor * state)
 {
   YYFPRINTF (yyoutput, "%s %s (",
              yytype < YYNTOKENS ? "token" : "nterm", yytname[yytype]);
@@ -846,7 +846,7 @@ do {                                                            \
 `------------------------------------------------*/
 
 static void
-yy_reduce_print (yytype_int16 *yyssp, YYSTYPE *yyvsp, int yyrule, Extractor * state)
+yy_reduce_print (yytype_int16 *yyssp, YYSTYPE *yyvsp, int yyrule, SAMExtractor * state)
 {
   unsigned long int yylno = yyrline[yyrule];
   int yynrhs = yyr2[yyrule];
@@ -1126,7 +1126,7 @@ yysyntax_error (YYSIZE_T *yymsg_alloc, char **yymsg,
 `-----------------------------------------------*/
 
 static void
-yydestruct (const char *yymsg, int yytype, YYSTYPE *yyvaluep, Extractor * state)
+yydestruct (const char *yymsg, int yytype, YYSTYPE *yyvaluep, SAMExtractor * state)
 {
   YYUSE (yyvaluep);
   YYUSE (state);
@@ -1156,7 +1156,7 @@ int yynerrs;
 `----------*/
 
 int
-yyparse (Extractor * state)
+yyparse (SAMExtractor * state)
 {
     int yystate;
     /* Number of tokens to shift before error messages enabled.  */
