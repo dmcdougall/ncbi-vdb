@@ -122,7 +122,7 @@ rc_t CC KMain(int argc, char* argv[])
             }
             vlen = VectorLength(&alignments);
             total += vlen;
-            fprintf(stderr, "Got %d alignments\n", total);
+//            fprintf(stderr, "Got %d alignments\n", total);
             //            fprintf(stderr,"\n\nReturned %d alignments\n",vlen);
             for (uint32_t i = 0; i != vlen; ++i)
             {

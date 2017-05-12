@@ -70,7 +70,7 @@ void pool_release(void)
     {
         void* pool = VectorGet(&allocs, i);
         DBG("freeing %p", pool);
-        //        memset(pool, 0, BLOCK_SZ); // Assist with UAF
+        /*        memset(pool, 0, BLOCK_SZ); */ /* Assist with UAF */
         free(pool);
     }
 
@@ -81,7 +81,7 @@ void pool_release(void)
 /* Could conceivably reclaim last allocation  */
 void pool_free(void* buf)
 {
-    if (buf) memset(buf, 0, 8); // Assist with UAF
+    if (DEBUG && buf) memset(buf, 0, 8); /* Assist with UAF */
     return;
 }
 
@@ -109,6 +109,7 @@ void* pool_calloc(size_t alloc_size)
 
 char* pool_strdup(const char* str)
 {
+    if (!str) ERR("Empty pool_strdup");
     size_t len = strlen(str) + 1;
     void* buf = pool_alloc(len);
     memmove(buf, str, len);

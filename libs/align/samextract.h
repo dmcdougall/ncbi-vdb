@@ -88,7 +88,6 @@ void* pool_calloc(size_t sz);
 char* pool_strdup(const char* str);
 char* pool_memdup(const char* str, size_t len);
 rc_t threadinflate(SAMExtractor* state);
-//    void waitforthreads(Vector * threads);
 rc_t BAMGetHeaders(SAMExtractor* state);
 rc_t BAMGetAlignments(SAMExtractor* state);
 rc_t releasethreads(SAMExtractor* state);

@@ -294,9 +294,9 @@ rc_t process_alignment(SAMExtractor* state, const char* qname, u16 flag,
             ERR("TLEN not in range %s", tlen);
     }
 
-    align->read = pool_strdup(seq);
-    align->cigar = pool_strdup(cigar);
-    align->rname = pool_strdup(rname);
+    align->read = seq;
+    align->cigar = cigar;
+    align->rname = rname;
     align->pos = pos;
     align->flags = flag;
     VectorAppend(&state->alignments, NULL, align);
@@ -374,14 +374,15 @@ LIB_EXPORT rc_t CC SAMExtractorMake(SAMExtractor** state, const KFile* fin,
 
     s->num_threads = num_threads;
 
+    // Default number of threads to number of cores
     if (s->num_threads <= -1)
         s->num_threads = sysconf(_SC_NPROCESSORS_ONLN) - 1;
 
     DBG("%d threads", s->num_threads);
 
     VectorInit(&s->threads, 0, 0);
-    KQueueMake(&s->inflatequeue, s->num_threads);
-    KQueueMake(&s->parsequeue, s->num_threads);
+    KQueueMake(&s->inflatequeue, 64);
+    KQueueMake(&s->parsequeue, 64);
 
     s->pos = 0;
     s->file_pos = 0;

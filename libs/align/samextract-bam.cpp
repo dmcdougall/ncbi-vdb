@@ -41,6 +41,7 @@
 #include <errno.h>
 #include <pthread.h>
 #include <unistd.h>
+#include <byteswap.h>
 #include "samextract.h"
 #include "samextract-tokens.h"
 #include <align/samextract-lib.h>
@@ -111,12 +112,12 @@ class BGZFview
         releasebuf();
 
         struct timeout_t tm;
-        TimeoutInit(&tm, 1000); // 1 second
 
         while (true)
         {
             void* where = NULL;
             DBG("popping");
+            TimeoutInit(&tm, 1000); // 1 second
             rc_t rc = KQueuePop(que, &where, &tm);
             DBG("popped");
             if (rc == 0) {
@@ -286,10 +287,10 @@ static rc_t seeker(const KThread* kt, void* in)
             bgzf->outsize = sizeof(bgzf->out);
 
             struct timeout_t tm;
-            TimeoutInit(&tm, 1000); // 1 second
             while (true)
             {
                 // Add to Inflate queue
+                TimeoutInit(&tm, 1000); // 1 second
                 rc_t rc = KQueuePush(state->inflatequeue, (void*)bgzf, &tm);
                 if ((int)GetRCObject(rc) == rcTimeout) {
                     DBG("inflate queue full");
@@ -311,6 +312,7 @@ static rc_t seeker(const KThread* kt, void* in)
                 // Add to parse queue
                 // lock will prevent parsing until inflater
                 // thread finished with this chunk.
+                TimeoutInit(&tm, 1000); // 1 second
                 rc_t rc = KQueuePush(state->parsequeue, (void*)bgzf, &tm);
                 if ((int)GetRCObject(rc) == rcTimeout) {
                     DBG("parse queue full");
@@ -343,8 +345,6 @@ static rc_t seeker(const KThread* kt, void* in)
         }
         DBG("Read in %d", state->readbuf_sz);
         state->readbuf_pos = 0;
-        //        if (state->file_pos > 10000000) state->readbuf_sz = 0;
-        //        TODO
         if (state->readbuf_sz == 0) {
             DBG("Buffer complete. EOF");
             break;
@@ -547,8 +547,8 @@ rc_t BAMGetHeaders(SAMExtractor* state)
         pool_free(name);
         name = NULL;
         i32 l_ref;
-        if (l_ref < 0) ERR("Bad l_ref %d", l_ref);
         if (!bview.getbytes(state->parsequeue, (char*)&l_ref, 4)) return 1;
+        if (l_ref < 0) ERR("Bad l_ref %d", l_ref);
         DBG("length of reference sequence %d=%d", i, l_ref);
     }
     DBG("End of references");
@@ -556,6 +556,94 @@ rc_t BAMGetHeaders(SAMExtractor* state)
     DBG("BAM done with headers");
 
     return 0;
+}
+
+static void decode_seq(const u8* seqbytes, size_t l_seq, char* seq);
+
+static void init_decode_seq_map(u16* seqbytemap)
+{
+    static const char seqmap[] = "=ACMGRSVTWYHKDBN";
+
+    for (size_t i = 0; i != 256; ++i)
+    {
+        u16 p;
+        p = seqmap[i >> 4];
+        p = p << 8;
+        p |= seqmap[i & 0xf];
+        seqbytemap[i] = bswap_16(p);
+    }
+
+    // Do some self-checks during initialization
+    if (memcmp(&seqbytemap[0], "==", 2) || memcmp(&seqbytemap[1], "=A", 2)
+        || memcmp(&seqbytemap[16], "A=", 2)
+        || memcmp(&seqbytemap[255], "NN", 2))
+    {
+        ERR("Self-check failed: seqbytemap %s", seqbytemap);
+    }
+
+    //           ==    NN    =A    A=    =N    N=    ==    =A    =A    =A
+    u8 test[] = {0x00, 0xFF, 0x01, 0x10, 0x0F, 0xF0, 0x00, 0x01, 0x01, 0x01};
+    char dest[30];
+
+    decode_seq(test, 0, dest);
+    if (strcmp(dest, "")) ERR("Self-check failed: %s", dest);
+    decode_seq(test, 1, dest);
+    if (strcmp(dest, "=")) ERR("Self-check failed: %s", dest);
+    decode_seq(test, 2, dest);
+    if (strcmp(dest, "==")) ERR("Self-check failed: %s", dest);
+    decode_seq(test, 3, dest);
+    if (strcmp(dest, "==N")) ERR("Self-check failed: %s", dest);
+    decode_seq(test, 4, dest);
+    if (strcmp(dest, "==NN")) ERR("Self-check failed: %s", dest);
+    decode_seq(test, 5, dest);
+    if (strcmp(dest, "==NN=")) ERR("Self-check failed: %s", dest);
+    decode_seq(test, 20, dest);
+    if (strcmp(dest, "==NN=AA==NN====A=A=A"))
+        ERR("Self-check failed: %s", dest);
+
+    DBG("Self-checks OK");
+}
+
+static void decode_seq(const u8* seqbytes, size_t l_seq, char* seq)
+{
+    static u16 seqbytemap[256]; // NB: big endian
+
+    if (!seqbytemap[0]) // Build seqbytemap
+    {
+        init_decode_seq_map(seqbytemap);
+    }
+
+    size_t remain = (l_seq + 1) / 2;
+    u64* in = (u64*)seqbytes;
+    u16* out = (u16*)seq;
+    u64 w;
+    while (remain >= 8)
+    {
+        w = *in++;
+        // Convince g++/clang to emit one load and one store for every two
+        // bases
+        *out++ = seqbytemap[(w >> 0) & 0xff];
+        *out++ = seqbytemap[(w >> 8) & 0xff];
+        *out++ = seqbytemap[(w >> 16) & 0xff];
+        *out++ = seqbytemap[(w >> 24) & 0xff];
+        *out++ = seqbytemap[(w >> 32) & 0xff];
+        *out++ = seqbytemap[(w >> 40) & 0xff];
+        *out++ = seqbytemap[(w >> 48) & 0xff];
+        *out++ = seqbytemap[(w >> 56) & 0xff];
+
+        remain -= 8;
+    }
+
+    u8* b = (u8*)in;
+    while (remain)
+    {
+        *out = seqbytemap[*b];
+        ++out;
+        ++b;
+        --remain;
+    }
+    // Final character might be junk from last nybble.
+    seq[l_seq] = '\0';
 }
 
 rc_t BAMGetAlignments(SAMExtractor* state)
@@ -642,39 +730,40 @@ rc_t BAMGetAlignments(SAMExtractor* state)
         }
         else
         {
-            scigar = pool_strdup("");
+            scigar = (char*)pool_calloc(1);
         }
         DBG("scigar is '%s'", scigar);
 
-        static const char seqmap[] = "=ACMGRSVTWYHKDBN";
-        char* seq = (char*)pool_calloc(align.l_seq + 1);
-        int bytesofseq = (align.l_seq + 1) / 2;
-        char* seqbytes = (char*)pool_alloc(bytesofseq);
-        if (!bview.getbytes(state->parsequeue, seqbytes, bytesofseq))
-            return RC(rcAlign, rcFile, rcParsing, rcData, rcInvalid);
-        int i = 0;
-        int j = 0;
-        while (i < align.l_seq)
-        {
-            seq[i] = seqmap[seqbytes[j] >> 4];
-            i += 2;
-            j += 1;
-        }
-        i = 1;
-        j = 0;
-        while (i < align.l_seq)
-        {
-            seq[i] = seqmap[seqbytes[j] & 0xf];
-            i += 2;
-            j += 1;
-        }
+        u64 bytesofseq = 0;
+        char* seq = NULL;
+        char* qual = NULL;
+        if (align.l_seq) {
+            bytesofseq = (align.l_seq + 1) / 2;
+            u8* seqbytes = (u8*)pool_alloc(bytesofseq);
+            if (!bview.getbytes(state->parsequeue, (char*)seqbytes,
+                                bytesofseq))
+                return RC(rcAlign, rcFile, rcParsing, rcData, rcInvalid);
 
-        char* qual = (char*)pool_alloc(align.l_seq);
-        if (!bview.getbytes(state->parsequeue, qual, align.l_seq))
-            return RC(rcAlign, rcFile, rcParsing, rcData, rcInvalid);
+            seq = (char*)pool_alloc(align.l_seq + 1);
+            qual = (char*)pool_alloc(align.l_seq + 1);
 
-        DBG("%d pairs in sequence", align.l_seq);
-        DBG("seq='%s'", seq);
+            decode_seq(seqbytes, align.l_seq, seq);
+            DBG("seq is '%s'\n", seq);
+
+            if (!bview.getbytes(state->parsequeue, qual, align.l_seq))
+                return RC(rcAlign, rcFile, rcParsing, rcData, rcInvalid);
+            qual[align.l_seq] = '\0';
+
+            DBG("%d pairs in sequence", align.l_seq);
+            DBG("seq='%s'", seq);
+            pool_free(seqbytes);
+            seqbytes = NULL;
+        }
+        else
+        {
+            seq = (char*)pool_calloc(1);
+            qual = seq;
+        }
 
         int remain = align.block_size
                      - (sizeof(align) + l_read_name + n_cigar_op * 4
@@ -787,8 +876,6 @@ rc_t BAMGetAlignments(SAMExtractor* state)
         read_name = NULL;
         pool_free(seq);
         seq = NULL;
-        pool_free(seqbytes);
-        seqbytes = NULL;
         pool_free(qual);
         qual = NULL;
         pool_free(ttvs);
@@ -830,8 +917,12 @@ rc_t threadinflate(SAMExtractor* state)
     rc_t rc;
     DBG("Starting threads");
 
+    // Benchmarking on 32-core E5-2650 shows that even a memory resident BAM
+    // file doesn't utilize more than 12 inflater threads.
+    size_t num_inflaters = MAX(1, MIN(state->num_threads - 1, 16));
+    DBG("num_inflaters is %u", num_inflaters);
     // Inflater threads
-    for (i32 i = 0; i != MAX(1, state->num_threads - 1); ++i)
+    for (u32 i = 0; i != num_inflaters; ++i)
     {
         KThread* inflaterthread;
         rc = KThreadMake(&inflaterthread, inflater, (void*)state);
