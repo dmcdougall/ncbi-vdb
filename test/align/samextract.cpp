@@ -88,6 +88,9 @@ rc_t CC KMain(int argc, char* argv[])
         fprintf(stderr, "Made extractor for %s\n", fname);
         if (rc) return rc;
 
+        rc = SAMExtractorAddFilter(extractor, NULL, -1, -1, false);
+        if (rc) return rc;
+
         Vector headers;
         rc = SAMExtractorGetHeaders(extractor, &headers);
         if (rc) return rc;
@@ -122,7 +125,7 @@ rc_t CC KMain(int argc, char* argv[])
             }
             vlen = VectorLength(&alignments);
             total += vlen;
-//            fprintf(stderr, "Got %d alignments\n", total);
+            //            fprintf(stderr, "Got %d alignments\n", total);
             //            fprintf(stderr,"\n\nReturned %d alignments\n",vlen);
             for (uint32_t i = 0; i != vlen; ++i)
             {

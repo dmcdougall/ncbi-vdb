@@ -695,7 +695,7 @@ rc_t BAMGetAlignments(SAMExtractor* state)
         if (!bview.getbytes(state->parsequeue, read_name, l_read_name))
             return RC(rcAlign, rcFile, rcParsing, rcData, rcInvalid);
         DBG("read_name='%s'", read_name);
-
+        // TODO: Check filter here, based on rname and pos
         char* scigar = NULL;
         if (n_cigar_op > 0) {
             static const char opmap[] = "MIDNSHP=X???????";
@@ -919,7 +919,8 @@ rc_t threadinflate(SAMExtractor* state)
 
     // Benchmarking on 32-core E5-2650 shows that even a memory resident BAM
     // file doesn't utilize more than 12 inflater threads.
-    size_t num_inflaters = MAX(1, MIN(state->num_threads - 1, 16));
+    // 8 Seems to be the sweet spot
+    size_t num_inflaters = MAX(1, MIN(state->num_threads - 1, 8));
     DBG("num_inflaters is %u", num_inflaters);
     // Inflater threads
     for (u32 i = 0; i != num_inflaters; ++i)

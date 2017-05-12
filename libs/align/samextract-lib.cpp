@@ -266,19 +266,35 @@ rc_t mark_headers(SAMExtractor* state, const char* type)
     return 0;
 }
 
+// Returns true if we can skip record
+bool filter(const SAMExtractor* state, const char* rname, ssize_t pos)
+{
+    if (state->filter_rname && strcmp(state->filter_rname, rname))
+        return true;
+
+    if (state->file_type == SAM) --pos; // Internally use and expose 0-based
+
+    if (pos < 0)
+        return false; // No filtering if pos uncertain (0 in SAM, -1 in BAM)
+
+    if (state->filter_pos != -1) {
+        if (pos < state->filter_pos) // Before pos
+            return true;
+
+        if (state->filter_length != -1)
+            if (pos > (state->filter_pos
+                       + state->filter_length)) // After pos+length
+                return true;
+    }
+    return false;
+}
+
 rc_t process_alignment(SAMExtractor* state, const char* qname, u16 flag,
                        const char* rname, i32 pos, const char* mapq,
                        const char* cigar, const char* rnext,
                        const char* pnext, const char* tlen, const char* seq,
                        const char* qual)
 {
-    Alignment* align = (Alignment*)pool_alloc(sizeof(Alignment));
-    if (align == NULL) {
-        ERR("out of memory");
-        rc_t rc = RC(rcAlign, rcRow, rcConstructing, rcMemory, rcExhausted);
-        state->rc = rc;
-    }
-
     DBG("process_alignment %s %d %u %s %s %s", rname, pos, flag, qname, rnext,
         qual);
 
@@ -292,6 +308,16 @@ rc_t process_alignment(SAMExtractor* state, const char* qname, u16 flag,
 
         if (!inrange(tlen, INT32_MIN, INT32_MAX))
             ERR("TLEN not in range %s", tlen);
+    }
+
+    // TODO: ordered
+    if (filter(state, rname, pos)) return 0;
+
+    Alignment* align = (Alignment*)pool_alloc(sizeof(Alignment));
+    if (align == NULL) {
+        ERR("out of memory");
+        rc_t rc = RC(rcAlign, rcRow, rcConstructing, rcMemory, rcExhausted);
+        state->rc = rc;
     }
 
     align->read = seq;
@@ -395,6 +421,12 @@ LIB_EXPORT rc_t CC SAMExtractorMake(SAMExtractor** state, const KFile* fin,
     s->n_ref = -1;
 
     s->rc = 0;
+
+    s->filter_rname = NULL;
+    s->filter_pos = -1;
+    s->filter_length = -1;
+    s->filter_ordered = false;
+
     s->hashdvn = false;
     s->hashdso = false;
     s->hashdgo = false;
@@ -422,6 +454,8 @@ LIB_EXPORT rc_t CC SAMExtractorRelease(SAMExtractor* s)
 
     free(s->readbuf);
 
+    free(s->filter_rname);
+
     rc = releasethreads(s);
     if (rc) return rc;
 
@@ -432,6 +466,20 @@ LIB_EXPORT rc_t CC SAMExtractorRelease(SAMExtractor* s)
 
     memset(s, 0, sizeof(SAMExtractor));
     free(s);
+
+    return 0;
+}
+
+LIB_EXPORT rc_t CC SAMExtractorAddFilter(SAMExtractor* state,
+                                         const char* rname, ssize_t pos,
+                                         ssize_t length, bool ordered)
+{
+    // TODO: Check if GetHeaders/GetAlignments already invoked
+
+    if (rname) state->filter_rname = strdup(rname);
+    state->filter_pos = pos;
+    state->filter_length = length;
+    state->filter_ordered = ordered;
 
     return 0;
 }
