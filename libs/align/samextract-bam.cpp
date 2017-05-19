@@ -43,8 +43,14 @@
 #include <unistd.h>
 #include <byteswap.h>
 #include "samextract.h"
+#include "samextract-pool.h"
 #include "samextract-tokens.h"
 #include <align/samextract-lib.h>
+
+// All memmoves in this file are not overlapping and performance
+// is measurably improved by memcpy.
+#undef memcpy
+#define memmove memcpy
 
 typedef enum BGZF_state
 {
@@ -116,8 +122,7 @@ class BGZFview
         while (true)
         {
             void* where = NULL;
-            DBG("popping");
-            TimeoutInit(&tm, 1000); // 1 second
+            TimeoutInit(&tm, 10); // 10 microseconds
             rc_t rc = KQueuePop(que, &where, &tm);
             DBG("popped");
             if (rc == 0) {
@@ -141,7 +146,7 @@ class BGZFview
             {
                 DBG("\t\tParser queue empty");
                 if (KQueueSealed(que)) {
-                    DBG("\t\tQueue sealed, Parser complete");
+                    DBG("\t\tQueue sealed, Parsing complete");
                     return false;
                 }
             }
@@ -156,7 +161,7 @@ class BGZFview
     }
 
   public:
-    bool getbytes(KQueue* que, char* dest, size_t len)
+    inline bool getbytes(KQueue* que, char* dest, size_t len)
     {
         DBG("Getting %d", len);
         if (len == 0) ERR("Empty get");
@@ -164,7 +169,10 @@ class BGZFview
         {
             if (bgzf == NULL || bgzf->outsize == 0) {
                 DBG("need %d more", len);
-                if (!getnextBGZF(que)) return false;
+                if (!getnextBGZF(que)) {
+                    DBG("no more data");
+                    return false;
+                }
                 cur = bgzf->out;
             }
 
@@ -266,7 +274,7 @@ static rc_t seeker(const KThread* kt, void* in)
             inflateEnd(&strm);
             DBG("total_in:%d", strm.avail_in);
             if (bsize <= 28) {
-                DBG("small block found");
+                ERR("small block found");
                 break;
             }
 
@@ -278,7 +286,7 @@ static rc_t seeker(const KThread* kt, void* in)
 
             state->file_pos += block_size;
 
-            BGZF* bgzf = (BGZF*)calloc(1, sizeof(BGZF));
+            BGZF* bgzf = (BGZF*)malloc(sizeof(BGZF));
             KLockMake(&bgzf->lock);
             KLockAcquire(bgzf->lock); // Not ready for parsing
             bgzf->state = compressed;
@@ -290,7 +298,7 @@ static rc_t seeker(const KThread* kt, void* in)
             while (true)
             {
                 // Add to Inflate queue
-                TimeoutInit(&tm, 1000); // 1 second
+                TimeoutInit(&tm, 10); // 10 microseconds
                 rc_t rc = KQueuePush(state->inflatequeue, (void*)bgzf, &tm);
                 if ((int)GetRCObject(rc) == rcTimeout) {
                     DBG("inflate queue full");
@@ -351,8 +359,8 @@ static rc_t seeker(const KThread* kt, void* in)
         }
     }
 
-    DBG("seeker thread complete");
     KQueueSeal(state->parsequeue);
+    DBG("seeker thread complete, sealed");
     return 0;
 }
 
@@ -369,8 +377,9 @@ static rc_t inflater(const KThread* kt, void* in)
     {
         void* where = NULL;
         DBG("\t\tthread %lu checking queue", threadid);
-        TimeoutInit(&tm, 1000); // 1 seconds
+        TimeoutInit(&tm, 10); // 10 microseconds
         rc_t rc = KQueuePop(state->inflatequeue, &where, &tm);
+        DBG("checked");
         if (rc == 0) {
             BGZF* bgzf = (BGZF*)where;
             DBG("\t\tinflater thread %lu BGZF %p size %u", threadid, bgzf->in,
@@ -451,7 +460,8 @@ static rc_t inflater(const KThread* kt, void* in)
         {
             DBG("\t\tthread %lu queue empty", threadid);
             if (KQueueSealed(state->parsequeue)) {
-                DBG("\t\tqueue sealed, inflater thread %lu terminating.",
+                DBG("\t\tparse queue sealed, inflater thread %lu "
+                    "terminating.",
                     threadid);
                 return 0;
             }
@@ -483,8 +493,9 @@ rc_t BAMGetHeaders(SAMExtractor* state)
         return RC(rcAlign, rcFile, rcParsing, rcData, rcInvalid);
     }
     if (l_text) {
-        char* text = (char*)pool_calloc(l_text + 2);
+        char* text = (char*)pool_alloc(l_text + 1);
         if (!bview.getbytes(state->parsequeue, text, l_text)) return 1;
+        text[l_text] = '\0';
 
         DBG("SAM header %d %d:'%s'", l_text, strlen(text), text);
         char* t = text;
@@ -614,12 +625,13 @@ static void decode_seq(const u8* seqbytes, size_t l_seq, char* seq)
     }
 
     size_t remain = (l_seq + 1) / 2;
-    u64* in = (u64*)seqbytes;
+
+    const u64* in = (const u64*)seqbytes;
     u16* out = (u16*)seq;
-    u64 w;
     while (remain >= 8)
     {
-        w = *in++;
+        const u64 w = *in++;
+        // ~25% of wall clock spent here.
         // Convince g++/clang to emit one load and one store for every two
         // bases
         *out++ = seqbytemap[(w >> 0) & 0xff];
@@ -634,7 +646,7 @@ static void decode_seq(const u8* seqbytes, size_t l_seq, char* seq)
         remain -= 8;
     }
 
-    u8* b = (u8*)in;
+    const u8* b = (const u8*)in;
     while (remain)
     {
         *out = seqbytemap[*b];
@@ -697,6 +709,7 @@ rc_t BAMGetAlignments(SAMExtractor* state)
         DBG("read_name='%s'", read_name);
         // TODO: Check filter here, based on rname and pos
         char* scigar = NULL;
+        size_t rleopslen = 0;
         if (n_cigar_op > 0) {
             static const char opmap[] = "MIDNSHP=X???????";
             u32* cigar = (u32*)pool_alloc(n_cigar_op * sizeof(u32));
@@ -705,7 +718,6 @@ rc_t BAMGetAlignments(SAMExtractor* state)
                                 n_cigar_op * 4))
                 return RC(rcAlign, rcFile, rcParsing, rcData, rcInvalid);
             // Compute size of expanded CIGAR
-            size_t rleopslen = 0;
             for (int i = 0; i != n_cigar_op; ++i)
             {
                 i32 oplen = cigar[i] >> 4;
@@ -713,7 +725,9 @@ rc_t BAMGetAlignments(SAMExtractor* state)
                 rleopslen += oplen;
             }
             DBG("rleopslen %d", rleopslen);
-            scigar = (char*)pool_calloc(rleopslen + 1);
+
+            // TODO: Don't expand cigar
+            scigar = (char*)pool_alloc(rleopslen + 1);
             char* p = scigar;
             for (int i = 0; i != n_cigar_op; ++i)
             {
@@ -730,7 +744,8 @@ rc_t BAMGetAlignments(SAMExtractor* state)
         }
         else
         {
-            scigar = (char*)pool_calloc(1);
+            scigar = (char*)pool_alloc(1);
+            scigar[0] = '\0';
         }
         DBG("scigar is '%s'", scigar);
 
@@ -761,7 +776,8 @@ rc_t BAMGetAlignments(SAMExtractor* state)
         }
         else
         {
-            seq = (char*)pool_calloc(1);
+            seq = (char*)pool_alloc(1);
+            seq[0] = '\0';
             qual = seq;
         }
 
@@ -775,7 +791,8 @@ rc_t BAMGetAlignments(SAMExtractor* state)
             if (!bview.getbytes(state->parsequeue, ttvs, remain))
                 return RC(rcAlign, rcFile, rcParsing, rcData, rcInvalid);
             char* cur = ttvs;
-            while (cur < ttvs + remain)
+            DBG("Skipping TTVs");
+            while (false && (cur < ttvs + remain)) // TODO
             {
                 char tag[2];
                 char c;
@@ -898,18 +915,18 @@ rc_t BAMGetAlignments(SAMExtractor* state)
     return 0;
 }
 
-rc_t releasethreads(SAMExtractor* state)
+void releasethreads(SAMExtractor* state)
 {
-    rc_t rc;
+    usleep(50); // Wait for threads to timeout in their queues
     DBG("Releasing threads");
     for (u32 i = 0; i != VectorLength(&state->threads); ++i)
     {
         KThread* t = (KThread*)VectorGet(&state->threads, i);
-        rc = KThreadRelease(t);
-        if (rc) return rc;
+        //        KThreadCancel(t);
+        //        KThreadWait(t, NULL);
+        KThreadRelease(t);
     }
     DBG("Released threads");
-    return 0;
 }
 
 rc_t threadinflate(SAMExtractor* state)
@@ -918,9 +935,9 @@ rc_t threadinflate(SAMExtractor* state)
     DBG("Starting threads");
 
     // Benchmarking on 32-core E5-2650 shows that even a memory resident BAM
-    // file doesn't utilize more than 12 inflater threads.
-    // 8 Seems to be the sweet spot
-    size_t num_inflaters = MAX(1, MIN(state->num_threads - 1, 8));
+    // file can't utilize more than 12 inflater threads.
+    // ~8 seems to be the sweet spot.
+    size_t num_inflaters = MAX(1, MIN(state->num_threads - 1, 12));
     DBG("num_inflaters is %u", num_inflaters);
     // Inflater threads
     for (u32 i = 0; i != num_inflaters; ++i)

@@ -47,12 +47,13 @@
 #include <unistd.h>
 #include "samextract.h"
 #include "samextract-tokens.h"
+#include "samextract-pool.h"
 #include <align/samextract-lib.h>
 #include <stdint.h>
 
 char curline[READBUF_SZ + 1];
 size_t curline_len = 0;
-String* fname_desc;
+String* fname_desc = NULL;
 
 void logmsg(const char* fname, int line, const char* func,
             const char* severity, const char* fmt, ...)
@@ -76,7 +77,7 @@ void logmsg(const char* fname, int line, const char* func,
         return;
     }
     fprintf(buffd, "%s(%lu) ", severity, threadid % 100);
-    fprintf(buffd, "`%s`:", fname_desc->addr);
+    if (fname_desc) fprintf(buffd, "`%s`:", fname_desc->addr);
     vfprintf(buffd, fmt, args);
     va_end(args);
     fprintf(buffd, "\t[%s:%s():%d]\n", basename, func, line);
@@ -224,26 +225,8 @@ rc_t process_header(SAMExtractor* state, const char* type, const char* tag,
     }
 
     TagValue* tv = (TagValue*)pool_alloc(sizeof(TagValue));
-    if (tv == NULL) {
-        ERR("out of memory");
-        rc_t rc = RC(rcAlign, rcRow, rcConstructing, rcMemory, rcExhausted);
-        state->rc = rc;
-        return rc;
-    }
     tv->tag = pool_strdup(tag);
-    if (tv->tag == NULL) {
-        ERR("out of memory");
-        rc_t rc = RC(rcAlign, rcRow, rcConstructing, rcMemory, rcExhausted);
-        state->rc = rc;
-        return rc;
-    }
     tv->value = pool_strdup(value);
-    if (tv->value == NULL) {
-        ERR("out of memory");
-        rc_t rc = RC(rcAlign, rcRow, rcConstructing, rcMemory, rcExhausted);
-        state->rc = rc;
-        return rc;
-    }
     VectorAppend(&state->tagvalues, NULL, tv);
 
     return 0;
@@ -253,12 +236,6 @@ rc_t mark_headers(SAMExtractor* state, const char* type)
 {
     DBG("mark_headers");
     Header* hdr = (Header*)pool_alloc(sizeof(Header));
-    if (hdr == NULL) {
-        ERR("out of memory");
-        rc_t rc = RC(rcAlign, rcRow, rcConstructing, rcMemory, rcExhausted);
-        state->rc = rc;
-        return rc;
-    }
     hdr->headercode = type;
     VectorCopy(&state->tagvalues, &hdr->tagvalues);
     VectorAppend(&state->headers, NULL, hdr);
@@ -286,6 +263,7 @@ bool filter(const SAMExtractor* state, const char* rname, ssize_t pos)
                        + state->filter_length)) // After pos+length
                 return true;
     }
+
     return false;
 }
 
@@ -310,15 +288,15 @@ rc_t process_alignment(SAMExtractor* state, const char* qname, u16 flag,
             ERR("TLEN not in range %s", tlen);
     }
 
+    // TODO: cigar/rleopslen should be equal to l_seq
+
     // TODO: ordered
-    if (filter(state, rname, pos)) return 0;
+    if (filter(state, rname, pos)) {
+        DBG("Skipping");
+        return 0;
+    }
 
     Alignment* align = (Alignment*)pool_alloc(sizeof(Alignment));
-    if (align == NULL) {
-        ERR("out of memory");
-        rc_t rc = RC(rcAlign, rcRow, rcConstructing, rcMemory, rcExhausted);
-        state->rc = rc;
-    }
 
     align->read = seq;
     align->cigar = cigar;
@@ -382,7 +360,7 @@ static bool readline(SAMExtractor* state)
 LIB_EXPORT rc_t CC SAMExtractorMake(SAMExtractor** state, const KFile* fin,
                                     String* fname, int32_t num_threads = -1)
 {
-    SAMExtractor* s = (SAMExtractor*)calloc(1, sizeof(*s));
+    SAMExtractor* s = (SAMExtractor*)malloc(sizeof(*s));
     *state = s;
 
     pool_init();
@@ -413,7 +391,7 @@ LIB_EXPORT rc_t CC SAMExtractorMake(SAMExtractor** state, const KFile* fin,
     s->pos = 0;
     s->file_pos = 0;
 
-    s->readbuf = (char*)calloc(1, READBUF_SZ + 1);
+    s->readbuf = (char*)malloc(READBUF_SZ + 1);
     s->readbuf_sz = 0;
     s->readbuf_pos = 0;
 
@@ -440,30 +418,21 @@ LIB_EXPORT rc_t CC SAMExtractorMake(SAMExtractor** state, const KFile* fin,
 
 LIB_EXPORT rc_t CC SAMExtractorRelease(SAMExtractor* s)
 {
-    rc_t rc;
-
     DBG("complete release_Extractor");
     SAMlex_destroy();
 
     SAMExtractorInvalidateHeaders(s);
     SAMExtractorInvalidateAlignments(s);
 
+    releasethreads(s);
+
     pool_release();
-
     VectorWhack(&s->headers, NULL, NULL);
-
-    free(s->readbuf);
-
-    free(s->filter_rname);
-
-    rc = releasethreads(s);
-    if (rc) return rc;
-
     KQueueRelease(s->inflatequeue);
     KQueueRelease(s->parsequeue);
-
     VectorWhack(&s->threads, NULL, NULL);
-
+    free(s->readbuf);
+    free(s->filter_rname);
     memset(s, 0, sizeof(SAMExtractor));
     free(s);
 
@@ -604,7 +573,10 @@ LIB_EXPORT rc_t CC
     {
         rc = BAMGetAlignments(s);
         DBG("complete parsing %d alignments", VectorLength(&s->alignments));
-        if (rc) return rc;
+        if (rc) {
+            ERR("BAMGetAlignmentes failed");
+            return rc;
+        }
     }
     else
     {

@@ -38,6 +38,7 @@
     #include <strtol.h>
     #include <klib/rc.h>
     #include "samextract.h"
+    #include "samextract-pool.h"
     #include <align/samextract-lib.h>
     int SAMlex(SAMExtractor *);
 %}

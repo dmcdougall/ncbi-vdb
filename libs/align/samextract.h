@@ -80,17 +80,10 @@ bool inrange(const char* str, i64 low, i64 high);
 bool ismd5(const char* str);
 bool isfloworder(const char* str);
 
-void pool_init(void);
-void pool_release(void);
-void pool_free(void*);
-void* pool_alloc(size_t sz);
-void* pool_calloc(size_t sz);
-char* pool_strdup(const char* str);
-char* pool_memdup(const char* str, size_t len);
 rc_t threadinflate(SAMExtractor* state);
 rc_t BAMGetHeaders(SAMExtractor* state);
 rc_t BAMGetAlignments(SAMExtractor* state);
-rc_t releasethreads(SAMExtractor* state);
+void releasethreads(SAMExtractor* state);
 rc_t readfile(SAMExtractor* state);
 bool filter(const SAMExtractor* state, const char* rname, ssize_t pos);
 extern char curline[];

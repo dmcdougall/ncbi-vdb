@@ -32,22 +32,13 @@
 #include <klib/defs.h>
 #include <klib/vector.h>
 #include <klib/text.h>
-#include <kproc/queue.h>
-#include <kproc/thread.hpp>
-#include <kproc/timeout.h>
+#include <align/samextract-lib.h>
 #include <stdio.h>
 #include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
-#include <errno.h>
-#include <fcntl.h>
-#include <pthread.h>
-#include <sys/stat.h>
-#include <sys/mman.h>
-#include <regex.h>
 #include <stdint.h>
 #include <unistd.h>
-#include <align/samextract-lib.h>
 
 ver_t CC KAppVersion(void) { return 0x1000000; }
 
@@ -142,7 +133,7 @@ rc_t CC KMain(int argc, char* argv[])
 
         rc = SAMExtractorRelease(extractor);
         if (rc) {
-            fprintf(stderr, "ExtractorRelease returned rc\n");
+            fprintf(stderr, "ExtractorRelease returned rc %d\n", rc);
             return rc;
         }
 
@@ -154,3 +145,4 @@ rc_t CC KMain(int argc, char* argv[])
     fprintf(stderr, "KMain done\n");
     return 0;
 }
+

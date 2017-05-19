@@ -36,6 +36,7 @@
 %top{
 #include <string.h>
 #include "samextract.h"
+#include "samextract-pool.h"
 #include "samextract-tokens.h"
 
 /* #define LEXDEBUG 1 */
