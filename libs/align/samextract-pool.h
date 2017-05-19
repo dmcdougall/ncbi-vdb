@@ -39,9 +39,6 @@ char* pool_memdup(const char* str, size_t len);
 extern void morecore(size_t alloc_size);
 extern void* cur_block;
 extern size_t cur_block_remain;
-#ifdef __cplusplus
-}
-#endif
 #define POOL_BLOCK_SZ (2 * 1024 * 1024)
 
 /* Could conceivably reclaim last allocation  */
@@ -66,4 +63,9 @@ inline static void* pool_alloc(size_t alloc_size)
 
     return buf;
 }
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif
