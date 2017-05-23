@@ -658,6 +658,33 @@ static void decode_seq(const u8* seqbytes, size_t l_seq, char* seq)
     seq[l_seq] = '\0';
 }
 
+static char* decode_cigar(u32* cigar, u16 n_cigar_op)
+{
+    // Worst case:
+    //   9 digits (28 bits of oplen) + 1 byte opcode
+    //   Likely 1/5 that, but pool allocation cheaper than computing.
+    char* scigar = (char*)pool_alloc(n_cigar_op * 10 + 1);
+    char* p = scigar;
+    // size_t rleopslen = 0;
+    for (int i = 0; i != n_cigar_op; ++i)
+    {
+        i32 oplen = cigar[i] >> 4;
+        i32 op = cigar[i] & 0xf;
+
+        char buf[10]; // 2^28=268,435,456
+        int sz;
+        sz = snprintf(buf, sizeof(buf), "%d", oplen);
+        memmove(p, buf, sz);
+        p += sz;
+
+        static const char opmap[] = "MIDNSHP=X???????";
+        *p++ = (char)opmap[op];
+    }
+
+    *p = '\0';
+    return scigar;
+}
+
 rc_t BAMGetAlignments(SAMExtractor* state)
 {
     bamalign align;
@@ -709,10 +736,8 @@ rc_t BAMGetAlignments(SAMExtractor* state)
         DBG("read_name='%s'", read_name);
         // TODO: Check filter here, based on rname and pos
         char* scigar = NULL;
-        size_t rleopslen = 0;
         if (n_cigar_op > 0) {
             // TODO: Move to function, for testability
-            static const char opmap[] = "MIDNSHP=X???????";
             u32* cigar = (u32*)pool_alloc(n_cigar_op * sizeof(u32));
 
             if (!bview.getbytes(state->parsequeue, (char*)cigar,
@@ -721,60 +746,16 @@ rc_t BAMGetAlignments(SAMExtractor* state)
             // Worst case:
             //   9 digits (28 bits of oplen) + 1 byte opcode
             //   Likely 1/5 that, but pool allocation cheaper than computing.
-            scigar = (char*)pool_alloc(n_cigar_op * 10 + 1);
-            char* p = scigar;
-            for (int i = 0; i != n_cigar_op; ++i)
-            {
-                i32 oplen = cigar[i] >> 4;
-                i32 op = cigar[i] & 0xf;
-
-                rleopslen += oplen;
-                if (oplen <= 9) {
-                    *p++ = oplen + '0';
-                }
-                else
-                {
-                    char buf[10];
-                    int sz;
-                    sz = snprintf(buf, sizeof(buf), "%d", oplen);
-                    memmove(p, buf, sz);
-                    p += sz;
-                }
-                *p++ = (char)opmap[op];
-            }
-
-#if 0
-            // Compute size of expanded CIGAR
-            for (int i = 0; i != n_cigar_op; ++i)
-            {
-                i32 oplen = cigar[i] >> 4;
-                if (!oplen) ERR("Bogus CIGAR op length");
-                rleopslen += oplen;
-            }
-            DBG("rleopslen %d", rleopslen);
-
-            scigar = (char*)pool_alloc(rleopslen + 1);
-            char* p = scigar;
-            for (int i = 0; i != n_cigar_op; ++i)
-            {
-                i32 oplen = cigar[i] >> 4;
-                i32 op = cigar[i] & 0xf;
-                DBG("\tcigar %d=%x len=%d %d(%c)", i, cigar[i], oplen, op,
-                    opmap[op]);
-                for (int j = 0; j != oplen; ++j)
-                    *p++ = (char)opmap[op];
-            }
-#endif
-            *p = '\0';
+            scigar = decode_cigar(cigar, n_cigar_op);
             pool_free(cigar);
             cigar = NULL;
+            INFO("scigar is '%s'", scigar);
         }
         else
         {
             scigar = (char*)pool_alloc(1);
             scigar[0] = '\0';
         }
-        DBG("scigar is '%s'", scigar);
 
         u64 bytesofseq = 0;
         char* seq = NULL;
