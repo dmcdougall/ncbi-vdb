@@ -22,14 +22,15 @@
 #
 # ===========================================================================
 
-
 default: runtests
 
 TOP ?= $(abspath ../..)
+
 MODULE = test/align
 
 TEST_TOOLS = \
 	test-load-index \
+	test-samextract \
 	samextract
 
 include $(TOP)/build/Makefile.env
@@ -72,4 +73,29 @@ SAMEXTRACT_LIB = \
 
 $(TEST_BINDIR)/samextract: $(SAMEXTRACT_OBJ)
 	$(LP) --exe -o $@ $^ $(SAMEXTRACT_LIB)
+
+#-------------------------------------------------------------------------------
+# test-samextract
+#
+TEST_SAMEXTRACT_SRC = \
+	test-samextract
+
+TEST_SAMEXTRACT_OBJ = \
+	$(addsuffix .$(OBJX),$(TEST_SAMEXTRACT_SRC))
+
+TEST_SAMEXTRACT_LIB = \
+	-skapp \
+	-ssam-extract\
+	-sktst \
+	-sncbi-vdb
+
+$(TEST_BINDIR)/test-samextract: $(TEST_SAMEXTRACT_OBJ)
+	$(LP) --exe -o $@ $^ $(TEST_SAMEXTRACT_LIB)
+
+samextractg: test-samextract
+	$(TEST_BINDIR)/test-samextract
+
+valgrind_samextract: std
+	valgrind --ncbi --show-reachable=no $(TEST_BINDIR)/test-samextract
+
 

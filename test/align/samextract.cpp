@@ -79,7 +79,7 @@ rc_t CC KMain(int argc, char* argv[])
         fprintf(stderr, "Made extractor for %s\n", fname);
         if (rc) return rc;
 
-        rc = SAMExtractorAddFilter(extractor, NULL, -1, -1, false);
+        //        rc = SAMExtractorAddFilter(extractor, NULL, -1, -1, false);
         if (rc) return rc;
 
         Vector headers;
@@ -121,7 +121,8 @@ rc_t CC KMain(int argc, char* argv[])
             for (uint32_t i = 0; i != vlen; ++i)
             {
                 Alignment* align = (Alignment*)VectorGet(&alignments, i);
-
+                if (strlen(align->cigar) > 0)
+                    fprintf(stderr, "cigar is %s\n", align->cigar);
                 //                fprintf(stderr,"\tAlignment%2d: %s\n", i,
                 //                align->read);
                 // Do stuff with headers
@@ -145,4 +146,3 @@ rc_t CC KMain(int argc, char* argv[])
     fprintf(stderr, "KMain done\n");
     return 0;
 }
-

@@ -45,7 +45,6 @@ typedef enum file_type
     BAM,
     SAMGZUNSUPPORTED
 } file_type;
-//    typedef enum file_status { init, headers, alignments, done} file_status;
 
 typedef struct SAMExtractor
 {
@@ -59,7 +58,6 @@ typedef struct SAMExtractor
     Vector* prev_headers;
     Vector* prev_aligns;
 
-    //        Vector chunks;
     int32_t num_threads;
     Vector threads;
     KQueue* inflatequeue;
@@ -78,12 +76,11 @@ typedef struct SAMExtractor
 
     rc_t rc;
 
-    char* filter_rname;
+    String* filter_rname;
     ssize_t filter_pos;
     ssize_t filter_length;
     bool filter_ordered;
 
-    //        file_status file_status;
     bool hashdvn;
     bool hashdso;
     bool hashdgo;
@@ -117,15 +114,22 @@ typedef struct Alignment
 ALIGN_EXTERN rc_t CC SAMExtractorMake(SAMExtractor** state, const KFile* fin,
                                       String* fname_desc,
                                       int32_t num_threads);
-/*
- * If rname==NULL, don't filter on reference name.
- * If pos==-1, don't filter on pos.
- * If length==-1, return everything after pos.
- * If ordered=true, can stop scanning file after filter completes.
- */
-ALIGN_EXTERN rc_t CC SAMExtractorAddFilter(SAMExtractor* state,
-                                           const char* rname, ssize_t pos,
-                                           ssize_t length, bool ordered);
+
+ALIGN_EXTERN rc_t CC SAMExtractorAddFilterName(SAMExtractor* state,
+                                               String* rname, bool ordered);
+ALIGN_EXTERN rc_t CC SAMExtractorAddFilterNamePos(SAMExtractor* state,
+                                                  String* rname, ssize_t pos,
+                                                  bool ordered);
+ALIGN_EXTERN rc_t CC
+    SAMExtractorAddFilterNamePosLength(SAMExtractor* state, String* rname,
+                                       ssize_t pos, ssize_t length,
+                                       bool ordered);
+ALIGN_EXTERN rc_t CC
+    SAMExtractorAddFilterPos(SAMExtractor* state, ssize_t pos, bool ordered);
+ALIGN_EXTERN rc_t CC
+    SAMExtractorAddFilterPosLength(SAMExtractor* state, ssize_t pos,
+                                   ssize_t length, bool ordered);
+
 ALIGN_EXTERN rc_t CC SAMExtractorRelease(SAMExtractor* state); /* dtor */
 
 ALIGN_EXTERN rc_t CC

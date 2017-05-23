@@ -122,7 +122,7 @@ class BGZFview
         while (true)
         {
             void* where = NULL;
-            TimeoutInit(&tm, 10); // 10 microseconds
+            TimeoutInit(&tm, 10); // 10 milliseconds
             rc_t rc = KQueuePop(que, &where, &tm);
             DBG("popped");
             if (rc == 0) {
@@ -298,7 +298,7 @@ static rc_t seeker(const KThread* kt, void* in)
             while (true)
             {
                 // Add to Inflate queue
-                TimeoutInit(&tm, 10); // 10 microseconds
+                TimeoutInit(&tm, 10); // 10 milliseconds
                 rc_t rc = KQueuePush(state->inflatequeue, (void*)bgzf, &tm);
                 if ((int)GetRCObject(rc) == rcTimeout) {
                     DBG("inflate queue full");
@@ -377,7 +377,7 @@ static rc_t inflater(const KThread* kt, void* in)
     {
         void* where = NULL;
         DBG("\t\tthread %lu checking queue", threadid);
-        TimeoutInit(&tm, 10); // 10 microseconds
+        TimeoutInit(&tm, 10); // 10 milliseconds
         rc_t rc = KQueuePop(state->inflatequeue, &where, &tm);
         DBG("checked");
         if (rc == 0) {
@@ -468,7 +468,7 @@ static rc_t inflater(const KThread* kt, void* in)
         }
         else
         {
-            ERR("rc=%d", rc);
+            WARN("rc=%d", rc);
             return rc;
         }
     }
@@ -711,12 +711,39 @@ rc_t BAMGetAlignments(SAMExtractor* state)
         char* scigar = NULL;
         size_t rleopslen = 0;
         if (n_cigar_op > 0) {
+            // TODO: Move to function, for testability
             static const char opmap[] = "MIDNSHP=X???????";
             u32* cigar = (u32*)pool_alloc(n_cigar_op * sizeof(u32));
 
             if (!bview.getbytes(state->parsequeue, (char*)cigar,
                                 n_cigar_op * 4))
                 return RC(rcAlign, rcFile, rcParsing, rcData, rcInvalid);
+            // Worst case:
+            //   9 digits (28 bits of oplen) + 1 byte opcode
+            //   Likely 1/5 that, but pool allocation cheaper than computing.
+            scigar = (char*)pool_alloc(n_cigar_op * 10 + 1);
+            char* p = scigar;
+            for (int i = 0; i != n_cigar_op; ++i)
+            {
+                i32 oplen = cigar[i] >> 4;
+                i32 op = cigar[i] & 0xf;
+
+                rleopslen += oplen;
+                if (oplen <= 9) {
+                    *p++ = oplen + '0';
+                }
+                else
+                {
+                    char buf[10];
+                    int sz;
+                    sz = snprintf(buf, sizeof(buf), "%d", oplen);
+                    memmove(p, buf, sz);
+                    p += sz;
+                }
+                *p++ = (char)opmap[op];
+            }
+
+#if 0
             // Compute size of expanded CIGAR
             for (int i = 0; i != n_cigar_op; ++i)
             {
@@ -726,7 +753,6 @@ rc_t BAMGetAlignments(SAMExtractor* state)
             }
             DBG("rleopslen %d", rleopslen);
 
-            // TODO: Don't expand cigar
             scigar = (char*)pool_alloc(rleopslen + 1);
             char* p = scigar;
             for (int i = 0; i != n_cigar_op; ++i)
@@ -738,6 +764,7 @@ rc_t BAMGetAlignments(SAMExtractor* state)
                 for (int j = 0; j != oplen; ++j)
                     *p++ = (char)opmap[op];
             }
+#endif
             *p = '\0';
             pool_free(cigar);
             cigar = NULL;
@@ -781,6 +808,7 @@ rc_t BAMGetAlignments(SAMExtractor* state)
             qual = seq;
         }
 
+        // TODO: Check that rleopslen==l_seq
         int remain = align.block_size
                      - (sizeof(align) + l_read_name + n_cigar_op * 4
                         + bytesofseq + align.l_seq) + 4; // TODO, why 4?
@@ -917,7 +945,7 @@ rc_t BAMGetAlignments(SAMExtractor* state)
 
 void releasethreads(SAMExtractor* state)
 {
-    usleep(50); // Wait for threads to timeout in their queues
+    usleep(50 * 1000); // Wait 50 ms for threads to timeout in their queues
     DBG("Releasing threads");
     for (u32 i = 0; i != VectorLength(&state->threads); ++i)
     {

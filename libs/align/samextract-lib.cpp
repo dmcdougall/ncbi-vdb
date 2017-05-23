@@ -244,9 +244,9 @@ rc_t mark_headers(SAMExtractor* state, const char* type)
 }
 
 // Returns true if we can skip record
-bool filter(const SAMExtractor* state, const char* rname, ssize_t pos)
+bool filter(const SAMExtractor* state, String* srname, ssize_t pos)
 {
-    if (state->filter_rname && strcmp(state->filter_rname, rname))
+    if (state->filter_rname && StringEqual(state->filter_rname, srname))
         return true;
 
     if (state->file_type == SAM) --pos; // Internally use and expose 0-based
@@ -290,8 +290,10 @@ rc_t process_alignment(SAMExtractor* state, const char* qname, u16 flag,
 
     // TODO: cigar/rleopslen should be equal to l_seq
 
+    String srname;
+    StringInitCString(&srname, rname);
     // TODO: ordered
-    if (filter(state, rname, pos)) {
+    if (filter(state, &srname, pos)) {
         DBG("Skipping");
         return 0;
     }
@@ -439,13 +441,42 @@ LIB_EXPORT rc_t CC SAMExtractorRelease(SAMExtractor* s)
     return 0;
 }
 
-LIB_EXPORT rc_t CC SAMExtractorAddFilter(SAMExtractor* state,
-                                         const char* rname, ssize_t pos,
-                                         ssize_t length, bool ordered)
+LIB_EXPORT rc_t CC SAMExtractorAddFilterName(SAMExtractor* state,
+                                             String* srname, bool ordered)
+{
+    return SAMExtractorAddFilterNamePosLength(state, srname, -1, -1, ordered);
+}
+
+LIB_EXPORT rc_t CC SAMExtractorAddFilterNamePos(SAMExtractor* state,
+                                                String* srname, ssize_t pos,
+                                                bool ordered)
+{
+    return SAMExtractorAddFilterNamePosLength(state, srname, pos, -1,
+                                              ordered);
+}
+
+LIB_EXPORT rc_t CC
+    SAMExtractorAddFilterPos(SAMExtractor* state, ssize_t pos, bool ordered)
+{
+    return SAMExtractorAddFilterNamePosLength(state, NULL, pos, -1, ordered);
+}
+
+LIB_EXPORT rc_t CC SAMExtractorAddFilterPosLength(SAMExtractor* state,
+                                                  ssize_t pos, ssize_t length,
+                                                  bool ordered)
+{
+    return SAMExtractorAddFilterNamePosLength(state, NULL, pos, length,
+                                              ordered);
+}
+
+LIB_EXPORT rc_t CC
+    SAMExtractorAddFilterNamePosLength(SAMExtractor* state, String* srname,
+                                       ssize_t pos, ssize_t length,
+                                       bool ordered)
 {
     // TODO: Check if GetHeaders/GetAlignments already invoked
 
-    if (rname) state->filter_rname = strdup(rname);
+    state->filter_rname = srname;
     state->filter_pos = pos;
     state->filter_length = length;
     state->filter_ordered = ordered;

@@ -85,7 +85,7 @@ rc_t BAMGetHeaders(SAMExtractor* state);
 rc_t BAMGetAlignments(SAMExtractor* state);
 void releasethreads(SAMExtractor* state);
 rc_t readfile(SAMExtractor* state);
-bool filter(const SAMExtractor* state, const char* rname, ssize_t pos);
+bool filter(const SAMExtractor* state, String* srname, ssize_t pos);
 extern char curline[];
 extern size_t curline_len;
 #ifdef __cplusplus
