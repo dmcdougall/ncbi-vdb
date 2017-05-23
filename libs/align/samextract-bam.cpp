@@ -749,7 +749,7 @@ rc_t BAMGetAlignments(SAMExtractor* state)
             scigar = decode_cigar(cigar, n_cigar_op);
             pool_free(cigar);
             cigar = NULL;
-            INFO("scigar is '%s'", scigar);
+            DBG("scigar is '%s'", scigar);
         }
         else
         {
