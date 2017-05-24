@@ -24,47 +24,47 @@
  *
  */
 
-#define __STDC_LIMIT_MACROS
+//#define __STDC_LIMIT_MACROS
+#include "samextract.h"
+#include "samextract-pool.h"
+#include "samextract-tokens.h"
+#include <align/samextract-lib.h>
+#include <ctype.h>
+#include <errno.h>
+#include <fcntl.h>
 #include <kapp/args.h>
 #include <kapp/main.h>
 #include <kfs/file.h>
-#include <klib/rc.h>
 #include <klib/defs.h>
+#include <klib/rc.h>
 #include <klib/vector.h>
 #include <kproc/queue.h>
 #include <kproc/thread.hpp>
 #include <kproc/timeout.h>
+#include <pthread.h>
+#include <stdint.h>
 #include <stdio.h>
-#include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
 #include <strtol.h>
-#include <errno.h>
-#include <fcntl.h>
-#include <pthread.h>
-#include <sys/stat.h>
 #include <sys/mman.h>
+#include <sys/stat.h>
 #include <unistd.h>
-#include "samextract.h"
-#include "samextract-tokens.h"
-#include "samextract-pool.h"
-#include <align/samextract-lib.h>
-#include <stdint.h>
 
-char curline[READBUF_SZ + 1];
-size_t curline_len = 0;
-String* fname_desc = NULL;
+char    curline[READBUF_SZ + 1];
+int     curline_len = 0;
+String* fname_desc  = NULL;
 
 void logmsg(const char* fname, int line, const char* func,
             const char* severity, const char* fmt, ...)
 {
-    char* buf;
+    char*  buf;
     size_t bufsize = 0;
-    FILE* buffd;
+    FILE*  buffd;
 
     pthread_t threadid = pthread_self();
 
-    const char* basename = strrchr(fname, '/');
+    const char* basename    = strrchr(fname, '/');
     if (!basename) basename = strrchr(fname, '\\');
     if (basename) ++basename;
     if (!basename) basename = fname;
@@ -105,8 +105,8 @@ int moredata(char* buf, int* numbytes, size_t maxbytes)
         DBG("nomoredata");
     else
         DBG("  moredata %p %d\ncurline:'%s'", buf, maxbytes, curline);
-    memmove(buf, curline, curline_len);
-    *numbytes = curline_len;
+    memmove(buf, curline, (size_t)curline_len);
+    *numbytes   = curline_len;
     curline_len = 0;
     return 0;
 }
@@ -116,8 +116,10 @@ inline rc_t readfile(SAMExtractor* state)
     if (state->readbuf_pos == state->readbuf_sz) {
         state->readbuf_sz = READBUF_SZ;
         DBG("reading in at %d", state->file_pos);
+        size_t sz = state->readbuf_sz;
         rc_t rc = KFileReadAll(state->infile, state->file_pos, state->readbuf,
-                               state->readbuf_sz, &state->readbuf_sz);
+                               sz, &sz);
+        state->readbuf_sz = (u32)sz;
         state->file_pos += state->readbuf_sz;
         if (rc) {
             ERR("readfile error");
@@ -132,10 +134,10 @@ inline rc_t readfile(SAMExtractor* state)
     return 0;
 }
 
-void SAMerror(SAMExtractor* state, const char* s)
+__attribute__((noreturn)) void SAMerror(SAMExtractor* state, const char* s)
 {
     ERR(" Parsing error: %s\nLine was:'%s'", s, curline);
-    rc_t rc = RC(rcAlign, rcRow, rcParsing, rcData, rcInvalid);
+    rc_t rc   = RC(rcAlign, rcRow, rcParsing, rcData, rcInvalid);
     state->rc = rc;
     abort();
 }
@@ -156,8 +158,7 @@ bool ismd5(const char* str)
 
     if (len != 32) return false;
 
-    for (i = 0; i != len; ++i)
-    {
+    for (i = 0; i != len; ++i) {
         if (!isalnum(str[i]) && str[i] != '*') return false;
     }
 
@@ -173,28 +174,27 @@ bool isfloworder(const char* str)
     size_t len = strlen(str);
 
     if (len == 1 && str[0] == '*') return true;
-    for (i = 0; i != len; ++i)
-    {
+    for (i = 0; i != len; ++i) {
         switch (str[i])
         {
-        case 'A':
-        case 'C':
-        case 'M':
-        case 'G':
-        case 'R':
-        case 'S':
-        case 'V':
-        case 'T':
-        case 'W':
-        case 'Y':
-        case 'H':
-        case 'K':
-        case 'D':
-        case 'B':
-        case 'N':
-            continue;
-        default:
-            return false;
+            case 'A':
+            case 'C':
+            case 'M':
+            case 'G':
+            case 'R':
+            case 'S':
+            case 'V':
+            case 'T':
+            case 'W':
+            case 'Y':
+            case 'H':
+            case 'K':
+            case 'D':
+            case 'B':
+            case 'N':
+                continue;
+            default:
+                return false;
         }
     }
     return true;
@@ -208,14 +208,14 @@ rc_t process_header(SAMExtractor* state, const char* type, const char* tag,
         && strcmp(type, "PG"))
     {
         ERR("record '%s' must be HD, SQ, RG or PG", type);
-        rc_t rc = RC(rcAlign, rcRow, rcParsing, rcData, rcInvalid);
+        rc_t rc   = RC(rcAlign, rcRow, rcParsing, rcData, rcInvalid);
         state->rc = rc;
         return rc;
     }
 
     if (strlen(tag) != 2) {
         ERR("tag '%s' must be 2 characters", tag);
-        rc_t rc = RC(rcAlign, rcRow, rcParsing, rcData, rcInvalid);
+        rc_t rc   = RC(rcAlign, rcRow, rcParsing, rcData, rcInvalid);
         state->rc = rc;
         return rc;
     }
@@ -225,8 +225,8 @@ rc_t process_header(SAMExtractor* state, const char* type, const char* tag,
     }
 
     TagValue* tv = (TagValue*)pool_alloc(sizeof(TagValue));
-    tv->tag = pool_strdup(tag);
-    tv->value = pool_strdup(value);
+    tv->tag      = pool_strdup(tag);
+    tv->value    = pool_strdup(value);
     VectorAppend(&state->tagvalues, NULL, tv);
 
     return 0;
@@ -235,7 +235,7 @@ rc_t process_header(SAMExtractor* state, const char* type, const char* tag,
 rc_t mark_headers(SAMExtractor* state, const char* type)
 {
     DBG("mark_headers");
-    Header* hdr = (Header*)pool_alloc(sizeof(Header));
+    Header* hdr     = (Header*)pool_alloc(sizeof(Header));
     hdr->headercode = type;
     VectorCopy(&state->tagvalues, &hdr->tagvalues);
     VectorAppend(&state->headers, NULL, hdr);
@@ -291,19 +291,24 @@ rc_t process_alignment(SAMExtractor* state, const char* qname, u16 flag,
     // TODO: cigar/rleopslen should be equal to l_seq
 
     String srname;
-    StringInitCString(&srname, rname);
-    // TODO: ordered
+    // Faster to avoid string_measure()
+    // StringInitCString(&srname, rname);
+    size_t l = strlen(rname);
+    StringInit(&srname, rname, l, (u32)l);
+
     if (filter(state, &srname, pos)) {
         DBG("Skipping");
         return 0;
     }
 
+    // TODO: ordered
+
     Alignment* align = (Alignment*)pool_alloc(sizeof(Alignment));
 
-    align->read = seq;
+    align->read  = seq;
     align->cigar = cigar;
     align->rname = rname;
-    align->pos = pos;
+    align->pos   = pos;
     align->flags = flag;
     VectorAppend(&state->alignments, NULL, align);
 
@@ -315,15 +320,15 @@ static bool readline(SAMExtractor* state)
 {
     DBG("readline");
     if (readfile(state)) return false;
-    char* line = curline;
-    line[0] = '\0';
+    char* line  = curline;
+    line[0]     = '\0';
     curline_len = 0;
     // Is there a newline in current buffer?
     char* nl = (char*)memchr((state->readbuf + state->readbuf_pos), '\n',
                              (state->readbuf_sz - state->readbuf_pos));
     if (nl) {
         nl += 1;
-        size_t len = nl - (state->readbuf + state->readbuf_pos);
+        u32 len = (u32)(nl - (state->readbuf + state->readbuf_pos));
         memmove(line, state->readbuf + state->readbuf_pos, len);
         curline_len += len;
         state->readbuf_pos += len;
@@ -332,7 +337,7 @@ static bool readline(SAMExtractor* state)
     }
 
     // Nope, append and get more
-    size_t len = (state->readbuf_sz - state->readbuf_pos);
+    u32 len = (u32)(state->readbuf_sz - state->readbuf_pos);
     DBG("readline more %d/%d", state->readbuf_pos, len);
     memmove(line, state->readbuf + state->readbuf_pos, len);
     DBG("moreline was %d '%s'", strlen(line), line);
@@ -349,7 +354,7 @@ static bool readline(SAMExtractor* state)
     }
     DBG("found newline at %d", nl - state->readbuf);
     nl += 1;
-    len = (nl - state->readbuf);
+    len = (u32)(nl - state->readbuf);
     memmove(line, state->readbuf, len);
     curline_len += len;
     state->readbuf_pos += len;
@@ -363,12 +368,12 @@ LIB_EXPORT rc_t CC SAMExtractorMake(SAMExtractor** state, const KFile* fin,
                                     String* fname, int32_t num_threads = -1)
 {
     SAMExtractor* s = (SAMExtractor*)malloc(sizeof(*s));
-    *state = s;
+    *state          = s;
 
     pool_init();
 
-    s->infile = fin;
-    s->fname = fname;
+    s->infile  = fin;
+    s->fname   = fname;
     fname_desc = fname;
 
     VectorInit(&s->headers, 0, 0);
@@ -376,13 +381,13 @@ LIB_EXPORT rc_t CC SAMExtractorMake(SAMExtractor** state, const KFile* fin,
     VectorInit(&s->tagvalues, 0, 0);
 
     s->prev_headers = NULL;
-    s->prev_aligns = NULL;
+    s->prev_aligns  = NULL;
 
     s->num_threads = num_threads;
 
     // Default number of threads to number of cores
     if (s->num_threads <= -1)
-        s->num_threads = sysconf(_SC_NPROCESSORS_ONLN) - 1;
+        s->num_threads = (int)sysconf(_SC_NPROCESSORS_ONLN) - 1;
 
     DBG("%d threads", s->num_threads);
 
@@ -390,21 +395,21 @@ LIB_EXPORT rc_t CC SAMExtractorMake(SAMExtractor** state, const KFile* fin,
     KQueueMake(&s->inflatequeue, 64);
     KQueueMake(&s->parsequeue, 64);
 
-    s->pos = 0;
+    s->pos      = 0;
     s->file_pos = 0;
 
-    s->readbuf = (char*)malloc(READBUF_SZ + 1);
-    s->readbuf_sz = 0;
+    s->readbuf     = (char*)malloc(READBUF_SZ + 1);
+    s->readbuf_sz  = 0;
     s->readbuf_pos = 0;
 
     s->file_type = unknown;
-    s->n_ref = -1;
+    s->n_ref     = -1;
 
     s->rc = 0;
 
-    s->filter_rname = NULL;
-    s->filter_pos = -1;
-    s->filter_length = -1;
+    s->filter_rname   = NULL;
+    s->filter_pos     = -1;
+    s->filter_length  = -1;
     s->filter_ordered = false;
 
     s->hashdvn = false;
@@ -455,8 +460,8 @@ LIB_EXPORT rc_t CC SAMExtractorAddFilterNamePos(SAMExtractor* state,
                                               ordered);
 }
 
-LIB_EXPORT rc_t CC
-    SAMExtractorAddFilterPos(SAMExtractor* state, ssize_t pos, bool ordered)
+LIB_EXPORT rc_t CC SAMExtractorAddFilterPos(SAMExtractor* state, ssize_t pos,
+                                            bool ordered)
 {
     return SAMExtractorAddFilterNamePosLength(state, NULL, pos, -1, ordered);
 }
@@ -469,16 +474,17 @@ LIB_EXPORT rc_t CC SAMExtractorAddFilterPosLength(SAMExtractor* state,
                                               ordered);
 }
 
-LIB_EXPORT rc_t CC
-    SAMExtractorAddFilterNamePosLength(SAMExtractor* state, String* srname,
-                                       ssize_t pos, ssize_t length,
-                                       bool ordered)
+LIB_EXPORT rc_t CC SAMExtractorAddFilterNamePosLength(SAMExtractor* state,
+                                                      String*       srname,
+                                                      ssize_t       pos,
+                                                      ssize_t       length,
+                                                      bool          ordered)
 {
     // TODO: Check if GetHeaders/GetAlignments already invoked
 
-    state->filter_rname = srname;
-    state->filter_pos = pos;
-    state->filter_length = length;
+    state->filter_rname   = srname;
+    state->filter_pos     = pos;
+    state->filter_length  = length;
     state->filter_ordered = ordered;
 
     return 0;
@@ -490,7 +496,8 @@ LIB_EXPORT rc_t CC SAMExtractorGetHeaders(SAMExtractor* s, Vector* headers)
     DBG("GetHeaders");
 
     u64 sz = 0;
-    rc = KFileSize(s->infile, &sz);
+    rc     = KFileSize(s->infile, &sz);
+    if (rc) return rc;
     DBG("File size=%u", sz);
     if (sz < 12) {
         ERR("File too small");
@@ -517,28 +524,28 @@ LIB_EXPORT rc_t CC SAMExtractorGetHeaders(SAMExtractor* s, Vector* headers)
 
     switch (s->file_type)
     {
-    case BAM:
-        rc = threadinflate(s);
-        if (rc) return rc;
-        rc = BAMGetHeaders(s);
-        if (rc) return rc;
-        break;
-    case SAM:
-        while (readline(s))
-        {
-            rc = SAM_parseline(s);
+        case BAM:
+            rc = threadinflate(s);
             if (rc) return rc;
+            rc = BAMGetHeaders(s);
+            if (rc) return rc;
+            break;
+        case SAM:
+            while (readline(s)) {
+                rc = SAM_parseline(s);
+                if (rc) return rc;
 
-            if (curline[0] != '@') {
-                // First line of alignments will be processed
-                DBG("out of headers");
-                break;
+                if (curline[0] != '@') {
+                    // First line of alignments will be processed
+                    DBG("out of headers");
+                    break;
+                }
             }
-        }
-        break;
-    default:
-        ERR("Unknown file type");
-        return RC(rcAlign, rcFile, rcParsing, rcData, rcInvalid);
+            break;
+        case SAMGZUNSUPPORTED:
+        case unknown:
+            ERR("Unknown file type");
+            return RC(rcAlign, rcFile, rcParsing, rcData, rcInvalid);
     }
 
     DBG("Done parsing headers");
@@ -551,18 +558,16 @@ LIB_EXPORT rc_t CC SAMExtractorGetHeaders(SAMExtractor* s, Vector* headers)
 LIB_EXPORT rc_t CC SAMExtractorInvalidateHeaders(SAMExtractor* s)
 {
     DBG("invalidate_headers");
-    for (u32 i = 0; i != VectorLength(&s->headers); ++i)
-    {
+    for (u32 i = 0; i != VectorLength(&s->headers); ++i) {
         Header* hdr = (Header*)VectorGet(&s->headers, i);
 
         hdr->headercode = NULL;
 
         Vector* tvs = &hdr->tagvalues;
-        for (u32 j = 0; j != VectorLength(tvs); ++j)
-        {
+        for (u32 j = 0; j != VectorLength(tvs); ++j) {
             TagValue* tv = (TagValue*)VectorGet(tvs, j);
-            tv->tag = NULL;
-            tv->value = NULL;
+            tv->tag      = NULL;
+            tv->value    = NULL;
         }
         VectorWhack(&hdr->tagvalues, NULL, NULL);
         hdr = NULL;
@@ -576,8 +581,8 @@ LIB_EXPORT rc_t CC SAMExtractorInvalidateHeaders(SAMExtractor* s)
     return 0;
 }
 
-LIB_EXPORT rc_t CC
-    SAMExtractorGetAlignments(SAMExtractor* s, Vector* alignments)
+LIB_EXPORT rc_t CC SAMExtractorGetAlignments(SAMExtractor* s,
+                                             Vector*       alignments)
 {
     rc_t rc = 0;
     SAMExtractorInvalidateAlignments(s);
@@ -585,8 +590,7 @@ LIB_EXPORT rc_t CC
     VectorInit(alignments, 0, 0);
 
     if (s->file_type == SAM) {
-        while (VectorLength(&s->alignments) < 64)
-        {
+        while (VectorLength(&s->alignments) < 64) {
             if (!readline(s)) break;
 
             if (curline[0] == '@') {

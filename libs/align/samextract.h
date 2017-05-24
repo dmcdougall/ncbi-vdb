@@ -26,24 +26,24 @@
 
 #ifndef _h_samextract_
 #define _h_samextract_
-#include <klib/rc.h>
-#include <klib/defs.h>
-#include <klib/vector.h>
-#include <kfs/file.h>
-#include <kfs/buffile.h>
-#include <zlib.h>
-#include <sys/types.h>
 #include <align/samextract-lib.h>
+#include <kfs/buffile.h>
+#include <kfs/file.h>
+#include <klib/defs.h>
+#include <klib/rc.h>
+#include <klib/vector.h>
+#include <sys/types.h>
+#include <zlib.h>
 
 #define READBUF_SZ 65536
 
-typedef int8_t i8;
-typedef uint8_t u8;
-typedef int16_t i16;
+typedef int8_t   i8;
+typedef uint8_t  u8;
+typedef int16_t  i16;
 typedef uint16_t u16;
-typedef int32_t i32;
+typedef int32_t  i32;
 typedef uint32_t u32;
-typedef int64_t i64;
+typedef int64_t  i64;
 typedef uint64_t u64;
 
 typedef struct bamalign
@@ -64,7 +64,7 @@ extern "C" {
 #endif
 int SAMparse(SAMExtractor* state);
 void SAMerror(SAMExtractor* state, const char* TODOmsg);
-int SAMlex_destroy(void);
+int  SAMlex_destroy(void);
 void logmsg(const char* fname, int line, const char* func,
             const char* severity, const char* fmt, ...);
 int moredata(char* buf, int* numbytes, size_t maxbytes);
@@ -87,7 +87,7 @@ void releasethreads(SAMExtractor* state);
 rc_t readfile(SAMExtractor* state);
 bool filter(const SAMExtractor* state, String* srname, ssize_t pos);
 extern char curline[];
-extern size_t curline_len;
+extern int  curline_len;
 #ifdef __cplusplus
 }
 #endif

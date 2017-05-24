@@ -31,13 +31,13 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-void pool_init(void);
-void pool_release(void);
+void  pool_init(void);
+void  pool_release(void);
 char* pool_strdup(const char* str);
 char* pool_memdup(const char* str, size_t len);
 
 extern void morecore(size_t alloc_size);
-extern void* cur_block;
+extern void*  cur_block;
 extern size_t cur_block_remain;
 #define POOL_BLOCK_SZ (2 * 1024 * 1024)
 

@@ -24,20 +24,20 @@
  *
  */
 
+#include <align/samextract-lib.h>
+#include <ctype.h>
 #include <kapp/args.h>
 #include <kapp/main.h>
-#include <kfs/file.h>
 #include <kfs/directory.h>
-#include <klib/rc.h>
+#include <kfs/file.h>
 #include <klib/defs.h>
-#include <klib/vector.h>
+#include <klib/rc.h>
 #include <klib/text.h>
-#include <align/samextract-lib.h>
+#include <klib/vector.h>
+#include <stdint.h>
 #include <stdio.h>
-#include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdint.h>
 #include <unistd.h>
 
 ver_t CC KAppVersion(void) { return 0x1000000; }
@@ -57,13 +57,12 @@ rc_t CC KMain(int argc, char* argv[])
         UsageSummary(argv[0]);
         return 0;
     }
-    while (--argc)
-    {
+    while (--argc) {
         const char* fname = *(++argv);
 
-        struct KDirectory* srcdir = NULL;
+        struct KDirectory*  srcdir = NULL;
         const struct KFile* infile = NULL;
-        rc = KDirectoryNativeDir(&srcdir);
+        rc                         = KDirectoryNativeDir(&srcdir);
         if (rc) return rc;
 
         rc = KDirectoryOpenFileRead(srcdir, &infile, fname);
@@ -75,7 +74,7 @@ rc_t CC KMain(int argc, char* argv[])
         StringInitCString(&sfname, fname);
 
         SAMExtractor* extractor;
-        rc_t rc = SAMExtractorMake(&extractor, infile, &sfname, -1);
+        rc_t          rc = SAMExtractorMake(&extractor, infile, &sfname, -1);
         fprintf(stderr, "Made extractor for %s\n", fname);
         if (rc) return rc;
 
@@ -86,14 +85,12 @@ rc_t CC KMain(int argc, char* argv[])
         rc = SAMExtractorGetHeaders(extractor, &headers);
         if (rc) return rc;
         fprintf(stderr, "\n\nGot %d headers\n", VectorLength(&headers));
-        for (uint32_t i = 0; i != VectorLength(&headers); ++i)
-        {
+        for (uint32_t i = 0; i != VectorLength(&headers); ++i) {
             Header* hdr = (Header*)VectorGet(&headers, i);
             Vector* tvs = &hdr->tagvalues;
             //            fprintf(stderr,"\tHeader%d: %s\n", i,
             //            hdr->headercode);
-            for (uint32_t j = 0; j != VectorLength(tvs); ++j)
-            {
+            for (uint32_t j = 0; j != VectorLength(tvs); ++j) {
                 TagValue* tv = (TagValue*)VectorGet(tvs, j);
 
                 //                fprintf(stderr,"\t\t%d\t%s %s\n", j,
@@ -104,7 +101,7 @@ rc_t CC KMain(int argc, char* argv[])
         SAMExtractorInvalidateHeaders(extractor);
 
         fprintf(stderr, "Getting Alignments\n");
-        int total = 0;
+        int      total = 0;
         uint32_t vlen;
         do
         {
@@ -118,11 +115,11 @@ rc_t CC KMain(int argc, char* argv[])
             total += vlen;
             //            fprintf(stderr, "Got %d alignments\n", total);
             //            fprintf(stderr,"\n\nReturned %d alignments\n",vlen);
-            for (uint32_t i = 0; i != vlen; ++i)
-            {
+            for (uint32_t i = 0; i != vlen; ++i) {
                 Alignment* align = (Alignment*)VectorGet(&alignments, i);
-                if (strlen(align->cigar) > 0)
-                    fprintf(stderr, "cigar is %s\n", align->cigar);
+                //                if (strlen(align->cigar) > 0)
+                //                    fprintf(stderr, "cigar is %s\n",
+                //                    align->cigar);
                 //                fprintf(stderr,"\tAlignment%2d: %s\n", i,
                 //                align->read);
                 // Do stuff with headers

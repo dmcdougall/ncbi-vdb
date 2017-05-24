@@ -24,17 +24,17 @@
  *
  */
 
-#include <ctype.h>
-#include <stdlib.h>
-#include <string.h>
-#include <klib/vector.h>
 #include "samextract-pool.h"
 #include "samextract.h"
+#include <ctype.h>
+#include <klib/vector.h>
 #include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
 
 static Vector allocs;
 
-void* cur_block = NULL;
+void*  cur_block = NULL;
 size_t cur_block_remain;
 
 void morecore(size_t alloc_size)
@@ -65,8 +65,7 @@ void pool_release(void)
     DBG("pool_release");
     DBG("pool used %d", POOL_BLOCK_SZ - cur_block_remain);
     DBG("pools:%d", VectorLength(&allocs));
-    for (u32 i = 0; i != VectorLength(&allocs); ++i)
-    {
+    for (u32 i = 0; i != VectorLength(&allocs); ++i) {
         void* pool = VectorGet(&allocs, i);
         DBG("freeing %p", pool);
         /*        memset(pool, 0, POOL_BLOCK_SZ); */ /* Assist with UAF */
@@ -88,11 +87,17 @@ void* pool_calloc(size_t alloc_size)
 
 char* pool_strdup(const char* str)
 {
-    if (!str) ERR("Empty pool_strdup");
-    size_t len = strlen(str) + 1;
-    void* buf = pool_alloc(len);
-    memmove(buf, str, len);
-    return (char*)buf;
+    if (!str)
+    {
+        ERR("Empty pool_strdup");
+        return NULL;
+    } else
+    {
+        size_t len = strlen(str) + 1;
+        void*  buf = pool_alloc(len);
+        memmove(buf, str, len);
+        return (char*)buf;
+    }
 }
 
 char* pool_memdup(const char* str, size_t len)

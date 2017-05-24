@@ -24,47 +24,42 @@
  *
  */
 
-#include <kfs/file.h>
-#include <klib/rc.h>
-#include <klib/defs.h>
-#include <klib/vector.h>
-#include <kproc/queue.h>
-#include <kproc/thread.hpp>
-#include <kproc/timeout.h>
-#include <kproc/lock.h>
-#include <stdio.h>
-#include <ctype.h>
-#include <stdint.h>
-#include <stdlib.h>
-#include <string.h>
-#include <strtol.h>
-#include <errno.h>
-#include <pthread.h>
-#include <unistd.h>
-#include <byteswap.h>
 #include "samextract.h"
 #include "samextract-pool.h"
 #include "samextract-tokens.h"
 #include <align/samextract-lib.h>
+#include <byteswap.h>
+#include <ctype.h>
+#include <errno.h>
+#include <kfs/file.h>
+#include <klib/defs.h>
+#include <klib/rc.h>
+#include <klib/vector.h>
+#include <kproc/lock.h>
+#include <kproc/queue.h>
+#include <kproc/thread.hpp>
+#include <kproc/timeout.h>
+#include <pthread.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <strtol.h>
+#include <unistd.h>
 
 // All memmoves in this file are not overlapping and performance
 // is measurably improved by memcpy.
 #undef memcpy
 #define memmove memcpy
 
-typedef enum BGZF_state
-{
-    empty,
-    compressed,
-    uncompressed
-} BGZF_state;
+typedef enum BGZF_state { empty, compressed, uncompressed } BGZF_state;
 typedef struct BGZF_s
 {
-    KLock* lock;
-    Bytef in[READBUF_SZ + 1024];
-    Bytef out[READBUF_SZ + 1024];
-    uInt insize;
-    uInt outsize;
+    KLock*     lock;
+    Bytef      in[READBUF_SZ + 1024];
+    Bytef      out[READBUF_SZ + 1024];
+    uInt       insize;
+    uInt       outsize;
     BGZF_state state;
 } BGZF;
 
@@ -77,7 +72,7 @@ class BGZFview
     {
         releasebuf();
         bgzf = NULL;
-        cur = NULL;
+        cur  = NULL;
     }
 
 // TODO: Handle _MSC_VER
@@ -96,7 +91,7 @@ class BGZFview
     // C++11, C++14
     BGZFview(const BGZFview&) = delete;             // No copy ctor
     BGZFview& operator=(const BGZFview&) = delete;  // No assignment
-    BGZFview(const BGZFview&&) = delete;            // No move ctor
+    BGZFview(const BGZFview&&)           = delete;  // No move ctor
     BGZFview& operator=(const BGZFview&&) = delete; // No move assignment
 #endif
 
@@ -119,8 +114,7 @@ class BGZFview
 
         struct timeout_t tm;
 
-        while (true)
-        {
+        while (true) {
             void* where = NULL;
             TimeoutInit(&tm, 10); // 10 milliseconds
             rc_t rc = KQueuePop(que, &where, &tm);
@@ -165,8 +159,7 @@ class BGZFview
     {
         DBG("Getting %d", len);
         if (len == 0) ERR("Empty get");
-        while (len)
-        {
+        while (len) {
             if (bgzf == NULL || bgzf->outsize == 0) {
                 DBG("need %d more", len);
                 if (!getnextBGZF(que)) {
@@ -188,7 +181,7 @@ class BGZFview
     }
 
   private:
-    BGZF* bgzf;
+    BGZF*  bgzf;
     Bytef* cur;
 };
 
@@ -196,13 +189,12 @@ static BGZFview bview;
 
 static rc_t seeker(const KThread* kt, void* in)
 {
-    SAMExtractor* state = (SAMExtractor*)in;
-    pthread_t threadid = pthread_self();
+    SAMExtractor* state    = (SAMExtractor*)in;
+    pthread_t     threadid = pthread_self();
     DBG("\tSeeker thread %p %lu started.", kt, threadid);
 
     state->file_pos = 0;
-    while (true)
-    {
+    while (true) {
         if (state->readbuf_sz < 28) {
             ERR("Small block:%d", state->readbuf_sz);
         }
@@ -217,42 +209,50 @@ static rc_t seeker(const KThread* kt, void* in)
             break;
         }
 
+        // if (state->file_pos > 100000000) break; // TODO
+
         z_stream strm;
         memset(&strm, 0, sizeof strm);
-        strm.next_in = (Bytef*)state->readbuf;
+        strm.next_in  = (Bytef*)state->readbuf;
         strm.avail_in = (uInt)state->readbuf_sz;
         int zrc = inflateInit2(&strm, MAX_WBITS + 16); // Only gzip format
         switch (zrc)
         {
-        case Z_OK:
-            break;
-        case Z_MEM_ERROR:
-            ERR("error: Out of memory in zlib");
-            return RC(rcAlign, rcFile, rcReading, rcMemory, rcExhausted);
-        case Z_VERSION_ERROR:
-            ERR("zlib version is not compatible; need version %s but "
-                "have %s",
-                ZLIB_VERSION, zlibVersion());
-            return RC(rcAlign, rcFile, rcConstructing, rcNoObj, rcUnexpected);
-        case Z_STREAM_ERROR:
-            ERR("zlib stream error");
-            return RC(rcAlign, rcFile, rcConstructing, rcNoObj, rcUnexpected);
-        default:
-            ERR("zlib error");
-            return RC(rcAlign, rcFile, rcConstructing, rcNoObj, rcUnexpected);
+            case Z_OK:
+                break;
+            case Z_MEM_ERROR:
+                ERR("error: Out of memory in zlib");
+                return RC(rcAlign, rcFile, rcReading, rcMemory, rcExhausted);
+            case Z_VERSION_ERROR:
+                ERR("zlib version is not compatible; need version %s but "
+                    "have %s",
+                    ZLIB_VERSION, zlibVersion());
+                return RC(rcAlign, rcFile, rcConstructing, rcNoObj,
+                          rcUnexpected);
+            case Z_STREAM_ERROR:
+                ERR("zlib stream error");
+                return RC(rcAlign, rcFile, rcConstructing, rcNoObj,
+                          rcUnexpected);
+            default:
+                ERR("zlib error");
+                return RC(rcAlign, rcFile, rcConstructing, rcNoObj,
+                          rcUnexpected);
         }
 
         gz_header head;
-        u8 extra[256];
+        u8        extra[256];
         memset(&head, 0, sizeof head);
-        head.extra = extra;
+        head.extra     = extra;
         head.extra_max = sizeof(extra);
         char outbuf[64];
-        strm.next_out = (Bytef*)outbuf;
+        strm.next_out  = (Bytef*)outbuf;
         strm.avail_out = 64;
-        zrc = inflateGetHeader(&strm, &head);
-        while (head.done == 0)
-        {
+        zrc            = inflateGetHeader(&strm, &head);
+        if (zrc != Z_OK) {
+            ERR("zlib inflate error %d %s", zrc, strm.msg);
+            return RC(rcAlign, rcFile, rcConstructing, rcNoObj, rcUnexpected);
+        }
+        while (head.done == 0) {
             DBG("inflating gzip header");
             zrc = inflate(&strm, Z_BLOCK);
             if (zrc != Z_OK) {
@@ -289,14 +289,13 @@ static rc_t seeker(const KThread* kt, void* in)
             BGZF* bgzf = (BGZF*)malloc(sizeof(BGZF));
             KLockMake(&bgzf->lock);
             KLockAcquire(bgzf->lock); // Not ready for parsing
-            bgzf->state = compressed;
+            bgzf->state  = compressed;
             bgzf->insize = bsize + 1;
             memmove(bgzf->in, state->readbuf, block_size + 1);
             bgzf->outsize = sizeof(bgzf->out);
 
             struct timeout_t tm;
-            while (true)
-            {
+            while (true) {
                 // Add to Inflate queue
                 TimeoutInit(&tm, 10); // 10 milliseconds
                 rc_t rc = KQueuePush(state->inflatequeue, (void*)bgzf, &tm);
@@ -315,8 +314,7 @@ static rc_t seeker(const KThread* kt, void* in)
                 }
             }
 
-            while (true)
-            {
+            while (true) {
                 // Add to parse queue
                 // lock will prevent parsing until inflater
                 // thread finished with this chunk.
@@ -344,9 +342,10 @@ static rc_t seeker(const KThread* kt, void* in)
         }
 
         DBG("reading in at %d", state->file_pos);
+        size_t sz = state->readbuf_sz;
         rc_t rc = KFileReadAll(state->infile, state->file_pos, state->readbuf,
-                               state->readbuf_sz, &state->readbuf_sz);
-        // state->file_pos+=state->readbuf_sz;
+                               sz, &sz);
+        state->readbuf_sz = (u32)sz;
         if (rc) {
             ERR("readfile error");
             return rc;
@@ -366,15 +365,14 @@ static rc_t seeker(const KThread* kt, void* in)
 
 static rc_t inflater(const KThread* kt, void* in)
 {
-    SAMExtractor* state = (SAMExtractor*)in;
+    SAMExtractor*    state = (SAMExtractor*)in;
     struct timeout_t tm;
 
-    z_stream strm;
+    z_stream  strm;
     pthread_t threadid = pthread_self();
     DBG("\tInflater thread %p %lu started.", kt, threadid);
 
-    while (true)
-    {
+    while (true) {
         void* where = NULL;
         DBG("\t\tthread %lu checking queue", threadid);
         TimeoutInit(&tm, 10); // 10 milliseconds
@@ -393,65 +391,67 @@ static rc_t inflater(const KThread* kt, void* in)
             DBG("\tinflating %d bytes", bgzf->insize);
             if (!bgzf->insize || !bgzf->outsize)
                 ERR("Empty buffers %d %d", bgzf->insize, bgzf->outsize);
-            strm.next_in = bgzf->in;
-            strm.avail_in = bgzf->insize;
-            strm.next_out = bgzf->out;
+            strm.next_in   = bgzf->in;
+            strm.avail_in  = bgzf->insize;
+            strm.next_out  = bgzf->out;
             strm.avail_out = bgzf->outsize;
             int zrc = inflateInit2(&strm, MAX_WBITS + 16); // Only gzip format
             switch (zrc)
             {
-            case Z_OK:
-                break;
-            case Z_MEM_ERROR:
-                ERR("Out of memory in zlib");
-                return RC(rcAlign, rcFile, rcReading, rcMemory, rcExhausted);
-            case Z_VERSION_ERROR:
-                ERR("zlib version is not compatible; need "
-                    "version %s but "
-                    "have %s",
-                    ZLIB_VERSION, zlibVersion());
-                return RC(rcAlign, rcFile, rcConstructing, rcNoObj,
-                          rcUnexpected);
-            case Z_STREAM_ERROR:
-                ERR("zlib stream error");
-                return RC(rcAlign, rcFile, rcConstructing, rcNoObj,
-                          rcUnexpected);
-            default:
-                ERR("zlib error %s", strm.msg);
-                return RC(rcAlign, rcFile, rcConstructing, rcNoObj,
-                          rcUnexpected);
+                case Z_OK:
+                    break;
+                case Z_MEM_ERROR:
+                    ERR("Out of memory in zlib");
+                    return RC(rcAlign, rcFile, rcReading, rcMemory,
+                              rcExhausted);
+                case Z_VERSION_ERROR:
+                    ERR("zlib version is not compatible; need "
+                        "version %s but "
+                        "have %s",
+                        ZLIB_VERSION, zlibVersion());
+                    return RC(rcAlign, rcFile, rcConstructing, rcNoObj,
+                              rcUnexpected);
+                case Z_STREAM_ERROR:
+                    ERR("zlib stream error");
+                    return RC(rcAlign, rcFile, rcConstructing, rcNoObj,
+                              rcUnexpected);
+                default:
+                    ERR("zlib error %s", strm.msg);
+                    return RC(rcAlign, rcFile, rcConstructing, rcNoObj,
+                              rcUnexpected);
             }
 
             zrc = inflate(&strm, Z_FINISH);
             switch (zrc)
             {
-            case Z_OK:
-            case Z_STREAM_END:
-                DBG("\t\tthread %lu OK %d %d %lu", threadid, strm.avail_in,
-                    strm.avail_out, strm.total_out);
-                bgzf->outsize = strm.total_out;
-                bgzf->state = uncompressed;
-                DBG("Ready for parsing, unlocking");
-                KLockUnlock(bgzf->lock); // OK to parse now
-                break;
-            case Z_MEM_ERROR:
-                ERR("error: Out of memory in zlib");
-                return RC(rcAlign, rcFile, rcReading, rcMemory, rcExhausted);
-            case Z_VERSION_ERROR:
-                ERR("zlib version is not compatible; need "
-                    "version %s but "
-                    "have %s",
-                    ZLIB_VERSION, zlibVersion());
-                return RC(rcAlign, rcFile, rcConstructing, rcNoObj,
-                          rcUnexpected);
-            case Z_STREAM_ERROR:
-                ERR("zlib stream error %s", strm.msg);
-                return RC(rcAlign, rcFile, rcConstructing, rcNoObj,
-                          rcUnexpected);
-            default:
-                ERR("zlib inflate error %d %s", zrc, strm.msg);
-                return RC(rcAlign, rcFile, rcConstructing, rcNoObj,
-                          rcUnexpected);
+                case Z_OK:
+                case Z_STREAM_END:
+                    DBG("\t\tthread %lu OK %d %d %lu", threadid,
+                        strm.avail_in, strm.avail_out, strm.total_out);
+                    bgzf->outsize = strm.total_out;
+                    bgzf->state   = uncompressed;
+                    DBG("Ready for parsing, unlocking");
+                    KLockUnlock(bgzf->lock); // OK to parse now
+                    break;
+                case Z_MEM_ERROR:
+                    ERR("error: Out of memory in zlib");
+                    return RC(rcAlign, rcFile, rcReading, rcMemory,
+                              rcExhausted);
+                case Z_VERSION_ERROR:
+                    ERR("zlib version is not compatible; need "
+                        "version %s but "
+                        "have %s",
+                        ZLIB_VERSION, zlibVersion());
+                    return RC(rcAlign, rcFile, rcConstructing, rcNoObj,
+                              rcUnexpected);
+                case Z_STREAM_ERROR:
+                    ERR("zlib stream error %s", strm.msg);
+                    return RC(rcAlign, rcFile, rcConstructing, rcNoObj,
+                              rcUnexpected);
+                default:
+                    ERR("zlib inflate error %d %s", zrc, strm.msg);
+                    return RC(rcAlign, rcFile, rcConstructing, rcNoObj,
+                              rcUnexpected);
             }
             inflateEnd(&strm);
         }
@@ -499,8 +499,7 @@ rc_t BAMGetHeaders(SAMExtractor* state)
 
         DBG("SAM header %d %d:'%s'", l_text, strlen(text), text);
         char* t = text;
-        while (strlen(t))
-        {
+        while (strlen(t)) {
             char* nl = (char*)strchr(t, '\n');
             if (!nl) {
                 size_t linelen = strlen(t);
@@ -539,8 +538,7 @@ rc_t BAMGetHeaders(SAMExtractor* state)
     }
     DBG("# references %d", state->n_ref);
 
-    for (int i = 0; i != state->n_ref; ++i)
-    {
+    for (int i = 0; i != state->n_ref; ++i) {
         i32 l_name;
         if (!bview.getbytes(state->parsequeue, (char*)&l_name, 4)) return 1;
         DBG("ref #%d/%d: l_name=%d", i, state->n_ref, l_name);
@@ -573,10 +571,9 @@ static void decode_seq(const u8* seqbytes, size_t l_seq, char* seq);
 
 static void init_decode_seq_map(u16* seqbytemap)
 {
-    static const char seqmap[] = "=ACMGRSVTWYHKDBN";
+    static const unsigned char seqmap[] = "=ACMGRSVTWYHKDBN";
 
-    for (size_t i = 0; i != 256; ++i)
-    {
+    for (size_t i = 0; i != 256; ++i) {
         u16 p;
         p = seqmap[i >> 4];
         p = p << 8;
@@ -626,10 +623,9 @@ static void decode_seq(const u8* seqbytes, size_t l_seq, char* seq)
 
     size_t remain = (l_seq + 1) / 2;
 
-    const u64* in = (const u64*)seqbytes;
-    u16* out = (u16*)seq;
-    while (remain >= 8)
-    {
+    const u64* in  = (const u64*)seqbytes;
+    u16*       out = (u16*)seq;
+    while (remain >= 8) {
         const u64 w = *in++;
         // ~25% of wall clock spent here.
         // Convince g++/clang to emit one load and one store for every two
@@ -647,8 +643,7 @@ static void decode_seq(const u8* seqbytes, size_t l_seq, char* seq)
     }
 
     const u8* b = (const u8*)in;
-    while (remain)
-    {
+    while (remain) {
         *out = seqbytemap[*b];
         ++out;
         ++b;
@@ -664,21 +659,20 @@ static char* decode_cigar(u32* cigar, u16 n_cigar_op)
     //   9 digits (28 bits of oplen) + 1 byte opcode
     //   Likely 1/5 that, but pool allocation cheaper than computing.
     char* scigar = (char*)pool_alloc(n_cigar_op * 10 + 1);
-    char* p = scigar;
+    char* p      = scigar;
     // size_t rleopslen = 0;
-    for (int i = 0; i != n_cigar_op; ++i)
-    {
+    for (int i = 0; i != n_cigar_op; ++i) {
         i32 oplen = cigar[i] >> 4;
-        i32 op = cigar[i] & 0xf;
+        i32 op    = cigar[i] & 0xf;
 
         char buf[10]; // 2^28=268,435,456
-        int sz;
+        int  sz;
         sz = snprintf(buf, sizeof(buf), "%d", oplen);
         memmove(p, buf, sz);
         p += sz;
 
         static const char opmap[] = "MIDNSHP=X???????";
-        *p++ = (char)opmap[op];
+        *p++                      = (char)opmap[op];
     }
 
     *p = '\0';
@@ -689,8 +683,7 @@ rc_t BAMGetAlignments(SAMExtractor* state)
 {
     bamalign align;
 
-    while (bview.getbytes(state->parsequeue, (char*)&align, sizeof(align)))
-    {
+    while (bview.getbytes(state->parsequeue, (char*)&align, sizeof(align))) {
         DBG("alignment block_size=%d refID=%d pos=%d", align.block_size,
             align.refID, align.pos);
 
@@ -720,13 +713,13 @@ rc_t BAMGetAlignments(SAMExtractor* state)
         }
 
         DBG("align.bin_mq_nl=%d", align.bin_mq_nl);
-        u16 bin = align.bin_mq_nl >> 16;
-        u8 mapq = (align.bin_mq_nl >> 8) & 0xff;
-        u8 l_read_name = align.bin_mq_nl & 0xff;
+        u16 bin         = align.bin_mq_nl >> 16;
+        u8  mapq        = (align.bin_mq_nl >> 8) & 0xff;
+        u8  l_read_name = align.bin_mq_nl & 0xff;
         DBG("bin=%d mapq=%d l_read_name=%d", bin, mapq, l_read_name);
         if (l_read_name > 64) ERR("Long (%d) read_name", l_read_name);
 
-        u16 flag = align.flag_nc >> 16;
+        u16 flag       = align.flag_nc >> 16;
         u16 n_cigar_op = align.flag_nc & 0xffff;
         DBG("flag=%x n_cigar_op=%d", flag, n_cigar_op);
 
@@ -753,21 +746,22 @@ rc_t BAMGetAlignments(SAMExtractor* state)
         }
         else
         {
-            scigar = (char*)pool_alloc(1);
+            scigar    = (char*)pool_alloc(1);
             scigar[0] = '\0';
         }
 
-        u64 bytesofseq = 0;
-        char* seq = NULL;
-        char* qual = NULL;
+        u64   bytesofseq = 0;
+        char* seq        = NULL;
+        char* qual       = NULL;
         if (align.l_seq) {
             bytesofseq = (align.l_seq + 1) / 2;
-            u8* seqbytes = (u8*)pool_alloc(bytesofseq);
+            u8* seqbytes
+                = (u8*)pool_alloc(bytesofseq); // Must be 8 byte aligned
             if (!bview.getbytes(state->parsequeue, (char*)seqbytes,
                                 bytesofseq))
                 return RC(rcAlign, rcFile, rcParsing, rcData, rcInvalid);
 
-            seq = (char*)pool_alloc(align.l_seq + 1);
+            seq  = (char*)pool_alloc(align.l_seq + 1);
             qual = (char*)pool_alloc(align.l_seq + 1);
 
             decode_seq(seqbytes, align.l_seq, seq);
@@ -784,15 +778,16 @@ rc_t BAMGetAlignments(SAMExtractor* state)
         }
         else
         {
-            seq = (char*)pool_alloc(1);
+            seq    = (char*)pool_alloc(1);
             seq[0] = '\0';
-            qual = seq;
+            qual   = seq;
         }
 
         // TODO: Check that rleopslen==l_seq
         int remain = align.block_size
-                     - (sizeof(align) + l_read_name + n_cigar_op * 4
-                        + bytesofseq + align.l_seq) + 4; // TODO, why 4?
+            - (sizeof(align) + l_read_name + n_cigar_op * 4 + bytesofseq
+               + align.l_seq)
+            + 4; // TODO, why 4?
         DBG("%d bytes remaining for ttvs", remain);
         char* ttvs = NULL;
         if (remain) {
@@ -803,79 +798,78 @@ rc_t BAMGetAlignments(SAMExtractor* state)
             DBG("Skipping TTVs");
             while (false && (cur < ttvs + remain)) // TODO
             {
-                char tag[2];
-                char c;
-                i8 i8;
-                u8 u8;
-                i16 i16;
-                u16 u16;
-                i32 i32;
-                u32 u32;
+                char  tag[2];
+                char  c;
+                i8    i8;
+                u8    u8;
+                i16   i16;
+                u16   u16;
+                i32   i32;
+                u32   u32;
                 char* z;
-                tag[0] = *cur++;
-                tag[1] = *cur++;
+                tag[0]        = *cur++;
+                tag[1]        = *cur++;
                 char val_type = *cur++;
                 DBG("ttv: %c%c:%c", tag[0], tag[1], val_type);
                 switch (val_type)
                 {
-                case 'A':
-                    c = *cur++;
-                    DBG("val='%c'", c);
-                    break;
-                case 'c':
-                    i8 = *cur++;
-                    DBG("val=%d", i8);
-                    break;
-                case 'C':
-                    u8 = *cur++;
-                    DBG("val=%d", u8);
-                    break;
-                case 's':
-                    memmove(&i16, cur, 2);
-                    DBG("val=%d", i16);
-                    cur += 2;
-                    break;
-                case 'S':
-                    memmove(&u16, cur, 2);
-                    DBG("val=%d", u16);
-                    cur += 2;
-                    break;
-                case 'i':
-                    memmove(&i32, cur, 4);
-                    cur += 4;
-                    break;
-                case 'I':
-                    memmove(&u32, cur, 4);
-                    cur += 4;
-                    break;
-                case 'f':
-                    // float f;
-                    break;
-                case 'Z':
-                    z = cur;
-                    while (isprint(*cur))
+                    case 'A':
+                        c = *cur++;
+                        DBG("val='%c'", c);
+                        break;
+                    case 'c':
+                        i8 = *cur++;
+                        DBG("val=%d", i8);
+                        break;
+                    case 'C':
+                        u8 = *cur++;
+                        DBG("val=%d", u8);
+                        break;
+                    case 's':
+                        memmove(&i16, cur, 2);
+                        DBG("val=%d", i16);
+                        cur += 2;
+                        break;
+                    case 'S':
+                        memmove(&u16, cur, 2);
+                        DBG("val=%d", u16);
+                        cur += 2;
+                        break;
+                    case 'i':
+                        memmove(&i32, cur, 4);
+                        cur += 4;
+                        break;
+                    case 'I':
+                        memmove(&u32, cur, 4);
+                        cur += 4;
+                        break;
+                    case 'f':
+                        // float f;
+                        break;
+                    case 'Z':
+                        z = cur;
+                        while (isprint(*cur)) ++cur;
+                        DBG("val='%s'", z);
                         ++cur;
-                    DBG("val='%s'", z);
-                    ++cur;
-                    break;
-                case 'H':
-                    z = cur;
-                    while (isalnum(*cur))
+                        break;
+                    case 'H':
+                        z = cur;
+                        while (isalnum(*cur)) ++cur;
+                        DBG("val='%s'", z);
+                        // TODO: Convert to ?
                         ++cur;
-                    DBG("val='%s'", z);
-                    // TODO: Convert to ?
-                    ++cur;
-                    break;
-                case 'B':
-                    val_type = *cur++;
-                    memmove(&u32, cur, 4);
-                    cur += 4;
-                    cur += u32 * 1; // TODO, based on size of
-                                    // val_type
-                    break;
-                default:
-                    ERR("Bad val_type:%c", val_type);
-                    return RC(rcAlign, rcFile, rcParsing, rcData, rcInvalid);
+                        break;
+                    case 'B':
+                        val_type = *cur++;
+                        memmove(&u32, cur, 4);
+                        cur += 4;
+                        cur += u32 * 1; // TODO, based on size of
+                                        // val_type
+                        break;
+                    default:
+                        ERR("Bad val_type:%c", val_type);
+                        return RC(rcAlign, rcFile, rcParsing, rcData,
+                                  rcInvalid);
                 }
             }
         }
@@ -926,13 +920,12 @@ rc_t BAMGetAlignments(SAMExtractor* state)
 
 void releasethreads(SAMExtractor* state)
 {
-    usleep(50 * 1000); // Wait 50 ms for threads to timeout in their queues
+    usleep(100 * 1000); // Wait 100 ms for threads to timeout in their queues
     DBG("Releasing threads");
-    for (u32 i = 0; i != VectorLength(&state->threads); ++i)
-    {
+    for (u32 i = 0; i != VectorLength(&state->threads); ++i) {
         KThread* t = (KThread*)VectorGet(&state->threads, i);
-        //        KThreadCancel(t);
-        //        KThreadWait(t, NULL);
+        // KThreadCancel(t);
+        // KThreadWait(t, NULL);
         KThreadRelease(t);
     }
     DBG("Released threads");
@@ -949,13 +942,12 @@ rc_t threadinflate(SAMExtractor* state)
     size_t num_inflaters = MAX(1, MIN(state->num_threads - 1, 12));
     DBG("num_inflaters is %u", num_inflaters);
     // Inflater threads
-    for (u32 i = 0; i != num_inflaters; ++i)
-    {
+    for (u32 i = 0; i != num_inflaters; ++i) {
         KThread* inflaterthread;
         rc = KThreadMake(&inflaterthread, inflater, (void*)state);
         if (rc) return rc;
-        rc = KThreadDetach(inflaterthread);
-        if (rc) return rc;
+        // rc = KThreadDetach(inflaterthread);
+        // if (rc) return rc;
         VectorAppend(&state->threads, NULL, inflaterthread);
     }
 
