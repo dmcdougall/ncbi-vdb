@@ -44,7 +44,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <strtol.h>
 #include <unistd.h>
 
 // All memmoves in this file are not overlapping and performance
@@ -134,18 +133,14 @@ class BGZFview
 
                 DBG("\t\tParser BGZF %p size %u", bgzf->out, bgzf->outsize);
                 break;
-            }
-            else if ((int)GetRCObject(rc) == rcTimeout
-                     || (int)GetRCObject(rc) == rcData)
-            {
+            } else if ((int)GetRCObject(rc) == rcTimeout
+                       || (int)GetRCObject(rc) == rcData) {
                 DBG("\t\tParser queue empty");
                 if (KQueueSealed(que)) {
                     DBG("\t\tQueue sealed, Parsing complete");
                     return false;
                 }
-            }
-            else
-            {
+            } else {
                 ERR("Parser rc=%d", rc);
                 return RC(rcAlign, rcFile, rcConstructing, rcNoObj,
                           rcUnexpected);
@@ -203,8 +198,7 @@ static rc_t seeker(const KThread* kt, void* in)
                     "\x1f\x8b\x08\x04\x00\x00\x00\x00\x00\xff\x06\x00\x42\x43"
                     "\x02\x00\x1b\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00"
                     "\x00",
-                    28))
-        {
+                    28)) {
             DBG("complete EOF marker found");
             break;
         }
@@ -216,15 +210,15 @@ static rc_t seeker(const KThread* kt, void* in)
         strm.next_in  = (Bytef*)state->readbuf;
         strm.avail_in = (uInt)state->readbuf_sz;
         int zrc = inflateInit2(&strm, MAX_WBITS + 16); // Only gzip format
-        switch (zrc)
-        {
+        switch (zrc) {
             case Z_OK:
                 break;
             case Z_MEM_ERROR:
                 ERR("error: Out of memory in zlib");
                 return RC(rcAlign, rcFile, rcReading, rcMemory, rcExhausted);
             case Z_VERSION_ERROR:
-                ERR("zlib version is not compatible; need version %s but "
+                ERR("zlib version is not compatible; need version %s "
+                    "but "
                     "have %s",
                     ZLIB_VERSION, zlibVersion());
                 return RC(rcAlign, rcFile, rcConstructing, rcNoObj,
@@ -268,8 +262,7 @@ static rc_t seeker(const KThread* kt, void* in)
         // BC 02 bb
         if (head.extra && head.extra_len == 6 && head.extra[0] == 'B'
             && head.extra[1] == 'C' && head.extra[2] == 2
-            && head.extra[3] == 0)
-        {
+            && head.extra[3] == 0) {
             u16 bsize = head.extra[4] + head.extra[5] * 256;
             inflateEnd(&strm);
             DBG("total_in:%d", strm.avail_in);
@@ -301,15 +294,11 @@ static rc_t seeker(const KThread* kt, void* in)
                 rc_t rc = KQueuePush(state->inflatequeue, (void*)bgzf, &tm);
                 if ((int)GetRCObject(rc) == rcTimeout) {
                     DBG("inflate queue full");
-                }
-                else if (rc == 0)
-                {
+                } else if (rc == 0) {
                     DBG("inflate queued: %p %d %d %d", bgzf->in, bgzf->insize,
                         rc, rcTimeout);
                     break;
-                }
-                else
-                {
+                } else {
                     ERR("inflate queue %d", rc);
                 }
             }
@@ -322,21 +311,15 @@ static rc_t seeker(const KThread* kt, void* in)
                 rc_t rc = KQueuePush(state->parsequeue, (void*)bgzf, &tm);
                 if ((int)GetRCObject(rc) == rcTimeout) {
                     DBG("parse queue full");
-                }
-                else if (rc == 0)
-                {
+                } else if (rc == 0) {
                     DBG("parse queued: %p %d %d %d", bgzf->in, bgzf->insize,
                         rc, rcTimeout);
                     break;
-                }
-                else
-                {
+                } else {
                     DBG("parse queued%d", rc);
                 }
             }
-        }
-        else
-        {
+        } else {
             ERR("error: BAM required extra extension not found");
             return RC(rcAlign, rcFile, rcParsing, rcData, rcInvalid);
         }
@@ -396,8 +379,7 @@ static rc_t inflater(const KThread* kt, void* in)
             strm.next_out  = bgzf->out;
             strm.avail_out = bgzf->outsize;
             int zrc = inflateInit2(&strm, MAX_WBITS + 16); // Only gzip format
-            switch (zrc)
-            {
+            switch (zrc) {
                 case Z_OK:
                     break;
                 case Z_MEM_ERROR:
@@ -422,8 +404,7 @@ static rc_t inflater(const KThread* kt, void* in)
             }
 
             zrc = inflate(&strm, Z_FINISH);
-            switch (zrc)
-            {
+            switch (zrc) {
                 case Z_OK:
                 case Z_STREAM_END:
                     DBG("\t\tthread %lu OK %d %d %lu", threadid,
@@ -454,10 +435,8 @@ static rc_t inflater(const KThread* kt, void* in)
                               rcUnexpected);
             }
             inflateEnd(&strm);
-        }
-        else if ((int)GetRCObject(rc) == rcTimeout
-                 || (int)GetRCObject(rc) == rcData)
-        {
+        } else if ((int)GetRCObject(rc) == rcTimeout
+                   || (int)GetRCObject(rc) == rcData) {
             DBG("\t\tthread %lu queue empty", threadid);
             if (KQueueSealed(state->parsequeue)) {
                 DBG("\t\tparse queue sealed, inflater thread %lu "
@@ -465,9 +444,7 @@ static rc_t inflater(const KThread* kt, void* in)
                     threadid);
                 return 0;
             }
-        }
-        else
-        {
+        } else {
             WARN("rc=%d", rc);
             return rc;
         }
@@ -508,9 +485,7 @@ rc_t BAMGetHeaders(SAMExtractor* state)
                 curline[linelen + 1] = '\n';
                 curline[linelen + 2] = '\0';
                 t += linelen;
-            }
-            else
-            {
+            } else {
                 size_t linelen = 1 + nl - t;
                 DBG("ln   linelen %d", linelen);
                 memmove(curline, t, linelen);
@@ -525,9 +500,7 @@ rc_t BAMGetHeaders(SAMExtractor* state)
         }
         pool_free(text);
         text = NULL;
-    }
-    else
-    {
+    } else {
         WARN("No SAM header");
     }
 
@@ -584,8 +557,7 @@ static void init_decode_seq_map(u16* seqbytemap)
     // Do some self-checks during initialization
     if (memcmp(&seqbytemap[0], "==", 2) || memcmp(&seqbytemap[1], "=A", 2)
         || memcmp(&seqbytemap[16], "A=", 2)
-        || memcmp(&seqbytemap[255], "NN", 2))
-    {
+        || memcmp(&seqbytemap[255], "NN", 2)) {
         ERR("Self-check failed: seqbytemap %s", seqbytemap);
     }
 
@@ -679,6 +651,67 @@ static char* decode_cigar(u32* cigar, u16 n_cigar_op)
     return scigar;
 }
 
+void fast_u32toa(char* buf, u32 val)
+{
+    static u64  pow10[20];
+    static char map10[200];
+
+    // fast path:
+    if (val <= 9) {
+        buf[0] = val - '0';
+        buf[1] = '\0';
+    }
+
+    if (map10[199] == 0) {
+        char* p = map10;
+        for (int i = 0; i != 10; ++i)
+            for (int j = 0; j != 10; ++j) {
+                *p++ = i + '0';
+                *p++ = j + '0';
+            }
+
+        u64 v = 1;
+        for (int i = 0; i != 20; ++i) {
+            pow10[i] = v;
+            v *= 10;
+        }
+        pow10[0] = 0;
+    }
+
+    // See http://graphics.stanford.edu/~seander/bithacks.html
+    u32 lg2  = (64 - __builtin_clzll(val | 1));
+    u32 lg10 = lg2 * 1233 >> 12;
+    lg10     = lg10 - (val < pow10[lg10]) + 1;
+
+    buf += lg10;
+    *buf = '\0';
+
+    while (val >= 100) {
+        u32 i = 2 * (val % 100);
+        val /= 100;
+        *--buf = map10[i + 1];
+        *--buf = map10[i];
+    }
+
+    if (val < 10)
+        *--buf = val + '0';
+    else {
+        u32 i  = 2 * val;
+        *--buf = map10[i + 1];
+        *--buf = map10[i];
+    }
+}
+
+void fast_i32toa(char* buf, i32 val)
+{
+    u32 u = (u32)val;
+    if (val < 0) {
+        *buf++ = '-';
+        u      = ~u + 1; // twos-complement
+    }
+    fast_u32toa(buf, u);
+}
+
 rc_t BAMGetAlignments(SAMExtractor* state)
 {
     bamalign align;
@@ -738,14 +771,13 @@ rc_t BAMGetAlignments(SAMExtractor* state)
                 return RC(rcAlign, rcFile, rcParsing, rcData, rcInvalid);
             // Worst case:
             //   9 digits (28 bits of oplen) + 1 byte opcode
-            //   Likely 1/5 that, but pool allocation cheaper than computing.
+            //   Likely 1/5 that, but pool allocation cheaper than
+            //   computing.
             scigar = decode_cigar(cigar, n_cigar_op);
             pool_free(cigar);
             cigar = NULL;
             DBG("scigar is '%s'", scigar);
-        }
-        else
-        {
+        } else {
             scigar    = (char*)pool_alloc(1);
             scigar[0] = '\0';
         }
@@ -775,9 +807,7 @@ rc_t BAMGetAlignments(SAMExtractor* state)
             DBG("seq='%s'", seq);
             pool_free(seqbytes);
             seqbytes = NULL;
-        }
-        else
-        {
+        } else {
             seq    = (char*)pool_alloc(1);
             seq[0] = '\0';
             qual   = seq;
@@ -811,8 +841,7 @@ rc_t BAMGetAlignments(SAMExtractor* state)
                 tag[1]        = *cur++;
                 char val_type = *cur++;
                 DBG("ttv: %c%c:%c", tag[0], tag[1], val_type);
-                switch (val_type)
-                {
+                switch (val_type) {
                     case 'A':
                         c = *cur++;
                         DBG("val='%c'", c);
@@ -875,21 +904,34 @@ rc_t BAMGetAlignments(SAMExtractor* state)
         }
         DBG("no more ttvs");
 
+        char srnext[16]; // enough for i32/u32
+        char sflag[16];
+        char spos[16];
+        char spnext[16];
+        char stlen[16];
+        char smapq[16];
+        fast_i32toa(srnext, align.next_refID);
+        fast_i32toa(sflag, flag);
+        fast_i32toa(spos, align.pos);
+        fast_i32toa(spnext, align.next_pos - 1);
+        fast_i32toa(stlen, align.tlen);
+        fast_i32toa(smapq, mapq);
+
         // We want read (seq), cigar, rname, pos and flags
         // name=Qname, reference sequence name
         // read_name=qname, query template name
         process_alignment(state,
                           NULL, // QNAME
-                          flag,
+                          sflag,
                           read_name, // RNAME
-                          align.pos,
-                          "0",    // mapq
+                          spos,
+                          smapq,  // mapq
                           scigar, // cigar
-                          NULL,   // rnext
-                          "0",    // pnext
-                          "0",    // tlen
+                          srnext, // rnext
+                          spnext, // pnext
+                          stlen,  // tlen
                           seq,    // read
-                          NULL    // qual
+                          qual    // qual
                           );
 
         pool_free(read_name);

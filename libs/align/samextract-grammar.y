@@ -35,11 +35,10 @@
    */
 
 %{
-    #include <strtol.h>
-    #include <klib/rc.h>
     #include "samextract.h"
     #include "samextract-pool.h"
     #include <align/samextract-lib.h>
+    #include <klib/rc.h>
     int SAMlex(SAMExtractor *);
 %}
 
@@ -384,11 +383,7 @@ alignment:
      QNAME FLAG RNAME POS MAPQ CIGAR RNEXT PNEXT TLEN SEQ QUAL EOL
      {
         DBG("alignment record");
-
-        u32 iflag = strtou32($2, NULL, 10);
-        i32 ipos = strtoi32($4, NULL, 10);
-
-        process_alignment(state,$1,iflag,$3,ipos,$5,$6,$7,$8,$9,$10,$11);
+        process_alignment(state,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11);
 
         pool_free($1);
         pool_free($2);
@@ -404,11 +399,7 @@ alignment:
      | QNAME FLAG RNAME POS MAPQ CIGAR RNEXT PNEXT TLEN SEQ QUAL optlist EOL
     {
         DBG("alignment record with optional tags");
-
-        u32 iflag = strtou32($2, NULL, 10);
-        i32 ipos = strtoi32($4, NULL, 10);
-
-        process_alignment(state,$1,iflag,$3,ipos,$5,$6,$7,$8,$9,$10,$11);
+        process_alignment(state,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11);
 
         pool_free($1);
         pool_free($2);

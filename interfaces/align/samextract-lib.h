@@ -40,6 +40,21 @@ extern "C" {
 #endif
 typedef enum file_type { unknown, SAM, BAM, SAMGZUNSUPPORTED } file_type;
 
+typedef struct Alignment
+{
+    const char* qname;
+    uint16_t    flags;
+    const char* rname;
+    int32_t     pos;
+    uint8_t     mapq;
+    const char* cigar;
+    const char* rnext;
+    int32_t     pnext;
+    int32_t     tlen;
+    const char* read;
+    const char* qual;
+} Alignment;
+
 typedef struct SAMExtractor
 {
     const KFile* infile;
@@ -96,15 +111,6 @@ typedef struct Header
     const char* headercode; /* HD, SQ, RG, PG, CO */
     Vector      tagvalues;
 } Header;
-
-typedef struct Alignment
-{
-    const char* read;
-    const char* cigar;
-    const char* rname;
-    int32_t     pos;
-    uint16_t    flags;
-} Alignment;
 
 ALIGN_EXTERN rc_t CC SAMExtractorMake(SAMExtractor** state, const KFile* fin,
                                       String* fname_desc,

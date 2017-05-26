@@ -87,12 +87,10 @@ void* pool_calloc(size_t alloc_size)
 
 char* pool_strdup(const char* str)
 {
-    if (!str)
-    {
+    if (!str) {
         ERR("Empty pool_strdup");
         return NULL;
-    } else
-    {
+    } else {
         size_t len = strlen(str) + 1;
         void*  buf = pool_alloc(len);
         memmove(buf, str, len);

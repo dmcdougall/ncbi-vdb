@@ -24,7 +24,9 @@
  *
  */
 
-//#define __STDC_LIMIT_MACROS
+// C99 says that C++ has to enable this for stdint to apply. Various versions
+// of g++ disagree if not set.
+#define __STDC_LIMIT_MACROS
 #include "samextract.h"
 #include "samextract-pool.h"
 #include "samextract-tokens.h"
@@ -46,7 +48,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <strtol.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -134,18 +135,36 @@ inline rc_t readfile(SAMExtractor* state)
     return 0;
 }
 
-__attribute__((noreturn)) void SAMerror(SAMExtractor* state, const char* s)
+void SAMerror(SAMExtractor* state, const char* s)
 {
     ERR(" Parsing error: %s\nLine was:'%s'", s, curline);
     rc_t rc   = RC(rcAlign, rcRow, rcParsing, rcData, rcInvalid);
     state->rc = rc;
-    abort();
+}
+
+// No error checking, produces bad data if non-digts present
+i64 fast_strtoi64(const char* p)
+{
+    i64 val  = 0;
+    i64 sign = 1;
+    if (*p == '-') {
+        ++p;
+        sign = -1;
+    }
+
+    while (*p) {
+        val *= 10;
+        val += (*p - '0');
+        ++p;
+    }
+
+    return sign * val;
 }
 
 /* low<=str<=high */
 bool inrange(const char* str, i64 low, i64 high)
 {
-    i64 i = strtoi64(str, NULL, 10);
+    i64 i = fast_strtoi64(str);
     if (errno) return false;
     if (i < low || i > high) return false;
     return true;
@@ -175,8 +194,7 @@ bool isfloworder(const char* str)
 
     if (len == 1 && str[0] == '*') return true;
     for (i = 0; i != len; ++i) {
-        switch (str[i])
-        {
+        switch (str[i]) {
             case 'A':
             case 'C':
             case 'M':
@@ -205,8 +223,7 @@ rc_t process_header(SAMExtractor* state, const char* type, const char* tag,
 {
     DBG("processing type:%s tag:%s value:%s", type, tag, value);
     if (strcmp(type, "HD") && strcmp(type, "SQ") && strcmp(type, "RG")
-        && strcmp(type, "PG"))
-    {
+        && strcmp(type, "PG")) {
         ERR("record '%s' must be HD, SQ, RG or PG", type);
         rc_t rc   = RC(rcAlign, rcRow, rcParsing, rcData, rcInvalid);
         state->rc = rc;
@@ -267,18 +284,24 @@ bool filter(const SAMExtractor* state, String* srname, ssize_t pos)
     return false;
 }
 
-rc_t process_alignment(SAMExtractor* state, const char* qname, u16 flag,
-                       const char* rname, i32 pos, const char* mapq,
-                       const char* cigar, const char* rnext,
+rc_t process_alignment(SAMExtractor* state, const char* qname,
+                       const char* flag, const char* rname, const char* pos,
+                       const char* mapq, const char* cigar, const char* rnext,
                        const char* pnext, const char* tlen, const char* seq,
                        const char* qual)
 {
-    DBG("process_alignment %s %d %u %s %s %s", rname, pos, flag, qname, rnext,
+    DBG("process_alignment %s %s %s %s %s %s", rname, pos, flag, qname, rnext,
         qual);
 
-    if (pos < -1) ERR("POS not in range %d", pos);
+    i64 ipos = fast_strtoi64(pos);
+
+    if (ipos < -1) ERR("POS not in range %s", pos);
 
     if (state->file_type == SAM) {
+        if (!inrange(flag, 0, UINT16_MAX)) ERR("Flag not in range %s", flag);
+
+        if (!inrange(pos, 0, INT32_MAX)) ERR("Pos not in range %s", flag);
+
         if (!inrange(mapq, 0, UINT8_MAX)) ERR("MAPQ not in range %s", mapq);
 
         if (!inrange(pnext, 0, INT32_MAX))
@@ -296,7 +319,7 @@ rc_t process_alignment(SAMExtractor* state, const char* qname, u16 flag,
     size_t l = strlen(rname);
     StringInit(&srname, rname, l, (u32)l);
 
-    if (filter(state, &srname, pos)) {
+    if (filter(state, &srname, ipos)) {
         DBG("Skipping");
         return 0;
     }
@@ -305,11 +328,17 @@ rc_t process_alignment(SAMExtractor* state, const char* qname, u16 flag,
 
     Alignment* align = (Alignment*)pool_alloc(sizeof(Alignment));
 
-    align->read  = seq;
-    align->cigar = cigar;
+    align->qname = qname;
+    align->flags = fast_strtoi64(flag);
     align->rname = rname;
-    align->pos   = pos;
-    align->flags = flag;
+    align->pos   = ipos;
+    align->mapq  = fast_strtoi64(mapq);
+    align->cigar = cigar;
+    align->rnext = rnext;
+    align->pnext = fast_strtoi64(pnext);
+    align->tlen  = fast_strtoi64(tlen);
+    align->read  = seq;
+    align->qual  = qual;
     VectorAppend(&state->alignments, NULL, align);
 
     return 0;
@@ -510,20 +539,15 @@ LIB_EXPORT rc_t CC SAMExtractorGetHeaders(SAMExtractor* s, Vector* headers)
     if (!memcmp(s->readbuf, "\x1f\x8b\x08", 3)) {
         DBG("gzip file, BAM or SAM.gz");
         s->file_type = BAM;
-    }
-    else if (s->readbuf[0] == '@')
-    {
+    } else if (s->readbuf[0] == '@') {
         DBG("SAM file");
         s->file_type = SAM;
-    }
-    else
-    {
+    } else {
         ERR("Unkown magic, not a SAM file.");
         return RC(rcAlign, rcFile, rcParsing, rcData, rcInvalid);
     }
 
-    switch (s->file_type)
-    {
+    switch (s->file_type) {
         case BAM:
             rc = threadinflate(s);
             if (rc) return rc;
@@ -603,18 +627,14 @@ LIB_EXPORT rc_t CC SAMExtractorGetAlignments(SAMExtractor* s,
         }
 
         DBG("Done parsing %d alignments", VectorLength(&s->alignments));
-    }
-    else if (s->file_type == BAM)
-    {
+    } else if (s->file_type == BAM) {
         rc = BAMGetAlignments(s);
         DBG("complete parsing %d alignments", VectorLength(&s->alignments));
         if (rc) {
             ERR("BAMGetAlignmentes failed");
             return rc;
         }
-    }
-    else
-    {
+    } else {
         ERR("Unknown file type");
     }
 

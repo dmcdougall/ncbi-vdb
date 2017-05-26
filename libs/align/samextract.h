@@ -70,9 +70,9 @@ void logmsg(const char* fname, int line, const char* func,
 int moredata(char* buf, int* numbytes, size_t maxbytes);
 rc_t process_header(SAMExtractor* state, const char* type, const char* tag,
                     const char* value);
-rc_t process_alignment(SAMExtractor* state, const char* qname, u16 flag,
-                       const char* rname, i32 pos, const char* mapq,
-                       const char* cigar, const char* rnext,
+rc_t process_alignment(SAMExtractor* state, const char* qname,
+                       const char* flag, const char* rname, const char* pos,
+                       const char* mapq, const char* cigar, const char* rnext,
                        const char* pnext, const char* tlen, const char* seq,
                        const char* qual);
 rc_t mark_headers(SAMExtractor* state, const char* type);
@@ -86,6 +86,10 @@ rc_t BAMGetAlignments(SAMExtractor* state);
 void releasethreads(SAMExtractor* state);
 rc_t readfile(SAMExtractor* state);
 bool filter(const SAMExtractor* state, String* srname, ssize_t pos);
+void fast_u32toa(char* buf, u32 val);
+void fast_i32toa(char* buf, i32 val);
+i64 fast_strtoi64(const char* p);
+
 extern char curline[];
 extern int  curline_len;
 #ifdef __cplusplus
@@ -102,8 +106,7 @@ void samload(char const path[]);
 #define WARN(...) logmsg(__FILE__, __LINE__, __func__, "Warning", __VA_ARGS__)
 #define INFO(...) logmsg(__FILE__, __LINE__, __func__, "Info", __VA_ARGS__)
 #define DBG(...)                                                             \
-    do                                                                       \
-    {                                                                        \
+    do {                                                                     \
         if (DEBUG)                                                           \
             logmsg(__FILE__, __LINE__, __func__, "Debug", __VA_ARGS__);      \
     } while (0)
