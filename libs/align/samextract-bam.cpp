@@ -65,7 +65,7 @@ typedef struct BGZF_s
 class BGZFview
 {
   public:
-    BGZFview() : bgzf(NULL), cur(NULL){};
+    BGZFview() : bgzf(NULL), cur(NULL) {}
 
     ~BGZFview()
     {
@@ -540,8 +540,6 @@ rc_t BAMGetHeaders(SAMExtractor* state)
     return 0;
 }
 
-static void decode_seq(const u8* seqbytes, size_t l_seq, char* seq);
-
 static void init_decode_seq_map(u16* seqbytemap)
 {
     static const unsigned char seqmap[] = "=ACMGRSVTWYHKDBN";
@@ -584,7 +582,7 @@ static void init_decode_seq_map(u16* seqbytemap)
     DBG("Self-checks OK");
 }
 
-static void decode_seq(const u8* seqbytes, size_t l_seq, char* seq)
+void decode_seq(const u8* seqbytes, size_t l_seq, char* seq)
 {
     static u16 seqbytemap[256]; // NB: big endian
 
@@ -625,32 +623,6 @@ static void decode_seq(const u8* seqbytes, size_t l_seq, char* seq)
     seq[l_seq] = '\0';
 }
 
-static char* decode_cigar(u32* cigar, u16 n_cigar_op)
-{
-    // Worst case:
-    //   9 digits (28 bits of oplen) + 1 byte opcode
-    //   Likely 1/5 that, but pool allocation cheaper than computing.
-    char* scigar = (char*)pool_alloc(n_cigar_op * 10 + 1);
-    char* p      = scigar;
-    // size_t rleopslen = 0;
-    for (int i = 0; i != n_cigar_op; ++i) {
-        i32 oplen = cigar[i] >> 4;
-        i32 op    = cigar[i] & 0xf;
-
-        char buf[10]; // 2^28=268,435,456
-        int  sz;
-        sz = snprintf(buf, sizeof(buf), "%d", oplen);
-        memmove(p, buf, sz);
-        p += sz;
-
-        static const char opmap[] = "MIDNSHP=X???????";
-        *p++                      = (char)opmap[op];
-    }
-
-    *p = '\0';
-    return scigar;
-}
-
 void fast_u32toa(char* buf, u32 val)
 {
     static u64  pow10[20];
@@ -658,10 +630,12 @@ void fast_u32toa(char* buf, u32 val)
 
     // fast path:
     if (val <= 9) {
-        buf[0] = val - '0';
+        buf[0] = val + '0';
         buf[1] = '\0';
+        return;
     }
 
+    // Initialize lookup table
     if (map10[199] == 0) {
         char* p = map10;
         for (int i = 0; i != 10; ++i)
@@ -710,6 +684,32 @@ void fast_i32toa(char* buf, i32 val)
         u      = ~u + 1; // twos-complement
     }
     fast_u32toa(buf, u);
+}
+
+char* decode_cigar(u32* cigar, u16 n_cigar_op)
+{
+    // Worst case:
+    //   9 digits (28 bits of oplen) + 1 byte opcode
+    //   Likely 1/5 that, but pool allocation cheaper than computing.
+    char* scigar = (char*)pool_alloc(n_cigar_op * 10 + 1);
+    char* p      = scigar;
+    // size_t rleopslen = 0;
+    for (int i = 0; i != n_cigar_op; ++i) {
+        i32 oplen = cigar[i] >> 4;
+        i32 op    = cigar[i] & 0xf;
+
+        char buf[10]; // 2^28=268435456\0=10 bytes
+        fast_u32toa(buf, oplen);
+        int sz = strlen(buf);
+        memmove(p, buf, sz);
+        p += sz;
+
+        static const char opmap[] = "MIDNSHP=X???????";
+        *p++                      = (char)opmap[op];
+    }
+
+    *p = '\0';
+    return scigar;
 }
 
 rc_t BAMGetAlignments(SAMExtractor* state)
@@ -763,7 +763,6 @@ rc_t BAMGetAlignments(SAMExtractor* state)
         // TODO: Check filter here, based on rname and pos
         char* scigar = NULL;
         if (n_cigar_op > 0) {
-            // TODO: Move to function, for testability
             u32* cigar = (u32*)pool_alloc(n_cigar_op * sizeof(u32));
 
             if (!bview.getbytes(state->parsequeue, (char*)cigar,

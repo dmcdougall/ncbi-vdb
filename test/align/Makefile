@@ -92,10 +92,18 @@ TEST_SAMEXTRACT_LIB = \
 $(TEST_BINDIR)/test-samextract: $(TEST_SAMEXTRACT_OBJ)
 	$(LP) --exe -o $@ $^ $(TEST_SAMEXTRACT_LIB)
 
-samextractg: test-samextract
-	$(TEST_BINDIR)/test-samextract
-
 valgrind_samextract: std
 	valgrind --ncbi --show-reachable=no $(TEST_BINDIR)/test-samextract
 
+run-test-samextract:
+	@ echo test-samextract $(TEST_BINDIR): BEGIN ...
+	@ echo LD_ is $(LD_LIBRARY_PATH)
+#	@ export LD_LIBRARY_PATH=$(LIBDIR) ; $(TEST_BINDIR)/test-samextract
+	@ export LD_LIBRARY_PATH=$(LIBDIR) ; $(TEST_BINDIR)/test-samextract
+	@ echo ... test-samextract: END
+
+# runtests
+runtests: run-test-samextract
+
+.PHONY: test-samextract
 

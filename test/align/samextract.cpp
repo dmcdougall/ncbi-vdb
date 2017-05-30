@@ -62,7 +62,7 @@ rc_t CC KMain(int argc, char* argv[])
 
         struct KDirectory*  srcdir = NULL;
         const struct KFile* infile = NULL;
-        rc                         = KDirectoryNativeDir(&srcdir);
+        rc = KDirectoryNativeDir(&srcdir);
         if (rc) return rc;
 
         rc = KDirectoryOpenFileRead(srcdir, &infile, fname);
@@ -74,7 +74,7 @@ rc_t CC KMain(int argc, char* argv[])
         StringInitCString(&sfname, fname);
 
         SAMExtractor* extractor;
-        rc_t          rc = SAMExtractorMake(&extractor, infile, &sfname, -1);
+        rc = SAMExtractorMake(&extractor, infile, &sfname, -1);
         fprintf(stderr, "Made extractor for %s\n", fname);
         if (rc) return rc;
 

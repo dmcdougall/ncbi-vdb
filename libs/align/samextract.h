@@ -37,15 +37,6 @@
 
 #define READBUF_SZ 65536
 
-typedef int8_t   i8;
-typedef uint8_t  u8;
-typedef int16_t  i16;
-typedef uint16_t u16;
-typedef int32_t  i32;
-typedef uint32_t u32;
-typedef int64_t  i64;
-typedef uint64_t u64;
-
 typedef struct bamalign
 {
     i32 block_size;
@@ -79,16 +70,18 @@ rc_t mark_headers(SAMExtractor* state, const char* type);
 bool inrange(const char* str, i64 low, i64 high);
 bool ismd5(const char* str);
 bool isfloworder(const char* str);
+bool filter(const SAMExtractor* state, String* srname, ssize_t pos);
+void decode_seq(const u8* seqbytes, size_t l_seq, char* seq);
+void fast_u32toa(char* buf, u32 val);
+void fast_i32toa(char* buf, i32 val);
+i64 fast_strtoi64(const char* p);
+char* decode_cigar(u32* cigar, u16 n_cigar_op);
 
 rc_t threadinflate(SAMExtractor* state);
 rc_t BAMGetHeaders(SAMExtractor* state);
 rc_t BAMGetAlignments(SAMExtractor* state);
 void releasethreads(SAMExtractor* state);
 rc_t readfile(SAMExtractor* state);
-bool filter(const SAMExtractor* state, String* srname, ssize_t pos);
-void fast_u32toa(char* buf, u32 val);
-void fast_i32toa(char* buf, i32 val);
-i64 fast_strtoi64(const char* p);
 
 extern char curline[];
 extern int  curline_len;

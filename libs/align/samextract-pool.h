@@ -52,6 +52,8 @@ inline static void* pool_alloc(size_t alloc_size)
 {
     if (!alloc_size) ERR("Zero allocation");
 
+    if (!cur_block) ERR("Pool not initialized");
+
     if (alloc_size % 8 != 0)
         alloc_size += 8 - (alloc_size % 8); /* Round up for alignment */
     if (alloc_size > cur_block_remain)

@@ -52,9 +52,9 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-char    curline[READBUF_SZ + 1];
-int     curline_len = 0;
-String* fname_desc  = NULL;
+char           curline[READBUF_SZ + 1];
+int            curline_len = 0;
+static String* fname_desc  = NULL;
 
 void logmsg(const char* fname, int line, const char* func,
             const char* severity, const char* fmt, ...)
@@ -92,7 +92,7 @@ void logmsg(const char* fname, int line, const char* func,
     if (!strcmp(severity, "Error")) abort();
 }
 
-rc_t SAM_parseline(SAMExtractor* state)
+static rc_t SAM_parseline(SAMExtractor* state)
 {
     state->rc = 0;
     DBG("Parsing line (%d bytes): '%s'", strlen(curline), curline);
