@@ -35,7 +35,7 @@
 static Vector allocs;
 
 void*  cur_block = NULL;
-size_t cur_block_remain;
+size_t cur_block_remain=0;
 
 void morecore(size_t alloc_size)
 {

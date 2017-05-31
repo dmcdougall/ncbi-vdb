@@ -48,7 +48,7 @@ typedef uint32_t u32;
 typedef int64_t  i64;
 typedef uint64_t u64;
 
-typedef enum file_type { unknown, SAM, BAM, SAMGZUNSUPPORTED } file_type;
+typedef enum efile_type { unknown, SAM, BAM, SAMGZUNSUPPORTED } efile_type;
 
 typedef struct Alignment
 {
@@ -86,7 +86,7 @@ typedef struct SAMExtractor
     uint32_t readbuf_sz;
     uint32_t readbuf_pos;
 
-    file_type file_type;
+    efile_type file_type;
 
     rc_t rc;
 

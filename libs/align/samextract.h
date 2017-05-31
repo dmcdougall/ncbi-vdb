@@ -82,6 +82,7 @@ rc_t BAMGetHeaders(SAMExtractor* state);
 rc_t BAMGetAlignments(SAMExtractor* state);
 void releasethreads(SAMExtractor* state);
 rc_t readfile(SAMExtractor* state);
+rc_t SAM_parseline(SAMExtractor* state);
 
 extern char curline[];
 extern int  curline_len;

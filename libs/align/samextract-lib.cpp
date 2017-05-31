@@ -92,7 +92,7 @@ void logmsg(const char* fname, int line, const char* func,
     if (!strcmp(severity, "Error")) abort();
 }
 
-static rc_t SAM_parseline(SAMExtractor* state)
+rc_t SAM_parseline(SAMExtractor* state)
 {
     state->rc = 0;
     DBG("Parsing line (%d bytes): '%s'", strlen(curline), curline);

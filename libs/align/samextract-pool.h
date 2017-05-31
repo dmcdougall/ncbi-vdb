@@ -28,6 +28,8 @@
 #define _h_samextract_pool_
 #include "samextract.h"
 
+#define POOL_BLOCK_SZ (2 * 1024 * 1024)
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -35,20 +37,18 @@ void  pool_init(void);
 void  pool_release(void);
 char* pool_strdup(const char* str);
 char* pool_memdup(const char* str, size_t len);
-
-extern void morecore(size_t alloc_size);
+void morecore(size_t alloc_size);
 extern void*  cur_block;
 extern size_t cur_block_remain;
-#define POOL_BLOCK_SZ (2 * 1024 * 1024)
 
-/* Could conceivably reclaim last allocation  */
+/* Could conceivably reclaim last allocation */
 inline void pool_free(void* buf)
 {
     if (DEBUG && buf) memset(buf, 0, 8); /* Assist with UAF */
     return;
 }
 
-inline static void* pool_alloc(size_t alloc_size)
+inline void* pool_alloc(size_t alloc_size)
 {
     if (!alloc_size) ERR("Zero allocation");
 
