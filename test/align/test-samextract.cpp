@@ -118,7 +118,7 @@ TEST_CASE(Fast_u32toa)
         REQUIRE_EQUAL(tst_fast_u32toa(tsts[i]), true);
 
     for (int i = 0; i != NUM_RAND; ++i)
-        REQUIRE_EQUAL(tst_fast_u32toa(lrand48()), true);
+        REQUIRE_EQUAL(tst_fast_u32toa(random() + random()), true);
 
 #ifdef TEST_ALL_THE_INTEGERS
     fprintf(stderr, "all u32toa\n");
@@ -151,8 +151,10 @@ TEST_CASE(Fast_i32toa)
         REQUIRE_EQUAL(tst_fast_i32toa(-tsts[i]), true);
     }
 
-    for (int i = 0; i != NUM_RAND; ++i)
-        REQUIRE_EQUAL(tst_fast_i32toa(mrand48()), true);
+    for (int i = 0; i != NUM_RAND; ++i) {
+        REQUIRE_EQUAL(tst_fast_i32toa(random()), true);
+        REQUIRE_EQUAL(tst_fast_i32toa(-random()), true);
+    }
 
 #ifdef TEST_ALL_THE_INTEGERS
     fprintf(stderr, "all i32toa\n");
@@ -177,7 +179,9 @@ TEST_CASE(Fast_strtoi64)
     }
 
     for (int i = 0; i != NUM_RAND; ++i) {
-        sprintf(str, "%ld", mrand48() * lrand48() + mrand48());
+        sprintf(str, "%ld", random() * random() + random());
+        REQUIRE_EQUAL(tst_strtoi64(str), true);
+        sprintf(str, "-%ld", random() * random() + random());
         REQUIRE_EQUAL(tst_strtoi64(str), true);
     }
 #ifdef TEST_ALL_THE_INTEGERS
@@ -240,7 +244,7 @@ const char UsageDefaultName[] = "test-samextract";
 
 rc_t CC KMain(int argc, char* argv[])
 {
-    srand48(time(NULL));
+    srandom(time(NULL));
     rc_t rc = SAMExtractTestSuite(argc, argv);
     return rc;
 }
