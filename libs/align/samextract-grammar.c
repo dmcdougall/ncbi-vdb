@@ -1807,7 +1807,7 @@ yyreduce:
   case 60:
 #line 384 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
-        DBG("alignment record");
+        DBG("alignment record %s",(yyvsp[-11].strval));
         process_alignment(state,(yyvsp[-11].strval),(yyvsp[-10].strval),(yyvsp[-9].strval),(yyvsp[-8].strval),(yyvsp[-7].strval),(yyvsp[-6].strval),(yyvsp[-5].strval),(yyvsp[-4].strval),(yyvsp[-3].strval),(yyvsp[-2].strval),(yyvsp[-1].strval));
 
         pool_free((yyvsp[-11].strval));

@@ -13268,8 +13268,8 @@ YY_RULE_SETUP
 #line 230 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
 {
     BEGIN ALIGNQNAME;
-    SAMlval.strval=pool_memdup(SAMtext+1, SAMleng);
-    DBG(" alignment qname");
+    SAMlval.strval=pool_memdup(SAMtext, SAMleng);
+    DBG(" alignment qname %s", SAMtext);
     return QNAME; }
 	YY_BREAK
 case 53:

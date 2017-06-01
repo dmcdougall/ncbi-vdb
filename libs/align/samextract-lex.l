@@ -228,8 +228,8 @@ opttag [A-Za-z][A-Za-z0-9]
  /* Alignments */
 <INITIAL>^{qname} {
     BEGIN ALIGNQNAME;
-    SAMlval.strval=pool_memdup(SAMtext+1, SAMleng);
-    DBG(" alignment qname");
+    SAMlval.strval=pool_memdup(SAMtext, SAMleng);
+    DBG(" alignment qname %s", SAMtext);
     return QNAME; }
 <ALIGNQNAME>\t{flag} {
     BEGIN ALIGNFLAG;

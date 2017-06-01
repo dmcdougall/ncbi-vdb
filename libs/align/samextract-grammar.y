@@ -382,7 +382,7 @@ rg:  RGID VALUE {
 alignment:
      QNAME FLAG RNAME POS MAPQ CIGAR RNEXT PNEXT TLEN SEQ QUAL EOL
      {
-        DBG("alignment record");
+        DBG("alignment record %s",$1);
         process_alignment(state,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11);
 
         pool_free($1);

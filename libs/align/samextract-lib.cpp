@@ -288,8 +288,7 @@ rc_t process_alignment(SAMExtractor* state, const char* qname,
                        const char* pnext, const char* tlen, const char* seq,
                        const char* qual)
 {
-    DBG("process_alignment %s %s %s %s %s %s", rname, pos, flag, qname, rnext,
-        qual);
+    DBG("process_alignment %s %d %s", qname, flag, rname);
 
     i64 ipos = fast_strtoi64(pos);
 

@@ -185,7 +185,7 @@ TEST_CASE(Fast_strtoi64)
 
 #ifdef TEST_ALL_THE_INTEGERS
     fprintf(stderr, "all strtoi32\n");
-    for (int i = INT32_MIN; i != INT32_MAX; ++i) {
+    for (int i = 2 * INT32_MIN; i != 2 * INT32_MAX; ++i) {
         sprintf(str, "%d", i);
         REQUIRE_EQUAL(tst_strtoi64(str), true);
     }
@@ -241,9 +241,11 @@ TEST_CASE(header1)
 
     const char* header_text
         = "@HD\tVN:1.5\tSO:coordinate\n"
-          "@SQ\tSN:ref\tLN:45\n"
-          "r001\t99\tref\t7\t30\t8M2I4M1D3M\t="
-          "\t37\t39\tTAGATAAAGGATACTG\t*\n";
+          "@SQ\tSN:test\tLN:45\n"
+          "r001\t99\ttest\t1\t30\t8M2I4M1D3M\t=\t37\t39\tTAGATAAAGGATACTG\t*"
+          "\n"
+          "r002\t99\ttest\t20\t30\t2M3M3M\t=\t50\t20\tTAGCATAT\t*\n"
+          "r003\t99\ttest\t30\t30\t2M3I3M\t=\t70\t20\tTAGCATAT\t*\n";
 
     while (strlen(header_text)) {
         char* nl = (char*)strchr(header_text, '\n');
@@ -284,10 +286,40 @@ TEST_CASE(header1)
     REQUIRE_EQUAL(VectorLength(tvs), (uint32_t)2);
     tv = (TagValue*)VectorGet(tvs, 0);
     REQUIRE_EQUAL(strcmp(tv->tag, "SN"), 0);
-    REQUIRE_EQUAL(strcmp(tv->value, "ref"), 0);
+    REQUIRE_EQUAL(strcmp(tv->value, "test"), 0);
     tv = (TagValue*)VectorGet(tvs, 1);
     REQUIRE_EQUAL(strcmp(tv->tag, "LN"), 0);
     REQUIRE_EQUAL(strcmp(tv->value, "45"), 0);
+
+    u32 numalignments = VectorLength(&extractor->alignments);
+    REQUIRE_EQUAL(numalignments, (uint32_t)3);
+
+    Alignment* align;
+    align = (Alignment*)VectorGet(&extractor->alignments, 0);
+    REQUIRE_EQUAL(strcmp(align->qname, "r001"), 0);
+    REQUIRE_EQUAL(align->flags, (uint16_t)99);
+    REQUIRE_EQUAL(strcmp(align->rname, "test"), 0);
+    REQUIRE_EQUAL(align->pos, (int32_t)1);
+    REQUIRE_EQUAL(align->mapq, (uint8_t)30);
+    REQUIRE_EQUAL(strcmp(align->cigar, "8M2I4M1D3M"), 0);
+    REQUIRE_EQUAL(strcmp(align->rnext, "="), 0);
+    REQUIRE_EQUAL(align->pnext, (int32_t)37);
+    REQUIRE_EQUAL(align->tlen, (int32_t)39);
+    REQUIRE_EQUAL(strcmp(align->read, "TAGATAAAGGATACTG"), 0);
+    REQUIRE_EQUAL(strcmp(align->qual, "*"), 0);
+
+    align = (Alignment*)VectorGet(&extractor->alignments, 1);
+    REQUIRE_EQUAL(strcmp(align->qname, "r002"), 0);
+    REQUIRE_EQUAL(align->flags, (uint16_t)99);
+    REQUIRE_EQUAL(strcmp(align->rname, "test"), 0);
+    REQUIRE_EQUAL(align->pos, (int32_t)20);
+    REQUIRE_EQUAL(align->mapq, (uint8_t)30);
+    REQUIRE_EQUAL(strcmp(align->cigar, "2M3M3M"), 0);
+    REQUIRE_EQUAL(strcmp(align->rnext, "="), 0);
+    REQUIRE_EQUAL(align->pnext, (int32_t)50);
+    REQUIRE_EQUAL(align->tlen, (int32_t)20);
+    REQUIRE_EQUAL(strcmp(align->read, "TAGCATAT"), 0);
+    REQUIRE_EQUAL(strcmp(align->qual, "*"), 0);
 
     REQUIRE_RC(SAMExtractorRelease(extractor));
 }
@@ -309,30 +341,18 @@ TEST_CASE(SAMfile)
 
     SAMExtractor* extractor;
     REQUIRE_RC(SAMExtractorMake(&extractor, infile, &sfname, -1));
-    fprintf(stderr, "Made extractor for %s\n", fname);
-
-    //        REQUIRE_RC(SAMExtractorAddFilter(extractor, NULL, -1, -1,
-    //        false);
 
     Vector headers;
     REQUIRE_RC(SAMExtractorGetHeaders(extractor, &headers));
-    fprintf(stderr, "\n\nGot %d headers\n", VectorLength(&headers));
     for (uint32_t i = 0; i != VectorLength(&headers); ++i) {
         Header* hdr = (Header*)VectorGet(&headers, i);
         Vector* tvs = &hdr->tagvalues;
-        //            fprintf(stderr,"\tHeader%d: %s\n", i,
-        //            hdr->headercode);
         for (uint32_t j = 0; j != VectorLength(tvs); ++j) {
             TagValue* tv = (TagValue*)VectorGet(tvs, j);
-
-            //                fprintf(stderr,"\t\t%d\t%s %s\n", j,
-            //                tv->tag, tv->value);
         }
-        // Do stuff with headers
     }
     SAMExtractorInvalidateHeaders(extractor);
 
-    fprintf(stderr, "Getting Alignments\n");
     int      total = 0;
     uint32_t vlen;
     do {
@@ -340,25 +360,14 @@ TEST_CASE(SAMfile)
         REQUIRE_RC(SAMExtractorGetAlignments(extractor, &alignments));
         vlen = VectorLength(&alignments);
         total += vlen;
-        //            fprintf(stderr, "Got %d alignments\n", total);
-        //            fprintf(stderr,"\n\nReturned %d alignments\n",vlen);
         for (uint32_t i = 0; i != vlen; ++i) {
             Alignment* align = (Alignment*)VectorGet(&alignments, i);
-            //                if (strlen(align->cigar) > 0)
-            //                    fprintf(stderr, "cigar is %s\n",
-            //                    align->cigar);
-            //                fprintf(stderr,"\tAlignment%2d: %s\n", i,
-            //                align->read);
-            // Do stuff with headers
         }
-        //            fprintf(stderr,"\n");
         SAMExtractorInvalidateAlignments(extractor);
-        // if (total > 100000) break;
     } while (vlen);
+    REQUIRE_EQUAL(total, 9955);
 
     REQUIRE_RC(SAMExtractorRelease(extractor));
-
-    fprintf(stderr, "Done with file, %d alignments\n", total);
 
     KFileRelease(infile);
 }
