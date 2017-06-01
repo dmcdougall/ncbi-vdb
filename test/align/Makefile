@@ -39,6 +39,8 @@ $(TEST_TOOLS): makedirs
 	@ $(MAKE_CMD) $(TEST_BINDIR)/$@
 
 clean: stdclean
+
+INCDIRS += -I$(TOP)/libs/align
 #-------------------------------------------------------------------------------
 # test-load-index
 #

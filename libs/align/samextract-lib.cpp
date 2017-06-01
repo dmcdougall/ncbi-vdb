@@ -221,7 +221,7 @@ bool isfloworder(const char* str)
 rc_t process_header(SAMExtractor* state, const char* type, const char* tag,
                     const char* value)
 {
-    DBG("processing type:%s tag:%s value:%s", type, tag, value);
+    DBG("processing header type:%s tag:%s value:%s", type, tag, value);
     if (strcmp(type, "HD") && strcmp(type, "SQ") && strcmp(type, "RG")
         && strcmp(type, "PG")) {
         ERR("record '%s' must be HD, SQ, RG or PG", type);

@@ -22,8 +22,8 @@
 //
 // ===========================================================================
 
-#include <../../libs/align/samextract-pool.h>
-#include <../../libs/align/samextract.h>
+#include "samextract-pool.h"
+#include "samextract.h"
 #include <align/samextract-lib.h>
 #include <ctype.h>
 #include <kapp/args.h>
@@ -179,13 +179,12 @@ TEST_CASE(Fast_strtoi64)
     }
 
     for (int i = 0; i != NUM_RAND; ++i) {
-        sprintf(str, "%ld", random() * random() + random());
-        REQUIRE_EQUAL(tst_strtoi64(str), true);
-        sprintf(str, "-%ld", random() * random() + random());
+        sprintf(str, "%ld", random() << 32 + random() + random());
         REQUIRE_EQUAL(tst_strtoi64(str), true);
     }
+
 #ifdef TEST_ALL_THE_INTEGERS
-    fprintf(stderr, "all strtoi64\n");
+    fprintf(stderr, "all strtoi32\n");
     for (int i = INT32_MIN; i != INT32_MAX; ++i) {
         sprintf(str, "%d", i);
         REQUIRE_EQUAL(tst_strtoi64(str), true);
@@ -196,13 +195,16 @@ TEST_CASE(Fast_strtoi64)
 TEST_CASE(Decode_Cigar)
 {
     pool_init();
+
     u32   incigar1[] = {0x10, 0x21, 0x38};
     char* outcigar; // pool allocated
     outcigar = decode_cigar(incigar1, sizeof(incigar1) / sizeof(incigar1[0]));
     REQUIRE_EQUAL(strcmp("1M2I3X", outcigar), 0);
+
     u32 incigar2[] = {0xfffffff0};
     outcigar = decode_cigar(incigar2, sizeof(incigar2) / sizeof(incigar2[0]));
     REQUIRE_EQUAL(strcmp("268435455M", outcigar), 0);
+
     pool_release();
 }
 
@@ -230,6 +232,135 @@ TEST_CASE(Is_floworder)
     REQUIRE_EQUAL(isfloworder("ACMGRSVTWYHKDBN"), true);
     REQUIRE_EQUAL(isfloworder("0"), false);
     REQUIRE_EQUAL(isfloworder("a"), false);
+}
+
+TEST_CASE(header1)
+{
+    SAMExtractor* extractor;
+    REQUIRE_RC(SAMExtractorMake(&extractor, NULL, NULL, -1));
+
+    const char* header_text
+        = "@HD\tVN:1.5\tSO:coordinate\n"
+          "@SQ\tSN:ref\tLN:45\n"
+          "r001\t99\tref\t7\t30\t8M2I4M1D3M\t="
+          "\t37\t39\tTAGATAAAGGATACTG\t*\n";
+
+    while (strlen(header_text)) {
+        char* nl = (char*)strchr(header_text, '\n');
+        if (!nl) {
+            size_t linelen = strlen(header_text);
+            memmove(curline, header_text, linelen);
+            curline[linelen + 1] = '\n';
+            curline[linelen + 2] = '\0';
+            header_text += linelen;
+        } else {
+            size_t linelen = 1 + nl - header_text;
+            memmove(curline, header_text, linelen);
+            curline[linelen] = '\0';
+            header_text += linelen;
+        }
+        curline_len = strlen(curline);
+
+        REQUIRE_RC(SAM_parseline(extractor));
+    }
+
+    u32 numheaders = VectorLength(&extractor->headers);
+    REQUIRE_EQUAL(numheaders, (uint32_t)2);
+
+    Header* hdr = (Header*)VectorGet(&extractor->headers, 0);
+    REQUIRE_EQUAL(strcmp(hdr->headercode, "HD"), 0);
+    Vector* tvs = &hdr->tagvalues;
+    REQUIRE_EQUAL(VectorLength(tvs), (uint32_t)2);
+    TagValue* tv = (TagValue*)VectorGet(tvs, 0);
+    REQUIRE_EQUAL(strcmp(tv->tag, "VN"), 0);
+    REQUIRE_EQUAL(strcmp(tv->value, "1.5"), 0);
+    tv = (TagValue*)VectorGet(tvs, 1);
+    REQUIRE_EQUAL(strcmp(tv->tag, "SO"), 0);
+    REQUIRE_EQUAL(strcmp(tv->value, "coordinate"), 0);
+
+    hdr = (Header*)VectorGet(&extractor->headers, 1);
+    REQUIRE_EQUAL(strcmp(hdr->headercode, "SQ"), 0);
+    tvs = &hdr->tagvalues;
+    REQUIRE_EQUAL(VectorLength(tvs), (uint32_t)2);
+    tv = (TagValue*)VectorGet(tvs, 0);
+    REQUIRE_EQUAL(strcmp(tv->tag, "SN"), 0);
+    REQUIRE_EQUAL(strcmp(tv->value, "ref"), 0);
+    tv = (TagValue*)VectorGet(tvs, 1);
+    REQUIRE_EQUAL(strcmp(tv->tag, "LN"), 0);
+    REQUIRE_EQUAL(strcmp(tv->value, "45"), 0);
+
+    REQUIRE_RC(SAMExtractorRelease(extractor));
+}
+
+TEST_CASE(SAMfile)
+{
+    const char* fname = "small.sam";
+
+    struct KDirectory*  srcdir = NULL;
+    const struct KFile* infile = NULL;
+    REQUIRE_RC(KDirectoryNativeDir(&srcdir));
+
+    REQUIRE_RC(KDirectoryOpenFileRead(srcdir, &infile, fname));
+    KDirectoryRelease(srcdir);
+    srcdir = NULL;
+
+    String sfname;
+    StringInitCString(&sfname, fname);
+
+    SAMExtractor* extractor;
+    REQUIRE_RC(SAMExtractorMake(&extractor, infile, &sfname, -1));
+    fprintf(stderr, "Made extractor for %s\n", fname);
+
+    //        REQUIRE_RC(SAMExtractorAddFilter(extractor, NULL, -1, -1,
+    //        false);
+
+    Vector headers;
+    REQUIRE_RC(SAMExtractorGetHeaders(extractor, &headers));
+    fprintf(stderr, "\n\nGot %d headers\n", VectorLength(&headers));
+    for (uint32_t i = 0; i != VectorLength(&headers); ++i) {
+        Header* hdr = (Header*)VectorGet(&headers, i);
+        Vector* tvs = &hdr->tagvalues;
+        //            fprintf(stderr,"\tHeader%d: %s\n", i,
+        //            hdr->headercode);
+        for (uint32_t j = 0; j != VectorLength(tvs); ++j) {
+            TagValue* tv = (TagValue*)VectorGet(tvs, j);
+
+            //                fprintf(stderr,"\t\t%d\t%s %s\n", j,
+            //                tv->tag, tv->value);
+        }
+        // Do stuff with headers
+    }
+    SAMExtractorInvalidateHeaders(extractor);
+
+    fprintf(stderr, "Getting Alignments\n");
+    int      total = 0;
+    uint32_t vlen;
+    do {
+        Vector alignments;
+        REQUIRE_RC(SAMExtractorGetAlignments(extractor, &alignments));
+        vlen = VectorLength(&alignments);
+        total += vlen;
+        //            fprintf(stderr, "Got %d alignments\n", total);
+        //            fprintf(stderr,"\n\nReturned %d alignments\n",vlen);
+        for (uint32_t i = 0; i != vlen; ++i) {
+            Alignment* align = (Alignment*)VectorGet(&alignments, i);
+            //                if (strlen(align->cigar) > 0)
+            //                    fprintf(stderr, "cigar is %s\n",
+            //                    align->cigar);
+            //                fprintf(stderr,"\tAlignment%2d: %s\n", i,
+            //                align->read);
+            // Do stuff with headers
+        }
+        //            fprintf(stderr,"\n");
+        SAMExtractorInvalidateAlignments(extractor);
+        // if (total > 100000) break;
+    } while (vlen);
+
+    REQUIRE_RC(SAMExtractorRelease(extractor));
+
+    fprintf(stderr, "Done with file, %d alignments\n", total);
+
+    KFileRelease(infile);
 }
 // filter
 // mempool
