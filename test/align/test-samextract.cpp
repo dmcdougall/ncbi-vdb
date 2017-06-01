@@ -179,7 +179,7 @@ TEST_CASE(Fast_strtoi64)
     }
 
     for (int i = 0; i != NUM_RAND; ++i) {
-        sprintf(str, "%ld", random() << 32 + random() + random());
+        sprintf(str, "%ld", (random() << 32) + random() + random());
         REQUIRE_EQUAL(tst_strtoi64(str), true);
     }
 

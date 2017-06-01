@@ -34,12 +34,15 @@
 #include <kfs/file.h>
 #include <klib/defs.h>
 #include <klib/rc.h>
+#include <klib/time.h>
 #include <klib/vector.h>
 #include <kproc/lock.h>
 #include <kproc/queue.h>
 #include <kproc/thread.hpp>
 #include <kproc/timeout.h>
+#if LINUX
 #include <pthread.h>
+#endif
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -184,8 +187,12 @@ static BGZFview bview;
 
 static rc_t seeker(const KThread* kt, void* in)
 {
-    SAMExtractor* state    = (SAMExtractor*)in;
-    pthread_t     threadid = pthread_self();
+    SAMExtractor* state = (SAMExtractor*)in;
+#if LINUX
+    pthread_t threadid = pthread_self();
+#else
+    u64 threadid = 0;
+#endif
     DBG("\tSeeker thread %p %lu started.", kt, threadid);
 
     state->file_pos = 0;
@@ -351,8 +358,12 @@ static rc_t inflater(const KThread* kt, void* in)
     SAMExtractor*    state = (SAMExtractor*)in;
     struct timeout_t tm;
 
-    z_stream  strm;
+    z_stream strm;
+#if LINUX
     pthread_t threadid = pthread_self();
+#else
+    u64 threadid = 0;
+#endif
     DBG("\tInflater thread %p %lu started.", kt, threadid);
 
     while (true) {
@@ -961,7 +972,7 @@ rc_t BAMGetAlignments(SAMExtractor* state)
 
 void releasethreads(SAMExtractor* state)
 {
-    usleep(100 * 1000); // Wait 100 ms for threads to timeout in their queues
+    KSleepMs(100); // Wait 100 ms for threads to timeout in their queues
     DBG("Releasing threads");
     for (u32 i = 0; i != VectorLength(&state->threads); ++i) {
         KThread* t = (KThread*)VectorGet(&state->threads, i);

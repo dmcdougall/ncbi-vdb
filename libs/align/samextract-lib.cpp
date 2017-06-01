@@ -48,8 +48,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/mman.h>
-#include <sys/stat.h>
 #include <unistd.h>
 
 char           curline[READBUF_SZ + 1];
@@ -416,7 +414,11 @@ LIB_EXPORT rc_t CC SAMExtractorMake(SAMExtractor** state, const KFile* fin,
 
     // Default number of threads to number of cores
     if (s->num_threads <= -1)
+#if LINUX
         s->num_threads = (int)sysconf(_SC_NPROCESSORS_ONLN) - 1;
+#else
+        s->num_threads = 8;
+#endif
 
     DBG("%d threads", s->num_threads);
 
