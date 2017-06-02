@@ -57,11 +57,11 @@
 typedef enum BGZF_state { empty, compressed, uncompressed } BGZF_state;
 typedef struct BGZF_s
 {
-    KLock*     lock;
-    Bytef      in[READBUF_SZ + 1024];
-    Bytef      out[READBUF_SZ + 1024];
-    uInt       insize;
-    uInt       outsize;
+    KLock* lock;
+    Bytef in[READBUF_SZ + 1024];
+    Bytef out[READBUF_SZ + 1024];
+    uInt insize;
+    uInt outsize;
     BGZF_state state;
 } BGZF;
 
@@ -74,7 +74,7 @@ class BGZFview
     {
         releasebuf();
         bgzf = NULL;
-        cur  = NULL;
+        cur = NULL;
     }
 
 // TODO: Handle _MSC_VER
@@ -93,7 +93,7 @@ class BGZFview
     // C++11, C++14
     BGZFview(const BGZFview&) = delete;             // No copy ctor
     BGZFview& operator=(const BGZFview&) = delete;  // No assignment
-    BGZFview(const BGZFview&&)           = delete;  // No move ctor
+    BGZFview(const BGZFview&&) = delete;            // No move ctor
     BGZFview& operator=(const BGZFview&&) = delete; // No move assignment
 #endif
 
@@ -179,7 +179,7 @@ class BGZFview
     }
 
   private:
-    BGZF*  bgzf;
+    BGZF* bgzf;
     Bytef* cur;
 };
 
@@ -214,7 +214,7 @@ static rc_t seeker(const KThread* kt, void* in)
 
         z_stream strm;
         memset(&strm, 0, sizeof strm);
-        strm.next_in  = (Bytef*)state->readbuf;
+        strm.next_in = (Bytef*)state->readbuf;
         strm.avail_in = (uInt)state->readbuf_sz;
         int zrc = inflateInit2(&strm, MAX_WBITS + 16); // Only gzip format
         switch (zrc) {
@@ -241,14 +241,14 @@ static rc_t seeker(const KThread* kt, void* in)
         }
 
         gz_header head;
-        u8        extra[256];
+        u8 extra[256];
         memset(&head, 0, sizeof head);
-        head.extra     = extra;
+        head.extra = extra;
         head.extra_max = sizeof(extra);
         char outbuf[64];
-        strm.next_out  = (Bytef*)outbuf;
+        strm.next_out = (Bytef*)outbuf;
         strm.avail_out = 64;
-        zrc            = inflateGetHeader(&strm, &head);
+        zrc = inflateGetHeader(&strm, &head);
         if (zrc != Z_OK) {
             ERR("zlib inflate error %d %s", zrc, strm.msg);
             return RC(rcAlign, rcFile, rcConstructing, rcNoObj, rcUnexpected);
@@ -289,7 +289,7 @@ static rc_t seeker(const KThread* kt, void* in)
             BGZF* bgzf = (BGZF*)malloc(sizeof(BGZF));
             KLockMake(&bgzf->lock);
             KLockAcquire(bgzf->lock); // Not ready for parsing
-            bgzf->state  = compressed;
+            bgzf->state = compressed;
             bgzf->insize = bsize + 1;
             memmove(bgzf->in, state->readbuf, block_size + 1);
             bgzf->outsize = sizeof(bgzf->out);
@@ -355,7 +355,7 @@ static rc_t seeker(const KThread* kt, void* in)
 
 static rc_t inflater(const KThread* kt, void* in)
 {
-    SAMExtractor*    state = (SAMExtractor*)in;
+    SAMExtractor* state = (SAMExtractor*)in;
     struct timeout_t tm;
 
     z_stream strm;
@@ -385,9 +385,9 @@ static rc_t inflater(const KThread* kt, void* in)
             DBG("\tinflating %d bytes", bgzf->insize);
             if (!bgzf->insize || !bgzf->outsize)
                 ERR("Empty buffers %d %d", bgzf->insize, bgzf->outsize);
-            strm.next_in   = bgzf->in;
-            strm.avail_in  = bgzf->insize;
-            strm.next_out  = bgzf->out;
+            strm.next_in = bgzf->in;
+            strm.avail_in = bgzf->insize;
+            strm.next_out = bgzf->out;
             strm.avail_out = bgzf->outsize;
             int zrc = inflateInit2(&strm, MAX_WBITS + 16); // Only gzip format
             switch (zrc) {
@@ -421,7 +421,7 @@ static rc_t inflater(const KThread* kt, void* in)
                     DBG("\t\tthread %lu OK %d %d %lu", threadid,
                         strm.avail_in, strm.avail_out, strm.total_out);
                     bgzf->outsize = strm.total_out;
-                    bgzf->state   = uncompressed;
+                    bgzf->state = uncompressed;
                     DBG("Ready for parsing, unlocking");
                     KLockUnlock(bgzf->lock); // OK to parse now
                     break;
@@ -604,8 +604,8 @@ void decode_seq(const u8* seqbytes, size_t l_seq, char* seq)
 
     size_t remain = (l_seq + 1) / 2;
 
-    const u64* in  = (const u64*)seqbytes;
-    u16*       out = (u16*)seq;
+    const u64* in = (const u64*)seqbytes;
+    u16* out = (u16*)seq;
     while (remain >= 8) {
         const u64 w = *in++;
         // ~25% of wall clock spent here.
@@ -636,7 +636,7 @@ void decode_seq(const u8* seqbytes, size_t l_seq, char* seq)
 
 void fast_u32toa(char* buf, u32 val)
 {
-    static u64  pow10[20];
+    static u64 pow10[20];
     static char map10[200];
 
     // fast path:
@@ -664,9 +664,9 @@ void fast_u32toa(char* buf, u32 val)
     }
 
     // See http://graphics.stanford.edu/~seander/bithacks.html
-    u32 lg2  = (64 - __builtin_clzll(val | 1));
+    u32 lg2 = (64 - __builtin_clzll(val | 1));
     u32 lg10 = lg2 * 1233 >> 12;
-    lg10     = lg10 - (val < pow10[lg10]) + 1;
+    lg10 = lg10 - (val < pow10[lg10]) + 1;
 
     buf += lg10;
     *buf = '\0';
@@ -681,7 +681,7 @@ void fast_u32toa(char* buf, u32 val)
     if (val < 10)
         *--buf = val + '0';
     else {
-        u32 i  = 2 * val;
+        u32 i = 2 * val;
         *--buf = map10[i + 1];
         *--buf = map10[i];
     }
@@ -692,7 +692,7 @@ void fast_i32toa(char* buf, i32 val)
     u32 u = (u32)val;
     if (val < 0) {
         *buf++ = '-';
-        u      = ~u + 1; // twos-complement
+        u = ~u + 1; // twos-complement
     }
     fast_u32toa(buf, u);
 }
@@ -703,11 +703,11 @@ char* decode_cigar(u32* cigar, u16 n_cigar_op)
     //   9 digits (28 bits of oplen) + 1 byte opcode
     //   Likely 1/5 that, but pool allocation cheaper than computing.
     char* scigar = (char*)pool_alloc(n_cigar_op * 10 + 1);
-    char* p      = scigar;
+    char* p = scigar;
     // size_t rleopslen = 0;
     for (int i = 0; i != n_cigar_op; ++i) {
         i32 oplen = cigar[i] >> 4;
-        i32 op    = cigar[i] & 0xf;
+        i32 op = cigar[i] & 0xf;
 
         char buf[10]; // 2^28=268435456\0=10 bytes
         fast_u32toa(buf, oplen);
@@ -716,7 +716,7 @@ char* decode_cigar(u32* cigar, u16 n_cigar_op)
         p += sz;
 
         static const char opmap[] = "MIDNSHP=X???????";
-        *p++                      = (char)opmap[op];
+        *p++ = (char)opmap[op];
     }
 
     *p = '\0';
@@ -757,13 +757,13 @@ rc_t BAMGetAlignments(SAMExtractor* state)
         }
 
         DBG("align.bin_mq_nl=%d", align.bin_mq_nl);
-        u16 bin         = align.bin_mq_nl >> 16;
-        u8  mapq        = (align.bin_mq_nl >> 8) & 0xff;
-        u8  l_read_name = align.bin_mq_nl & 0xff;
+        u16 bin = align.bin_mq_nl >> 16;
+        u8 mapq = (align.bin_mq_nl >> 8) & 0xff;
+        u8 l_read_name = align.bin_mq_nl & 0xff;
         DBG("bin=%d mapq=%d l_read_name=%d", bin, mapq, l_read_name);
         if (l_read_name > 64) ERR("Long (%d) read_name", l_read_name);
 
-        u16 flag       = align.flag_nc >> 16;
+        u16 flag = align.flag_nc >> 16;
         u16 n_cigar_op = align.flag_nc & 0xffff;
         DBG("flag=%x n_cigar_op=%d", flag, n_cigar_op);
 
@@ -788,13 +788,13 @@ rc_t BAMGetAlignments(SAMExtractor* state)
             cigar = NULL;
             DBG("scigar is '%s'", scigar);
         } else {
-            scigar    = (char*)pool_alloc(1);
+            scigar = (char*)pool_alloc(1);
             scigar[0] = '\0';
         }
 
-        u64   bytesofseq = 0;
-        char* seq        = NULL;
-        char* qual       = NULL;
+        u64 bytesofseq = 0;
+        char* seq = NULL;
+        char* qual = NULL;
         if (align.l_seq) {
             bytesofseq = (align.l_seq + 1) / 2;
             u8* seqbytes
@@ -803,7 +803,7 @@ rc_t BAMGetAlignments(SAMExtractor* state)
                                 bytesofseq))
                 return RC(rcAlign, rcFile, rcParsing, rcData, rcInvalid);
 
-            seq  = (char*)pool_alloc(align.l_seq + 1);
+            seq = (char*)pool_alloc(align.l_seq + 1);
             qual = (char*)pool_alloc(align.l_seq + 1);
 
             decode_seq(seqbytes, align.l_seq, seq);
@@ -818,9 +818,9 @@ rc_t BAMGetAlignments(SAMExtractor* state)
             pool_free(seqbytes);
             seqbytes = NULL;
         } else {
-            seq    = (char*)pool_alloc(1);
+            seq = (char*)pool_alloc(1);
             seq[0] = '\0';
-            qual   = seq;
+            qual = seq;
         }
 
         // TODO: Check that rleopslen==l_seq
@@ -838,17 +838,17 @@ rc_t BAMGetAlignments(SAMExtractor* state)
             DBG("Skipping TTVs");
             while (false && (cur < ttvs + remain)) // TODO
             {
-                char  tag[2];
-                char  c;
-                i8    i8;
-                u8    u8;
-                i16   i16;
-                u16   u16;
-                i32   i32;
-                u32   u32;
+                char tag[2];
+                char c;
+                i8 i8;
+                u8 u8;
+                i16 i16;
+                u16 u16;
+                i32 i32;
+                u32 u32;
                 char* z;
-                tag[0]        = *cur++;
-                tag[1]        = *cur++;
+                tag[0] = *cur++;
+                tag[1] = *cur++;
                 char val_type = *cur++;
                 DBG("ttv: %c%c:%c", tag[0], tag[1], val_type);
                 switch (val_type) {

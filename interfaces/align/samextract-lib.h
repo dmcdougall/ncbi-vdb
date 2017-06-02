@@ -39,13 +39,13 @@
 extern "C" {
 #endif
 
-typedef int8_t   i8;
-typedef uint8_t  u8;
-typedef int16_t  i16;
+typedef int8_t i8;
+typedef uint8_t u8;
+typedef int16_t i16;
 typedef uint16_t u16;
-typedef int32_t  i32;
+typedef int32_t i32;
 typedef uint32_t u32;
-typedef int64_t  i64;
+typedef int64_t i64;
 typedef uint64_t u64;
 
 typedef enum efile_type { unknown, SAM, BAM, SAMGZUNSUPPORTED } efile_type;
@@ -53,14 +53,14 @@ typedef enum efile_type { unknown, SAM, BAM, SAMGZUNSUPPORTED } efile_type;
 typedef struct Alignment
 {
     const char* qname;
-    uint16_t    flags;
+    uint16_t flags;
     const char* rname;
-    int32_t     pos;
-    uint8_t     mapq;
+    int32_t pos;
+    uint8_t mapq;
     const char* cigar;
     const char* rnext;
-    int32_t     pnext;
-    int32_t     tlen;
+    int32_t pnext;
+    int32_t tlen;
     const char* read;
     const char* qual;
 } Alignment;
@@ -68,21 +68,21 @@ typedef struct Alignment
 typedef struct SAMExtractor
 {
     const KFile* infile;
-    String*      fname;
+    String* fname;
 
     Vector headers;
     Vector alignments;
 
-    Vector  tagvalues;
+    Vector tagvalues;
     Vector* prev_headers;
     Vector* prev_aligns;
 
-    Vector  threads;
+    Vector threads;
     KQueue* inflatequeue;
     KQueue* parsequeue;
 
     uint64_t file_pos;
-    char*    readbuf;
+    char* readbuf;
     uint32_t readbuf_sz;
     uint32_t readbuf_pos;
 
@@ -119,7 +119,7 @@ typedef struct tagvalue
 typedef struct Header
 {
     const char* headercode; /* HD, SQ, RG, PG, CO */
-    Vector      tagvalues;
+    Vector tagvalues;
 } Header;
 
 ALIGN_EXTERN rc_t CC SAMExtractorMake(SAMExtractor** state, const KFile* fin,
@@ -132,25 +132,25 @@ ALIGN_EXTERN rc_t CC SAMExtractorAddFilterNamePos(SAMExtractor* state,
                                                   String* rname, ssize_t pos,
                                                   bool ordered);
 ALIGN_EXTERN rc_t CC SAMExtractorAddFilterNamePosLength(SAMExtractor* state,
-                                                        String*       rname,
-                                                        ssize_t       pos,
-                                                        ssize_t       length,
+                                                        String* rname,
+                                                        ssize_t pos,
+                                                        ssize_t length,
                                                         bool ordered);
 ALIGN_EXTERN rc_t CC SAMExtractorAddFilterPos(SAMExtractor* state,
                                               ssize_t pos, bool ordered);
 ALIGN_EXTERN rc_t CC SAMExtractorAddFilterPosLength(SAMExtractor* state,
-                                                    ssize_t       pos,
-                                                    ssize_t       length,
-                                                    bool          ordered);
+                                                    ssize_t pos,
+                                                    ssize_t length,
+                                                    bool ordered);
 
 ALIGN_EXTERN rc_t CC SAMExtractorRelease(SAMExtractor* state); /* dtor */
 
 ALIGN_EXTERN rc_t CC SAMExtractorGetHeaders(SAMExtractor* state,
-                                            Vector*       headers);
+                                            Vector* headers);
 ALIGN_EXTERN rc_t CC SAMExtractorInvalidateHeaders(SAMExtractor* state);
 
 ALIGN_EXTERN rc_t CC SAMExtractorGetAlignments(SAMExtractor* state,
-                                               Vector*       alignments);
+                                               Vector* alignments);
 ALIGN_EXTERN rc_t CC SAMExtractorInvalidateAlignments(SAMExtractor* state);
 
 #ifdef __cplusplus

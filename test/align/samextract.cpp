@@ -60,7 +60,7 @@ rc_t CC KMain(int argc, char* argv[])
     while (--argc) {
         const char* fname = *(++argv);
 
-        struct KDirectory*  srcdir = NULL;
+        struct KDirectory* srcdir = NULL;
         const struct KFile* infile = NULL;
         rc = KDirectoryNativeDir(&srcdir);
         if (rc) return rc;
@@ -101,10 +101,9 @@ rc_t CC KMain(int argc, char* argv[])
         SAMExtractorInvalidateHeaders(extractor);
 
         fprintf(stderr, "Getting Alignments\n");
-        int      total = 0;
+        int total = 0;
         uint32_t vlen;
-        do
-        {
+        do {
             Vector alignments;
             rc = SAMExtractorGetAlignments(extractor, &alignments);
             if (rc) {

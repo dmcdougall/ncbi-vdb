@@ -55,7 +55,7 @@ extern "C" {
 #endif
 int SAMparse(SAMExtractor* state);
 void SAMerror(SAMExtractor* state, const char* TODOmsg);
-int  SAMlex_destroy(void);
+int SAMlex_destroy(void);
 void logmsg(const char* fname, int line, const char* func,
             const char* severity, const char* fmt, ...);
 int moredata(char* buf, int* numbytes, size_t maxbytes);
@@ -85,7 +85,7 @@ rc_t readfile(SAMExtractor* state);
 rc_t SAM_parseline(SAMExtractor* state);
 
 extern char curline[];
-extern int  curline_len;
+extern int curline_len;
 #ifdef __cplusplus
 }
 #endif

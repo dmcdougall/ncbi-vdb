@@ -34,8 +34,8 @@
 
 static Vector allocs;
 
-void*  cur_block = NULL;
-size_t cur_block_remain=0;
+void* cur_block = NULL;
+size_t cur_block_remain = 0;
 
 void morecore(size_t alloc_size)
 {
@@ -92,7 +92,7 @@ char* pool_strdup(const char* str)
         return NULL;
     } else {
         size_t len = strlen(str) + 1;
-        void*  buf = pool_alloc(len);
+        void* buf = pool_alloc(len);
         memmove(buf, str, len);
         return (char*)buf;
     }
