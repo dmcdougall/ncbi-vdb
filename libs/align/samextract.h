@@ -83,6 +83,7 @@ rc_t BAMGetAlignments(SAMExtractor* state);
 void releasethreads(SAMExtractor* state);
 rc_t readfile(SAMExtractor* state);
 rc_t SAM_parseline(SAMExtractor* state);
+bool check_cigar(const char* cigar, const char* seq);
 
 extern char curline[];
 extern int curline_len;

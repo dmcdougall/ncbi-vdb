@@ -44,6 +44,7 @@
 #include <kproc/thread.hpp>
 #include <kproc/timeout.h>
 #include <pthread.h>
+#include <regex.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -216,13 +217,15 @@ bool isfloworder(const char* str)
     return true;
 }
 
-void check_cigar(const char* cigar, const char* seq)
+bool check_cigar(const char* cigar, const char* seq)
 {
-    // TODO: Additional rules
     static unsigned char mult[256];
+    static bool regcompiled = false;
+    static regex_t preg;
     size_t seqlen = strlen(seq);
     size_t cigarlen = 0;
-    const char* p = cigar;
+
+    if (cigar[0] == '*' && cigar[1] == '\0') return true;
 
     mult['M'] = 1;
     mult['I'] = 1;
@@ -230,6 +233,9 @@ void check_cigar(const char* cigar, const char* seq)
     mult['='] = 1;
     mult['X'] = 1;
 
+    char* opcodestr = (char*)malloc(1 + strlen(cigar) / 2);
+    char* opcode = opcodestr;
+    const char* p = cigar;
     while (*p) {
         size_t val = 0;
         while (*p && isdigit(*p)) {
@@ -238,15 +244,35 @@ void check_cigar(const char* cigar, const char* seq)
             ++p;
         }
         const char op = *p++;
+        *opcode++ = op;
 
         cigarlen += val * mult[(unsigned int)op];
     }
+    *opcode = '\0';
 
-    if (cigarlen != seqlen) {
-        ERR("CIGAR \n%s and sequence \n%s\n don't have identical lengths "
-            "(%d!=%d)",
-            cigar, seq, cigarlen, seqlen);
+    // "Sum of lengths of the M/I/S/=/X operations shall equal the length of
+    // SEQ."
+    if (cigarlen != seqlen) return false;
+
+    // "H can only be present as the first and/or last operation."
+    // "S may only have H operations between them and the ends of the CIGAR
+    // string."
+    // Actual valid rule is apparently H?S?[MIDNPX=]+S?H?
+    if (!regcompiled) {
+        int result = regcomp(&preg, "^H?S?[MIDNPXB=]+S?H?$",
+                             REG_EXTENDED | REG_NOSUB);
+        if (result) ERR("Bad regex");
+        regcompiled = true;
     }
+
+    regmatch_t matches[1];
+    if (regexec(&preg, opcodestr, 1, matches, 0) == REG_NOMATCH) {
+        DBG("Bad CIGAR: '%s' '%s'", cigar, opcodestr);
+        return false;
+    }
+
+    free(opcodestr);
+    return true;
 }
 
 rc_t process_header(SAMExtractor* state, const char* type, const char* tag,
@@ -341,7 +367,9 @@ rc_t process_alignment(SAMExtractor* state, const char* qname,
             ERR("TLEN not in range %s", tlen);
     }
 
-    check_cigar(cigar, seq);
+    if (!check_cigar(cigar, seq)) {
+        ERR("CIGAR '%s' and sequence '%s' mismatch", cigar, seq);
+    }
 
     String srname;
     // Faster to avoid string_measure()

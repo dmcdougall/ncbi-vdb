@@ -196,7 +196,7 @@ TEST_CASE(Decode_Cigar)
 {
     pool_init();
 
-    u32   incigar1[] = {0x10, 0x21, 0x38};
+    u32 incigar1[] = {0x10, 0x21, 0x38};
     char* outcigar; // pool allocated
     outcigar = decode_cigar(incigar1, sizeof(incigar1) / sizeof(incigar1[0]));
     REQUIRE_EQUAL(strcmp("1M2I3X", outcigar), 0);
@@ -206,6 +206,42 @@ TEST_CASE(Decode_Cigar)
     REQUIRE_EQUAL(strcmp("268435455M", outcigar), 0);
 
     pool_release();
+}
+
+TEST_CASE(Check_Cigar)
+{
+    REQUIRE_EQUAL(check_cigar("1M", "AA"), false);
+    REQUIRE_EQUAL(check_cigar("1M", "A"), true);
+    REQUIRE_EQUAL(check_cigar("2M", "AA"), true);
+    REQUIRE_EQUAL(check_cigar("*", "AAAAA"), true);
+    REQUIRE_EQUAL(check_cigar("1H2M", "AA"), true);
+    REQUIRE_EQUAL(check_cigar("2M1H", "AA"), true);
+    REQUIRE_EQUAL(check_cigar("1H2M1H", "AA"), true);
+    REQUIRE_EQUAL(check_cigar("2M1H1M", "AA"), false);
+    REQUIRE_EQUAL(check_cigar("1H3M1H", "AAA"), true);
+    REQUIRE_EQUAL(check_cigar("2M1S1H", "AAA"), true);
+    REQUIRE_EQUAL(check_cigar("1M1S1H1M", "AA"), false);
+    REQUIRE_EQUAL(check_cigar("1M1S1M", "AA"), false);
+    REQUIRE_EQUAL(check_cigar("3S9H", "AAA"), false);
+    REQUIRE_EQUAL(check_cigar("3S3M9H", "AAAAAA"), true);
+    REQUIRE_EQUAL(check_cigar("3S9D", "AAA"), true);
+    REQUIRE_EQUAL(check_cigar("1H1S1M1S1H", "AAA"), true);
+    REQUIRE_EQUAL(check_cigar("1H1S1M1H", "AA"), true);
+    REQUIRE_EQUAL(check_cigar("1H1M1S1H", "AA"), true);
+    REQUIRE_EQUAL(check_cigar("1H1M1H", "A"), true);
+    REQUIRE_EQUAL(check_cigar("1S1M1H", "AA"), true);
+    REQUIRE_EQUAL(check_cigar("1H1M1S", "AA"), true);
+    REQUIRE_EQUAL(check_cigar("1H1M1H1S", "AA"), false);
+    REQUIRE_EQUAL(check_cigar("1H1S1M1S", "AAA"), true);
+    REQUIRE_EQUAL(check_cigar("1M1H", "A"), true);
+    REQUIRE_EQUAL(check_cigar("1M1S", "AA"), true);
+    REQUIRE_EQUAL(check_cigar("1H1M", "A"), true);
+    REQUIRE_EQUAL(check_cigar("1S1M", "AA"), true);
+    REQUIRE_EQUAL(check_cigar("1S1H1M", "AA"), false);
+    REQUIRE_EQUAL(check_cigar("1M1H1S", "AA"), false);
+    REQUIRE_EQUAL(check_cigar("1S1M1S", "AAA"), true);
+    REQUIRE_EQUAL(check_cigar("1H1M1S", "AA"), true);
+    REQUIRE_EQUAL(check_cigar("1S1M1H", "AA"), true);
 }
 
 TEST_CASE(In_Range)
@@ -350,23 +386,22 @@ TEST_CASE(BAMfile)
            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
     unsigned int test_bam_len = 229;
 
-    //char * tmpfname=tempnam(NULL,"test");
-    //fprintf(stderr,"temp filename is '%s'\n", tmpfname);
-    //FILE * fout=fopen(tmpfname,"wb");
-    FILE * fout=tmpfile();
+    // char * tmpfname=tempnam(NULL,"test");
+    // fprintf(stderr,"temp filename is '%s'\n", tmpfname);
+    // FILE * fout=fopen(tmpfname,"wb");
+    FILE* fout = tmpfile();
     fwrite(test_bam, test_bam_len, 1, fout);
-//    fclose(fout);
+    //    fclose(fout);
 
-//    unlink(tmpfname);
-//    free(tmpfname);
-
+    //    unlink(tmpfname);
+    //    free(tmpfname);
 }
 
 TEST_CASE(SAMfile)
 {
     const char* fname = "small.sam";
 
-    struct KDirectory*  srcdir = NULL;
+    struct KDirectory* srcdir = NULL;
     const struct KFile* infile = NULL;
     REQUIRE_RC(KDirectoryNativeDir(&srcdir));
 
@@ -391,7 +426,7 @@ TEST_CASE(SAMfile)
     }
     SAMExtractorInvalidateHeaders(extractor);
 
-    int      total = 0;
+    int total = 0;
     uint32_t vlen;
     do {
         Vector alignments;
