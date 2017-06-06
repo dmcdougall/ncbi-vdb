@@ -257,9 +257,10 @@ bool check_cigar(const char* cigar, const char* seq)
     // "H can only be present as the first and/or last operation."
     // "S may only have H operations between them and the ends of the CIGAR
     // string."
-    // Actual valid rule is apparently H?S?[MIDNPX=]+S?H?
+    // Actual valid rule is apparently H?S?[MIDNPX=]+S?H?, but H*S*...S*H*
+    // would also be compliant.
     if (!regcompiled) {
-        int result = regcomp(&preg, "^H?S?[MIDNPXB=]+S?H?$",
+        int result = regcomp(&preg, "^H*S*[MIDNPXB=]+S*H*$",
                              REG_EXTENDED | REG_NOSUB);
         if (result) ERR("Bad regex");
         regcompiled = true;

@@ -242,6 +242,13 @@ TEST_CASE(Check_Cigar)
     REQUIRE_EQUAL(check_cigar("1S1M1S", "AAA"), true);
     REQUIRE_EQUAL(check_cigar("1H1M1S", "AA"), true);
     REQUIRE_EQUAL(check_cigar("1S1M1H", "AA"), true);
+    REQUIRE_EQUAL(check_cigar("1S1S1M1H", "AAA"), true);
+    REQUIRE_EQUAL(check_cigar("1H1H1M1H", "A"), true);
+    REQUIRE_EQUAL(check_cigar("1M1H1H", "A"), true);
+    REQUIRE_EQUAL(check_cigar("1H1H", "A"), false);
+    REQUIRE_EQUAL(check_cigar("1S1H", "AA"), false);
+    REQUIRE_EQUAL(check_cigar("1H1S", "AA"), false);
+    REQUIRE_EQUAL(check_cigar("1H", "A"), false);
 }
 
 TEST_CASE(In_Range)
