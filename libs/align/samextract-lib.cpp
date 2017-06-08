@@ -51,9 +51,9 @@
 #include <string.h>
 #include <unistd.h>
 
+static char* fname_desc = NULL;
 char curline[READBUF_SZ + 1];
 int curline_len = 0;
-static String* fname_desc = NULL;
 
 void logmsg(const char* fname, int line, const char* func,
             const char* severity, const char* fmt, ...)
@@ -77,7 +77,7 @@ void logmsg(const char* fname, int line, const char* func,
         return;
     }
     fprintf(buffd, "%s(%lu) ", severity, threadid % 100);
-    if (fname_desc) fprintf(buffd, "`%s`:", fname_desc->addr);
+    if (fname_desc) fprintf(buffd, "`%s`:", fname_desc);
     vfprintf(buffd, fmt, args);
     va_end(args);
     fprintf(buffd, "\t[%s:%s():%d]\n", basename, func, line);
@@ -88,7 +88,7 @@ void logmsg(const char* fname, int line, const char* func,
     free(buf);
     buf = NULL;
     fflush(stderr);
-    if (!strcmp(severity, "Error")) abort();
+    //    if (!strcmp(severity, "Error")) abort();
 }
 
 rc_t SAM_parseline(SAMExtractor* state)
@@ -348,6 +348,7 @@ rc_t process_alignment(SAMExtractor* state, const char* qname,
                        const char* pnext, const char* tlen, const char* seq,
                        const char* qual)
 {
+    DBG("Have %d alignments", VectorLength(&state->alignments));
     DBG("process_alignment %s %d %s", qname, flag, rname);
 
     i64 ipos = fast_strtoi64(pos);
@@ -399,6 +400,7 @@ rc_t process_alignment(SAMExtractor* state, const char* qname,
     align->read = seq;
     align->qual = qual;
     VectorAppend(&state->alignments, NULL, align);
+    DBG("Now Have %d alignments", VectorLength(&state->alignments));
 
     return 0;
 }
@@ -455,14 +457,14 @@ static bool readline(SAMExtractor* state)
 LIB_EXPORT rc_t CC SAMExtractorMake(SAMExtractor** state, const KFile* fin,
                                     String* fname, int32_t num_threads = -1)
 {
-    SAMExtractor* s = (SAMExtractor*)malloc(sizeof(*s));
+    SAMExtractor* s = (SAMExtractor*)calloc(1, sizeof(*s));
     *state = s;
 
     pool_init();
 
     s->infile = fin;
-    s->fname = fname;
-    fname_desc = fname;
+    fname_desc = strdup(fname->addr);
+    //    s->fname = fname_desc;
 
     VectorInit(&s->headers, 0, 0);
     VectorInit(&s->alignments, 0, 0);
@@ -532,6 +534,8 @@ LIB_EXPORT rc_t CC SAMExtractorRelease(SAMExtractor* s)
     VectorWhack(&s->threads, NULL, NULL);
     free(s->readbuf);
     free(s->filter_rname);
+    free(fname_desc);
+    fname_desc = NULL;
     memset(s, 0, sizeof(SAMExtractor));
     free(s);
 
@@ -586,6 +590,7 @@ LIB_EXPORT rc_t CC SAMExtractorGetHeaders(SAMExtractor* s, Vector* headers)
 {
     rc_t rc = 0;
     DBG("GetHeaders");
+    if (s->file_type != unknown) ERR("Recycled state?");
 
     u64 sz = 0;
     rc = KFileSize(s->infile, &sz);
@@ -672,8 +677,9 @@ LIB_EXPORT rc_t CC SAMExtractorGetAlignments(SAMExtractor* s,
                                              Vector* alignments)
 {
     rc_t rc = 0;
-    SAMExtractorInvalidateAlignments(s);
-    VectorInit(&s->alignments, 0, 0);
+    DBG("GetAlignments");
+    //    SAMExtractorInvalidateAlignments(s);
+    //    VectorInit(&s->alignments, 0, 0);
     VectorInit(alignments, 0, 0);
 
     if (s->file_type == SAM) {

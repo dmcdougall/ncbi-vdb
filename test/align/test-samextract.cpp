@@ -79,6 +79,39 @@ static bool tst_fast_i32toa(u32 val)
     return true;
 }
 
+static rc_t extract_file(const char* fname, SAMExtractor** extractor)
+{
+    static struct KDirectory* srcdir = NULL;
+    static const struct KFile* infile = NULL;
+    rc_t rc;
+    rc = KDirectoryNativeDir(&srcdir);
+    if (rc) return rc;
+
+    rc = KDirectoryOpenFileRead(srcdir, &infile, fname);
+    if (rc) return rc;
+    KDirectoryRelease(srcdir);
+
+    String sfname;
+    StringInitCString(&sfname, fname);
+
+    rc = SAMExtractorMake(extractor, infile, &sfname, -1);
+
+    return rc;
+}
+static rc_t extract_buf(const char* buf, const size_t sz,
+                        SAMExtractor** extractor)
+{
+    rc_t rc;
+    char* tmpfname = tempnam(NULL, "tst");
+    FILE* fout = fopen(tmpfname, "wb");
+    fwrite(buf, sz, 1, fout);
+    fclose(fout);
+    rc = extract_file(tmpfname, extractor);
+    unlink(tmpfname);
+    free(tmpfname);
+    return rc;
+}
+
 TEST_SUITE(SAMExtractTestSuite)
 
 TEST_CASE(Fast_Sequence)
@@ -279,39 +312,22 @@ TEST_CASE(Is_floworder)
 
 TEST_CASE(header1)
 {
-    SAMExtractor* extractor;
-    REQUIRE_RC(SAMExtractorMake(&extractor, NULL, NULL, -1));
-
+    rc_t rc;
+    SAMExtractor* extractor = NULL;
     const char* header_text
         = "@HD\tVN:1.5\tSO:coordinate\n"
           "@SQ\tSN:test\tLN:45\n"
           "r001\t99\ttest\t1\t30\t16M\t=\t37\t39\tTAGATAAAGGATACTG\t*"
           "\n"
           "r002\t99\ttest\t20\t30\t2M3M3M\t=\t50\t20\tTAGCATAT\t*\n"
-          "r003\t99\ttest\t30\t30\t2M3M3M\t=\t70\t20\tTAGCATAT\t*\n";
-    while (strlen(header_text)) {
-        char* nl = (char*)strchr(header_text, '\n');
-        if (!nl) {
-            size_t linelen = strlen(header_text);
-            memmove(curline, header_text, linelen);
-            curline[linelen + 1] = '\n';
-            curline[linelen + 2] = '\0';
-            header_text += linelen;
-        } else {
-            size_t linelen = 1 + nl - header_text;
-            memmove(curline, header_text, linelen);
-            curline[linelen] = '\0';
-            header_text += linelen;
-        }
-        curline_len = strlen(curline);
-
-        REQUIRE_RC(SAM_parseline(extractor));
-    }
-
-    u32 numheaders = VectorLength(&extractor->headers);
+          "r003\t99\ttest\t30\t30\t2M3I3M\t=\t70\t20\tAGATTACA\t*\n";
+    REQUIRE_RC(extract_buf(header_text, strlen(header_text), &extractor));
+    Vector headers;
+    REQUIRE_RC(SAMExtractorGetHeaders(extractor, &headers));
+    u32 numheaders = VectorLength(&headers);
     REQUIRE_EQUAL(numheaders, (uint32_t)2);
 
-    Header* hdr = (Header*)VectorGet(&extractor->headers, 0);
+    Header* hdr = (Header*)VectorGet(&headers, 0);
     REQUIRE_EQUAL(strcmp(hdr->headercode, "HD"), 0);
     Vector* tvs = &hdr->tagvalues;
     REQUIRE_EQUAL(VectorLength(tvs), (uint32_t)2);
@@ -322,7 +338,7 @@ TEST_CASE(header1)
     REQUIRE_EQUAL(strcmp(tv->tag, "SO"), 0);
     REQUIRE_EQUAL(strcmp(tv->value, "coordinate"), 0);
 
-    hdr = (Header*)VectorGet(&extractor->headers, 1);
+    hdr = (Header*)VectorGet(&headers, 1);
     REQUIRE_EQUAL(strcmp(hdr->headercode, "SQ"), 0);
     tvs = &hdr->tagvalues;
     REQUIRE_EQUAL(VectorLength(tvs), (uint32_t)2);
@@ -333,11 +349,13 @@ TEST_CASE(header1)
     REQUIRE_EQUAL(strcmp(tv->tag, "LN"), 0);
     REQUIRE_EQUAL(strcmp(tv->value, "45"), 0);
 
-    u32 numalignments = VectorLength(&extractor->alignments);
+    Vector alignments;
+    REQUIRE_RC(SAMExtractorGetAlignments(extractor, &alignments));
+    u32 numalignments = VectorLength(&alignments);
     REQUIRE_EQUAL(numalignments, (uint32_t)3);
 
     Alignment* align;
-    align = (Alignment*)VectorGet(&extractor->alignments, 0);
+    align = (Alignment*)VectorGet(&alignments, 0);
     REQUIRE_EQUAL(strcmp(align->qname, "r001"), 0);
     REQUIRE_EQUAL(align->flags, (uint16_t)99);
     REQUIRE_EQUAL(strcmp(align->rname, "test"), 0);
@@ -350,7 +368,7 @@ TEST_CASE(header1)
     REQUIRE_EQUAL(strcmp(align->read, "TAGATAAAGGATACTG"), 0);
     REQUIRE_EQUAL(strcmp(align->qual, "*"), 0);
 
-    align = (Alignment*)VectorGet(&extractor->alignments, 1);
+    align = (Alignment*)VectorGet(&alignments, 1);
     REQUIRE_EQUAL(strcmp(align->qname, "r002"), 0);
     REQUIRE_EQUAL(align->flags, (uint16_t)99);
     REQUIRE_EQUAL(strcmp(align->rname, "test"), 0);
@@ -369,7 +387,7 @@ TEST_CASE(header1)
 TEST_CASE(BAMfile)
 {
     //$ xxd -i test.bam
-    unsigned char test_bam[]
+    static unsigned const char test_bam[]
         = {0x1f, 0x8b, 0x08, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0x06,
            0x00, 0x42, 0x43, 0x02, 0x00, 0x59, 0x00, 0x73, 0x72, 0xf4, 0x65,
            0xd4, 0x66, 0x60, 0x60, 0x70, 0xf0, 0x70, 0xe1, 0x0c, 0xf3, 0xb3,
@@ -379,7 +397,7 @@ TEST_CASE(BAMfile)
            0x32, 0x31, 0xe5, 0x62, 0x04, 0x2a, 0x67, 0x05, 0x62, 0x90, 0x10,
            0x83, 0x2e, 0x90, 0x01, 0x00, 0xb4, 0xdf, 0xf9, 0x29, 0x44, 0x00,
            0x00, 0x00, 0x1f, 0x8b, 0x08, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00,
-           0xff, 0x06, 0x00, 0x42, 0x43, 0x02, 0x00, 0x6e, 0x00, 0x73, 0x64,
+           0xff, 0x06, 0x00, 0x42, 0x43, 0x02, 0x00, 0x74, 0x00, 0x73, 0x64,
            0x40, 0x00, 0x56, 0x39, 0x4f, 0x21, 0x46, 0x86, 0x64, 0x06, 0x01,
            0x28, 0x5f, 0x05, 0x88, 0xd5, 0x81, 0xb8, 0xc8, 0xc0, 0xc0, 0x90,
            0x81, 0x81, 0x91, 0x81, 0xa1, 0xd1, 0xb1, 0x51, 0xd0, 0x45, 0x42,
@@ -387,21 +405,76 @@ TEST_CASE(BAMfile)
            0x0c, 0x34, 0x84, 0x03, 0x2a, 0x06, 0xd4, 0xc9, 0x20, 0x02, 0x31,
            0xc4, 0x88, 0x41, 0x01, 0xc8, 0x30, 0x80, 0xe2, 0x46, 0x27, 0x09,
            0x09, 0x74, 0x03, 0x64, 0xb1, 0x18, 0xe0, 0x8a, 0x30, 0xc0, 0x18,
-           0x6c, 0x80, 0x21, 0x16, 0x03, 0x00, 0x30, 0x84, 0x4d, 0x40, 0xc7,
-           0x00, 0x00, 0x00, 0x1f, 0x8b, 0x08, 0x04, 0x00, 0x00, 0x00, 0x00,
-           0x00, 0xff, 0x06, 0x00, 0x42, 0x43, 0x02, 0x00, 0x1b, 0x00, 0x03,
-           0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-    unsigned int test_bam_len = 229;
+           0x6c, 0x80, 0x21, 0xd4, 0x00, 0x11, 0x89, 0x46, 0x45, 0x98, 0x01,
+           0x00, 0x36, 0x21, 0x0c, 0x91, 0xc7, 0x00, 0x00, 0x00, 0x1f, 0x8b,
+           0x08, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0x06, 0x00, 0x42,
+           0x43, 0x02, 0x00, 0x1b, 0x00, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00,
+           0x00, 0x00, 0x00, 0x00};
+    unsigned int test_bam_len = 235;
 
-    // char * tmpfname=tempnam(NULL,"test");
-    // fprintf(stderr,"temp filename is '%s'\n", tmpfname);
-    // FILE * fout=fopen(tmpfname,"wb");
-    FILE* fout = tmpfile();
-    fwrite(test_bam, test_bam_len, 1, fout);
-    //    fclose(fout);
+    SAMExtractor* extractor = NULL;
 
-    //    unlink(tmpfname);
-    //    free(tmpfname);
+    REQUIRE_RC(extract_buf((const char*)test_bam, test_bam_len, &extractor));
+    Vector headers;
+    REQUIRE_RC(SAMExtractorGetHeaders(extractor, &headers));
+    u32 numheaders = VectorLength(&headers);
+    REQUIRE_EQUAL(numheaders, (uint32_t)2);
+
+    Header* hdr = (Header*)VectorGet(&headers, 0);
+    REQUIRE_EQUAL(strcmp(hdr->headercode, "HD"), 0);
+    Vector* tvs = &hdr->tagvalues;
+    REQUIRE_EQUAL(VectorLength(tvs), (uint32_t)2);
+    TagValue* tv = (TagValue*)VectorGet(tvs, 0);
+    REQUIRE_EQUAL(strcmp(tv->tag, "VN"), 0);
+    REQUIRE_EQUAL(strcmp(tv->value, "1.5"), 0);
+    tv = (TagValue*)VectorGet(tvs, 1);
+    REQUIRE_EQUAL(strcmp(tv->tag, "SO"), 0);
+    REQUIRE_EQUAL(strcmp(tv->value, "coordinate"), 0);
+
+    hdr = (Header*)VectorGet(&headers, 1);
+    REQUIRE_EQUAL(strcmp(hdr->headercode, "SQ"), 0);
+    tvs = &hdr->tagvalues;
+    REQUIRE_EQUAL(VectorLength(tvs), (uint32_t)2);
+    tv = (TagValue*)VectorGet(tvs, 0);
+    REQUIRE_EQUAL(strcmp(tv->tag, "SN"), 0);
+    REQUIRE_EQUAL(strcmp(tv->value, "test"), 0);
+    tv = (TagValue*)VectorGet(tvs, 1);
+    REQUIRE_EQUAL(strcmp(tv->tag, "LN"), 0);
+    REQUIRE_EQUAL(strcmp(tv->value, "45"), 0);
+
+    Vector alignments;
+    REQUIRE_RC(SAMExtractorGetAlignments(extractor, &alignments));
+    u32 numalignments = VectorLength(&alignments);
+    REQUIRE_EQUAL(numalignments, (uint32_t)3);
+
+    Alignment* align;
+    align = (Alignment*)VectorGet(&alignments, 0);
+    REQUIRE_EQUAL(strcmp(align->qname, "r001"), 0);
+    REQUIRE_EQUAL(align->flags, (uint16_t)99);
+    REQUIRE_EQUAL(strcmp(align->rname, "test"), 0);
+    REQUIRE_EQUAL(align->pos, (int32_t)1);
+    REQUIRE_EQUAL(align->mapq, (uint8_t)30);
+    REQUIRE_EQUAL(strcmp(align->cigar, "16M"), 0);
+    REQUIRE_EQUAL(strcmp(align->rnext, "="), 0);
+    REQUIRE_EQUAL(align->pnext, (int32_t)37);
+    REQUIRE_EQUAL(align->tlen, (int32_t)39);
+    REQUIRE_EQUAL(strcmp(align->read, "TAGATAAAGGATACTG"), 0);
+    REQUIRE_EQUAL(strcmp(align->qual, "*"), 0);
+
+    align = (Alignment*)VectorGet(&alignments, 1);
+    REQUIRE_EQUAL(strcmp(align->qname, "r002"), 0);
+    REQUIRE_EQUAL(align->flags, (uint16_t)99);
+    REQUIRE_EQUAL(strcmp(align->rname, "test"), 0);
+    REQUIRE_EQUAL(align->pos, (int32_t)20);
+    REQUIRE_EQUAL(align->mapq, (uint8_t)30);
+    REQUIRE_EQUAL(strcmp(align->cigar, "2M3M3M"), 0);
+    REQUIRE_EQUAL(strcmp(align->rnext, "="), 0);
+    REQUIRE_EQUAL(align->pnext, (int32_t)50);
+    REQUIRE_EQUAL(align->tlen, (int32_t)20);
+    REQUIRE_EQUAL(strcmp(align->read, "TAGCATAT"), 0);
+    REQUIRE_EQUAL(strcmp(align->qual, "*"), 0);
+
+    REQUIRE_RC(SAMExtractorRelease(extractor));
 }
 
 TEST_CASE(SAMfile)
@@ -414,12 +487,11 @@ TEST_CASE(SAMfile)
 
     REQUIRE_RC(KDirectoryOpenFileRead(srcdir, &infile, fname));
     KDirectoryRelease(srcdir);
-    srcdir = NULL;
 
     String sfname;
     StringInitCString(&sfname, fname);
 
-    SAMExtractor* extractor;
+    SAMExtractor* extractor = NULL;
     REQUIRE_RC(SAMExtractorMake(&extractor, infile, &sfname, -1));
 
     Vector headers;
@@ -445,7 +517,7 @@ TEST_CASE(SAMfile)
         }
         SAMExtractorInvalidateAlignments(extractor);
     } while (vlen);
-    REQUIRE_EQUAL(total, 9955);
+    REQUIRE_EQUAL(total, 9956);
 
     REQUIRE_RC(SAMExtractorRelease(extractor));
 

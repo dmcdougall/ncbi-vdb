@@ -48,7 +48,12 @@ typedef uint32_t u32;
 typedef int64_t i64;
 typedef uint64_t u64;
 
-typedef enum efile_type { unknown, SAM, BAM, SAMGZUNSUPPORTED } efile_type;
+typedef enum efile_type {
+    unknown = 999,
+    SAM,
+    BAM,
+    SAMGZUNSUPPORTED
+} efile_type;
 
 typedef struct Alignment
 {
@@ -68,7 +73,6 @@ typedef struct Alignment
 typedef struct SAMExtractor
 {
     const KFile* infile;
-    String* fname;
 
     Vector headers;
     Vector alignments;
