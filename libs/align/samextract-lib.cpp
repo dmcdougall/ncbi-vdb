@@ -383,12 +383,12 @@ rc_t process_alignment(SAMExtractor* state, const char* qname,
 
         if (qual && qual[0] != '*')
             if (strlen(qual) != strlen(seq))
-                ERR("QUAL and SEQ length mismatch %d %d", strlen(qual),
-                    strlen(seq));
+                WARN("QUAL and SEQ length mismatch %d %d", strlen(qual),
+                     strlen(seq));
     }
 
-    if (!check_cigar(cigar, seq)) {
-        ERR("CIGAR '%s' and sequence '%s' mismatch", cigar, seq);
+    if (cigar && strlen(cigar) && !check_cigar(cigar, seq)) {
+        WARN("CIGAR '%s' and sequence '%s' mismatch", cigar, seq);
     }
 
     String srname;
@@ -724,7 +724,7 @@ LIB_EXPORT rc_t CC SAMExtractorGetAlignments(SAMExtractor* s,
         rc = BAMGetAlignments(s);
         DBG("complete parsing %d alignments", VectorLength(&s->alignments));
         if (rc) {
-            ERR("BAMGetAlignmentes failed");
+            ERR("BAMGetAlignments failed");
             return rc;
         }
     } else {

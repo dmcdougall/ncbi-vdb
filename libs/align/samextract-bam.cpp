@@ -775,11 +775,6 @@ rc_t BAMGetAlignments(SAMExtractor* state)
             ERR("error: bad next_pos:%d", align.next_pos);
             return RC(rcAlign, rcFile, rcParsing, rcData, rcInvalid);
         }
-        if (align.tlen < 0) {
-            ERR("error: bad tlen:%d", align.tlen);
-            return RC(rcAlign, rcFile, rcParsing, rcData, rcInvalid);
-        }
-
         if (align.refID >= 0)
             ref_name = (char*)VectorGet(&state->bam_references, align.refID);
 
@@ -821,6 +816,7 @@ rc_t BAMGetAlignments(SAMExtractor* state)
             cigar = NULL;
             DBG("scigar is '%s'", scigar);
         } else {
+            DBG("close, but no cigar");
             scigar = (char*)pool_alloc(1);
             scigar[0] = '\0';
         }
