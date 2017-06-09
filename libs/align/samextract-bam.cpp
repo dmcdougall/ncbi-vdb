@@ -42,6 +42,8 @@
 #include <kproc/timeout.h>
 #if LINUX
 #include <pthread.h>
+#else
+#include <intrin.h>
 #endif
 #include <stdint.h>
 #include <stdio.h>
@@ -663,8 +665,15 @@ void fast_u32toa(char* buf, u32 val)
         pow10[0] = 0;
     }
 
-    // See http://graphics.stanford.edu/~seander/bithacks.html
+// See http://graphics.stanford.edu/~seander/bithacks.html
+#if LINUX
     u32 lg2 = (64 - __builtin_clzll(val | 1));
+#else
+    // TODO: Untested
+    u64 lg2;
+    BitScanReverse(&lg2, val | 1);
+    lg2 = (u32)(64 - lg2);
+#endif
     u32 lg10 = lg2 * 1233 >> 12;
     lg10 = lg10 - (val < pow10[lg10]) + 1;
 
