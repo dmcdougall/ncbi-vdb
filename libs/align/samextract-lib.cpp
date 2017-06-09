@@ -88,7 +88,6 @@ void logmsg(const char* fname, int line, const char* func,
     free(buf);
     buf = NULL;
     fflush(stderr);
-    //    if (!strcmp(severity, "Error")) abort();
 }
 
 rc_t SAM_parseline(SAMExtractor* state)
@@ -217,20 +216,31 @@ bool isfloworder(const char* str)
     return true;
 }
 
+// Pass in a NULL for cigar to cleanup cache
 bool check_cigar(const char* cigar, const char* seq)
 {
     static unsigned char mult[256];
     static bool regcompiled = false;
     static regex_t preg;
-    size_t seqlen = strlen(seq);
     size_t cigarlen = 0;
 
+    if (cigar == NULL) {
+        if (regcompiled) {
+            regcompiled = false;
+            regfree(&preg);
+        }
+
+        return false;
+    }
     if (cigar[0] == '*' && cigar[1] == '\0') return true;
 
-    mult['M'] = 1;
-    mult['I'] = 1;
-    mult['S'] = 1;
+    size_t seqlen = strlen(seq);
+
+    // faster to just set these rather than test if initialized?
     mult['='] = 1;
+    mult['I'] = 1;
+    mult['M'] = 1;
+    mult['S'] = 1;
     mult['X'] = 1;
 
     char* opcodestr = (char*)malloc(1 + strlen(cigar) / 2);
@@ -252,7 +262,10 @@ bool check_cigar(const char* cigar, const char* seq)
 
     // "Sum of lengths of the M/I/S/=/X operations shall equal the length of
     // SEQ."
-    if (cigarlen != seqlen) return false;
+    if (cigarlen != seqlen) {
+        free(opcodestr);
+        return false;
+    }
 
     // "H can only be present as the first and/or last operation."
     // "S may only have H operations between them and the ends of the CIGAR
@@ -269,6 +282,7 @@ bool check_cigar(const char* cigar, const char* seq)
     regmatch_t matches[1];
     if (regexec(&preg, opcodestr, 1, matches, 0) == REG_NOMATCH) {
         DBG("Bad CIGAR: '%s' '%s'", cigar, opcodestr);
+        free(opcodestr);
         return false;
     }
 
@@ -324,10 +338,7 @@ bool filter(const SAMExtractor* state, String* srname, ssize_t pos)
     if (state->filter_rname && StringEqual(state->filter_rname, srname))
         return true;
 
-    if (state->file_type == SAM) --pos; // Internally use and expose 0-based
-
-    if (pos < 0)
-        return false; // No filtering if pos uncertain (0 in SAM, -1 in BAM)
+    if (pos < 0) return false; // No filtering if pos uncertain
 
     if (state->filter_pos != -1) {
         if (pos < state->filter_pos) // Before pos
@@ -349,11 +360,11 @@ rc_t process_alignment(SAMExtractor* state, const char* qname,
                        const char* qual)
 {
     DBG("Have %d alignments", VectorLength(&state->alignments));
-    DBG("process_alignment %s %d %s", qname, flag, rname);
+    DBG("process_alignment qname=%s flag=%d rname=%s", qname, flag, rname);
 
     i64 ipos = fast_strtoi64(pos);
 
-    if (ipos < -1) ERR("POS not in range %s", pos);
+    if (ipos < 0) ERR("POS not in range %s", pos);
 
     if (state->file_type == SAM) {
         if (!inrange(flag, 0, UINT16_MAX)) ERR("Flag not in range %s", flag);
@@ -367,6 +378,13 @@ rc_t process_alignment(SAMExtractor* state, const char* qname,
 
         if (!inrange(tlen, INT32_MIN, INT32_MAX))
             ERR("TLEN not in range %s", tlen);
+
+        if (!strcmp(rnext, "=")) rnext = rname;
+
+        if (qual && qual[0] != '*')
+            if (strlen(qual) != strlen(seq))
+                ERR("QUAL and SEQ length mismatch %d %d", strlen(qual),
+                    strlen(seq));
     }
 
     if (!check_cigar(cigar, seq)) {
@@ -469,6 +487,7 @@ LIB_EXPORT rc_t CC SAMExtractorMake(SAMExtractor** state, const KFile* fin,
     VectorInit(&s->headers, 0, 0);
     VectorInit(&s->alignments, 0, 0);
     VectorInit(&s->tagvalues, 0, 0);
+    VectorInit(&s->bam_references, 0, 0);
 
     s->prev_headers = NULL;
     s->prev_aligns = NULL;
@@ -529,6 +548,9 @@ LIB_EXPORT rc_t CC SAMExtractorRelease(SAMExtractor* s)
 
     pool_release();
     VectorWhack(&s->headers, NULL, NULL);
+    for (u32 i = 0; i != VectorLength(&s->bam_references); ++i)
+        free((void*)VectorGet(&s->bam_references, i));
+    VectorWhack(&s->bam_references, NULL, NULL);
     KQueueRelease(s->inflatequeue);
     KQueueRelease(s->parsequeue);
     VectorWhack(&s->threads, NULL, NULL);
@@ -538,6 +560,8 @@ LIB_EXPORT rc_t CC SAMExtractorRelease(SAMExtractor* s)
     fname_desc = NULL;
     memset(s, 0, sizeof(SAMExtractor));
     free(s);
+
+    check_cigar(NULL, NULL);
 
     return 0;
 }

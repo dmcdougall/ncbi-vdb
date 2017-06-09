@@ -534,12 +534,12 @@ rc_t BAMGetHeaders(SAMExtractor* state)
         }
         if (l_name > 256) {
             ERR("warning: Long reference name:%d", l_name);
-            //            return 0;
         }
-        char* name = (char*)pool_alloc(l_name + 1);
+        char* name
+            = (char*)malloc(l_name + 1); // These need to persist across pools
         if (!bview.getbytes(state->parsequeue, name, l_name)) return 1;
-        DBG("ref #%d:'%s'", i, name);
-        pool_free(name);
+        DBG("ref #%d: name='%s'", i, name);
+        VectorAppend(&state->bam_references, NULL, name);
         name = NULL;
         i32 l_ref;
         if (!bview.getbytes(state->parsequeue, (char*)&l_ref, 4)) return 1;
@@ -636,6 +636,20 @@ void decode_seq(const u8* seqbytes, size_t l_seq, char* seq)
     seq[l_seq] = '\0';
 }
 
+void decode_qual(const u8* qualbytes, size_t l_seq, char* qual)
+{
+    bool absent = false;
+    for (u32 i = 0; i != l_seq; ++i) {
+        if (qualbytes[i] == 255) absent = true;
+        qual[i] = qualbytes[i] + 33;
+    }
+    qual[l_seq] = '\0';
+    if (absent) {
+        qual[0] = '*';
+        qual[1] = '\0';
+    }
+}
+
 void fast_u32toa(char* buf, u32 val)
 {
     static u64 pow10[20];
@@ -713,7 +727,6 @@ char* decode_cigar(u32* cigar, u16 n_cigar_op)
     //   Likely 1/5 that, but pool allocation cheaper than computing.
     char* scigar = (char*)pool_alloc(n_cigar_op * 10 + 1);
     char* p = scigar;
-    // size_t rleopslen = 0;
     for (int i = 0; i != n_cigar_op; ++i) {
         i32 oplen = cigar[i] >> 4;
         i32 op = cigar[i] & 0xf;
@@ -736,6 +749,8 @@ rc_t BAMGetAlignments(SAMExtractor* state)
 {
     bamalign align;
 
+    const char* ref_name = "";
+    const char* next_ref_id = "";
     while (bview.getbytes(state->parsequeue, (char*)&align, sizeof(align))) {
         DBG("alignment block_size=%d refID=%d pos=%d", align.block_size,
             align.refID, align.pos);
@@ -764,6 +779,15 @@ rc_t BAMGetAlignments(SAMExtractor* state)
             ERR("error: bad tlen:%d", align.tlen);
             return RC(rcAlign, rcFile, rcParsing, rcData, rcInvalid);
         }
+
+        if (align.refID >= 0)
+            ref_name = (char*)VectorGet(&state->bam_references, align.refID);
+
+        DBG("next_ref_ID=%d\n", align.next_refID);
+        if (align.next_refID >= 0)
+            next_ref_id
+                = (char*)VectorGet(&state->bam_references, align.next_refID);
+        DBG("next_ref_id='%s'\n", next_ref_id);
 
         DBG("align.bin_mq_nl=%d", align.bin_mq_nl);
         u16 bin = align.bin_mq_nl >> 16;
@@ -812,18 +836,23 @@ rc_t BAMGetAlignments(SAMExtractor* state)
                                 bytesofseq))
                 return RC(rcAlign, rcFile, rcParsing, rcData, rcInvalid);
 
+            u8* qualbytes = (u8*)pool_alloc(align.l_seq);
+            if (!bview.getbytes(state->parsequeue, (char*)qualbytes,
+                                align.l_seq))
+                return RC(rcAlign, rcFile, rcParsing, rcData, rcInvalid);
+
             seq = (char*)pool_alloc(align.l_seq + 1);
             qual = (char*)pool_alloc(align.l_seq + 1);
 
             decode_seq(seqbytes, align.l_seq, seq);
             DBG("seq is '%s'\n", seq);
 
-            if (!bview.getbytes(state->parsequeue, qual, align.l_seq))
-                return RC(rcAlign, rcFile, rcParsing, rcData, rcInvalid);
-            qual[align.l_seq] = '\0';
+            decode_qual(qualbytes, align.l_seq, qual);
 
             DBG("%d pairs in sequence", align.l_seq);
             DBG("seq='%s'", seq);
+            DBG("qual='%s'", qual);
+            pool_free(qualbytes);
             pool_free(seqbytes);
             seqbytes = NULL;
         } else {
@@ -923,34 +952,25 @@ rc_t BAMGetAlignments(SAMExtractor* state)
         }
         DBG("no more ttvs");
 
-        char srnext[16]; // enough for i32/u32
-        char sflag[16];
+        char sflag[16]; // Enough for i32/u32
         char spos[16];
         char spnext[16];
         char stlen[16];
         char smapq[16];
-        fast_i32toa(srnext, align.next_refID);
         fast_i32toa(sflag, flag);
-        fast_i32toa(spos, align.pos);
-        fast_i32toa(spnext, align.next_pos - 1);
+        fast_i32toa(spos, align.pos + 1);        // Convert to SAM's 1-based
+        fast_i32toa(spnext, align.next_pos + 1); // ""
         fast_i32toa(stlen, align.tlen);
         fast_i32toa(smapq, mapq);
 
-        // We want read (seq), cigar, rname, pos and flags
-        // name=Qname, reference sequence name
-        // read_name=qname, query template name
-        process_alignment(state,
-                          NULL, // QNAME
-                          sflag,
-                          read_name, // RNAME
-                          spos,
-                          smapq,  // mapq
-                          scigar, // cigar
-                          srnext, // rnext
-                          spnext, // pnext
-                          stlen,  // tlen
-                          seq,    // read
-                          qual    // qual
+        process_alignment(state, read_name, sflag, ref_name, spos,
+                          smapq,       // mapq
+                          scigar,      // cigar
+                          next_ref_id, // rnext
+                          spnext,      // pnext
+                          stlen,       // tlen
+                          seq,         // read
+                          qual         // qual
                           );
 
         pool_free(read_name);

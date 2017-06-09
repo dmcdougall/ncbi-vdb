@@ -76,6 +76,7 @@ typedef struct SAMExtractor
 
     Vector headers;
     Vector alignments;
+    Vector bam_references;
 
     Vector tagvalues;
     Vector* prev_headers;

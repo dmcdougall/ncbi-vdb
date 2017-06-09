@@ -114,6 +114,18 @@ static rc_t extract_buf(const char* buf, const size_t sz,
 
 TEST_SUITE(SAMExtractTestSuite)
 
+TEST_CASE(Test_Qual_Decode)
+{
+    unsigned char tst1[] = {0, 1, 2, 3};
+    unsigned char tst2[] = {0, 0xff};
+    char qual[30];
+
+    decode_qual(tst1, sizeof(tst1), qual);
+    REQUIRE_EQUAL(strcmp(qual, "!\"#$"), 0);
+    decode_qual(tst2, sizeof(tst2), qual);
+    REQUIRE_EQUAL(strcmp(qual, "*"), 0);
+}
+
 TEST_CASE(Fast_Sequence)
 {
     unsigned char test[]
@@ -268,6 +280,7 @@ TEST_CASE(Check_Cigar)
     REQUIRE_EQUAL(check_cigar("1H1S1M1S", "AAA"), true);
     REQUIRE_EQUAL(check_cigar("1M1H", "A"), true);
     REQUIRE_EQUAL(check_cigar("1M1S", "AA"), true);
+    check_cigar(NULL, NULL);
     REQUIRE_EQUAL(check_cigar("1H1M", "A"), true);
     REQUIRE_EQUAL(check_cigar("1S1M", "AA"), true);
     REQUIRE_EQUAL(check_cigar("1S1H1M", "AA"), false);
@@ -282,6 +295,7 @@ TEST_CASE(Check_Cigar)
     REQUIRE_EQUAL(check_cigar("1S1H", "AA"), false);
     REQUIRE_EQUAL(check_cigar("1H1S", "AA"), false);
     REQUIRE_EQUAL(check_cigar("1H", "A"), false);
+    check_cigar(NULL, NULL);
 }
 
 TEST_CASE(In_Range)
@@ -312,7 +326,6 @@ TEST_CASE(Is_floworder)
 
 TEST_CASE(header1)
 {
-    rc_t rc;
     SAMExtractor* extractor = NULL;
     const char* header_text
         = "@HD\tVN:1.5\tSO:coordinate\n"
@@ -362,7 +375,7 @@ TEST_CASE(header1)
     REQUIRE_EQUAL(align->pos, (int32_t)1);
     REQUIRE_EQUAL(align->mapq, (uint8_t)30);
     REQUIRE_EQUAL(strcmp(align->cigar, "16M"), 0);
-    REQUIRE_EQUAL(strcmp(align->rnext, "="), 0);
+    REQUIRE_EQUAL(strcmp(align->rnext, "test"), 0);
     REQUIRE_EQUAL(align->pnext, (int32_t)37);
     REQUIRE_EQUAL(align->tlen, (int32_t)39);
     REQUIRE_EQUAL(strcmp(align->read, "TAGATAAAGGATACTG"), 0);
@@ -375,7 +388,7 @@ TEST_CASE(header1)
     REQUIRE_EQUAL(align->pos, (int32_t)20);
     REQUIRE_EQUAL(align->mapq, (uint8_t)30);
     REQUIRE_EQUAL(strcmp(align->cigar, "2M3M3M"), 0);
-    REQUIRE_EQUAL(strcmp(align->rnext, "="), 0);
+    REQUIRE_EQUAL(strcmp(align->rnext, "test"), 0);
     REQUIRE_EQUAL(align->pnext, (int32_t)50);
     REQUIRE_EQUAL(align->tlen, (int32_t)20);
     REQUIRE_EQUAL(strcmp(align->read, "TAGCATAT"), 0);
@@ -455,7 +468,7 @@ TEST_CASE(BAMfile)
     REQUIRE_EQUAL(align->pos, (int32_t)1);
     REQUIRE_EQUAL(align->mapq, (uint8_t)30);
     REQUIRE_EQUAL(strcmp(align->cigar, "16M"), 0);
-    REQUIRE_EQUAL(strcmp(align->rnext, "="), 0);
+    REQUIRE_EQUAL(strcmp(align->rnext, "test"), 0);
     REQUIRE_EQUAL(align->pnext, (int32_t)37);
     REQUIRE_EQUAL(align->tlen, (int32_t)39);
     REQUIRE_EQUAL(strcmp(align->read, "TAGATAAAGGATACTG"), 0);
@@ -468,7 +481,7 @@ TEST_CASE(BAMfile)
     REQUIRE_EQUAL(align->pos, (int32_t)20);
     REQUIRE_EQUAL(align->mapq, (uint8_t)30);
     REQUIRE_EQUAL(strcmp(align->cigar, "2M3M3M"), 0);
-    REQUIRE_EQUAL(strcmp(align->rnext, "="), 0);
+    REQUIRE_EQUAL(strcmp(align->rnext, "test"), 0);
     REQUIRE_EQUAL(align->pnext, (int32_t)50);
     REQUIRE_EQUAL(align->tlen, (int32_t)20);
     REQUIRE_EQUAL(strcmp(align->read, "TAGCATAT"), 0);
@@ -496,13 +509,6 @@ TEST_CASE(SAMfile)
 
     Vector headers;
     REQUIRE_RC(SAMExtractorGetHeaders(extractor, &headers));
-    for (uint32_t i = 0; i != VectorLength(&headers); ++i) {
-        Header* hdr = (Header*)VectorGet(&headers, i);
-        Vector* tvs = &hdr->tagvalues;
-        for (uint32_t j = 0; j != VectorLength(tvs); ++j) {
-            TagValue* tv = (TagValue*)VectorGet(tvs, j);
-        }
-    }
     SAMExtractorInvalidateHeaders(extractor);
 
     int total = 0;
@@ -512,9 +518,6 @@ TEST_CASE(SAMfile)
         REQUIRE_RC(SAMExtractorGetAlignments(extractor, &alignments));
         vlen = VectorLength(&alignments);
         total += vlen;
-        for (uint32_t i = 0; i != vlen; ++i) {
-            Alignment* align = (Alignment*)VectorGet(&alignments, i);
-        }
         SAMExtractorInvalidateAlignments(extractor);
     } while (vlen);
     REQUIRE_EQUAL(total, 9956);
