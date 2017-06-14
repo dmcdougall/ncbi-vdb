@@ -212,8 +212,6 @@ static rc_t seeker(const KThread* kt, void* in)
             break;
         }
 
-        // if (state->file_pos > 100000000) break; // TODO
-
         z_stream strm;
         memset(&strm, 0, sizeof strm);
         strm.next_in = (Bytef*)state->readbuf;
@@ -799,7 +797,7 @@ rc_t BAMGetAlignments(SAMExtractor* state)
         if (!bview.getbytes(state->parsequeue, read_name, l_read_name))
             return RC(rcAlign, rcFile, rcParsing, rcData, rcInvalid);
         DBG("read_name='%s'", read_name);
-        // TODO: Check filter here, based on rname and pos
+        // TODO: Eary out, check filter here, based on rname and pos
         char* scigar = NULL;
         if (n_cigar_op > 0) {
             u32* cigar = (u32*)pool_alloc(n_cigar_op * sizeof(u32));
@@ -857,7 +855,6 @@ rc_t BAMGetAlignments(SAMExtractor* state)
             qual = seq;
         }
 
-        // TODO: Check that rleopslen==l_seq
         int remain = align.block_size
             - (sizeof(align) + l_read_name + n_cigar_op * 4 + bytesofseq
                + align.l_seq)

@@ -224,14 +224,14 @@ TEST_CASE(Fast_strtoi64)
     }
 
     for (int i = 0; i != NUM_RAND; ++i) {
-        sprintf(str, "%ld", (random() << 32) + random() + random());
+        sprintf(str, "%ld", (random() << 33) + (random() << 16) + random());
         REQUIRE_EQUAL(tst_strtoi64(str), true);
     }
 
 #ifdef TEST_ALL_THE_INTEGERS
     fprintf(stderr, "all strtoi32\n");
-    for (int i = 2 * INT32_MIN; i != 2 * INT32_MAX; ++i) {
-        sprintf(str, "%d", i);
+    for (long i = 2 * INT32_MIN; i != 2 * INT32_MAX; ++i) {
+        sprintf(str, "%ld", i);
         REQUIRE_EQUAL(tst_strtoi64(str), true);
     }
 #endif
