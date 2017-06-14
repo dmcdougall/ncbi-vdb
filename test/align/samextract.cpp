@@ -84,7 +84,7 @@ rc_t CC KMain(int argc, char* argv[])
         Vector headers;
         rc = SAMExtractorGetHeaders(extractor, &headers);
         if (rc) return rc;
-        fprintf(stderr, "\n\nGot %d headers\n", VectorLength(&headers));
+        fprintf(stderr, "Got %d headers\n", VectorLength(&headers));
         for (uint32_t i = 0; i != VectorLength(&headers); ++i) {
             Header* hdr = (Header*)VectorGet(&headers, i);
             Vector* tvs = &hdr->tagvalues;
@@ -139,6 +139,5 @@ rc_t CC KMain(int argc, char* argv[])
         KFileRelease(infile);
         infile = NULL;
     }
-    fprintf(stderr, "KMain done\n");
     return 0;
 }

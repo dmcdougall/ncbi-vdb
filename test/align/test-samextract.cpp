@@ -526,8 +526,27 @@ TEST_CASE(SAMfile)
 
     KFileRelease(infile);
 }
-// filter
-// mempool
+
+TEST_CASE(Filter)
+{
+    String filter_rname;
+    String other;
+    StringInitCString(&filter_rname, "r001");
+    StringInitCString(&other, "r002");
+    SAMExtractor extractor;
+    extractor.filter_rname = &filter_rname;
+    extractor.filter_pos = -1;
+    extractor.filter_length = 10;
+
+    REQUIRE_EQUAL(filter(&extractor, &filter_rname, 0), true);
+    REQUIRE_EQUAL(filter(&extractor, &other, -1), false);
+    REQUIRE_EQUAL(filter(&extractor, &other, 0), false);
+    extractor.filter_pos = 5;
+    REQUIRE_EQUAL(filter(&extractor, &filter_rname, 4), true);
+    REQUIRE_EQUAL(filter(&extractor, &filter_rname, 20), true);
+}
+// TODO: mempool, how to test an allocator?
+// TODO: negative tests, syntax errors
 
 extern "C" {
 ver_t CC KAppVersion(void) { return 0x1000000; }

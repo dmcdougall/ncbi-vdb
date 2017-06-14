@@ -130,7 +130,7 @@ opttag [A-Za-z][A-Za-z0-9]
 <INHD>"\tVN:" return HDVN;
 <INHD>"\tSO:" return HDSO;
 <INHD>"\tGO:" return HDGO;
-<INHD>\t[A-Z][A-Z]: { ERR("Undefined HD tag %s",yytext); yyterminate();}
+<INHD>\t[A-Z][A-Z]: { ERR("Undefined HD tag %s",yytext+1); yyterminate();}
 <INHD>[0-9]+\.[0-9]+ {
     SAMlval.strval=pool_memdup(SAMtext,SAMleng+1);
     DBG(" header version");
@@ -158,7 +158,7 @@ opttag [A-Za-z][A-Za-z0-9]
 <INSQ>"\tMD5:" { WARN("SQ MD5 should be M5"); SAMlval.strval="M5"; return SQM5; }
 <INSQ>"\tSP:" { SAMlval.strval="SP"; return SQSP; }
 <INSQ>"\tUR:" { SAMlval.strval="UR"; return SQUR; }
-<INSQ>\t[A-Z][A-Z]: { ERR("Undefined SQ tag %s",yytext); yyterminate();}
+<INSQ>\t[A-Z][A-Z]: { ERR("Undefined SQ tag %s",yytext+1); yyterminate();}
 <INSQ>[^\t\r\n]+ {
     SAMlval.strval=pool_memdup(SAMtext,SAMleng+1);
     DBG("SEQ VALUE");
@@ -185,9 +185,9 @@ opttag [A-Za-z][A-Za-z0-9]
 <INRG>"\tPU:" { SAMlval.strval="PU"; return RGPU; }
 <INRG>"\tSM:" { SAMlval.strval="SM"; return RGSM; }
 <INRG>\t[A-Z][A-Z]: { ERR("Undefined RG tag:%s",yytext+1); yyterminate();}
-<INRG>"\tLNID:" { WARN("LNID is improper RG tag"); yyterminate();}
+<INRG>"\tLNID:" { WARN("LNID is improper RG tag");}
 <INRG>\t[^: -~]+: { ERR("Undefined long RG tag: %s",yytext+1); yyterminate();}
-<INRG>CAPILLARY|LS454|ILLUMINA|illumina|Illumina|Illumina[A-z]+|SOLID|SOLiD|HELICOS|IONTORRENT|ONT|PACBIO|COMPLETEGENOMICS {
+<INRG>CAPILLARY|LS454|ILLUMINA|illumina|Illumina|Illumina[A-z]+|SOLID|SOLiD|solid|HELICOS|IONTORRENT|ONT|PACBIO|PacBio_SMRTPacBio_RS|IONTORRENT|LS454|"Complete Genomics" {
     SAMlval.strval=pool_memdup(SAMtext,SAMleng+1);
     return PLATFORM; }
 <INRG>[^\t\r\n]+ {
@@ -209,7 +209,7 @@ opttag [A-Za-z][A-Za-z0-9]
 <INPG>"\tPP:" { SAMlval.strval="PP"; return PGPP; }
 <INPG>"\tDS:" { SAMlval.strval="DS"; return PGDS; }
 <INPG>"\tVN:" { SAMlval.strval="VN"; return PGVN; }
-<INPG>\t[A-Z][A-Z]: { ERR("Undefined PG tag %s",yytext); yyterminate();}
+<INPG>\t[A-Z][A-Z]: { ERR("Undefined PG tag %s",yytext+1); yyterminate();}
 <INPG>\t[a-z_]{3,} {
     WARN("Not a PG tag:%s",yytext+1);
     SAMlval.strval=pool_memdup(SAMtext+1, SAMleng);
