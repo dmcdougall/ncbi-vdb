@@ -140,7 +140,8 @@ void SAMerror(SAMExtractor* state, const char* s)
     state->rc = rc;
 }
 
-// No error checking, produces bad data if non-digts present
+// No error checking, doesn't skip whitespace, produces bad data if non-digts
+// present
 i64 fast_strtoi64(const char* p)
 {
     i64 val = 0;

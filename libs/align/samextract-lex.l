@@ -187,9 +187,6 @@ opttag [A-Za-z][A-Za-z0-9]
 <INRG>\t[A-Z][A-Z]: { ERR("Undefined RG tag:%s",yytext+1); yyterminate();}
 <INRG>"\tLNID:" { WARN("LNID is improper RG tag");}
 <INRG>\t[^: -~]+: { ERR("Undefined long RG tag: %s",yytext+1); yyterminate();}
-<INRG>CAPILLARY|LS454|ILLUMINA|illumina|Illumina|Illumina[A-z]+|SOLID|SOLiD|solid|HELICOS|IONTORRENT|ONT|PACBIO|PacBio_SMRTPacBio_RS|IONTORRENT|LS454|"Complete Genomics" {
-    SAMlval.strval=pool_memdup(SAMtext,SAMleng+1);
-    return PLATFORM; }
 <INRG>[^\t\r\n]+ {
     SAMlval.strval=pool_memdup(SAMtext,SAMleng+1);
     DBG("readgroup value:%s",yytext);

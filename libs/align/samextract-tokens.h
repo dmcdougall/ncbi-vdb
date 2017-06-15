@@ -95,22 +95,21 @@ extern int SAMdebug;
     RGPM = 304,
     RGPU = 305,
     RGSM = 306,
-    PLATFORM = 307,
-    PGID = 308,
-    PGPN = 309,
-    PGCL = 310,
-    PGPP = 311,
-    PGDS = 312,
-    PGVN = 313,
-    SQSN = 314,
-    SQLN = 315,
-    SQAS = 316,
-    SQM5 = 317,
-    SQSP = 318,
-    SQUR = 319,
-    TAB = 320,
-    CONTROLCHAR = 321,
-    EOL = 322
+    PGID = 307,
+    PGPN = 308,
+    PGCL = 309,
+    PGPP = 310,
+    PGDS = 311,
+    PGVN = 312,
+    SQSN = 313,
+    SQLN = 314,
+    SQAS = 315,
+    SQM5 = 316,
+    SQSP = 317,
+    SQUR = 318,
+    TAB = 319,
+    CONTROLCHAR = 320,
+    EOL = 321
   };
 #endif
 
@@ -123,7 +122,7 @@ union YYSTYPE
 
  char * strval;
 
-#line 127 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-tokens.h" /* yacc.c:1909  */
+#line 126 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-tokens.h" /* yacc.c:1909  */
 };
 
 typedef union YYSTYPE YYSTYPE;

@@ -163,22 +163,21 @@ extern int SAMdebug;
     RGPM = 304,
     RGPU = 305,
     RGSM = 306,
-    PLATFORM = 307,
-    PGID = 308,
-    PGPN = 309,
-    PGCL = 310,
-    PGPP = 311,
-    PGDS = 312,
-    PGVN = 313,
-    SQSN = 314,
-    SQLN = 315,
-    SQAS = 316,
-    SQM5 = 317,
-    SQSP = 318,
-    SQUR = 319,
-    TAB = 320,
-    CONTROLCHAR = 321,
-    EOL = 322
+    PGID = 307,
+    PGPN = 308,
+    PGCL = 309,
+    PGPP = 310,
+    PGDS = 311,
+    PGVN = 312,
+    SQSN = 313,
+    SQLN = 314,
+    SQAS = 315,
+    SQM5 = 316,
+    SQSP = 317,
+    SQUR = 318,
+    TAB = 319,
+    CONTROLCHAR = 320,
+    EOL = 321
   };
 #endif
 
@@ -191,7 +190,7 @@ union YYSTYPE
 
  char * strval;
 
-#line 195 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:355  */
+#line 194 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:355  */
 };
 
 typedef union YYSTYPE YYSTYPE;
@@ -208,7 +207,7 @@ int SAMparse (SAMExtractor * state);
 
 /* Copy the second part of user declarations.  */
 
-#line 212 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:358  */
+#line 211 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:358  */
 
 #ifdef short
 # undef short
@@ -450,21 +449,21 @@ union yyalloc
 /* YYFINAL -- State number of the termination state.  */
 #define YYFINAL  2
 /* YYLAST -- Last index in YYTABLE.  */
-#define YYLAST   168
+#define YYLAST   167
 
 /* YYNTOKENS -- Number of terminals.  */
-#define YYNTOKENS  68
+#define YYNTOKENS  67
 /* YYNNTS -- Number of nonterminals.  */
 #define YYNNTS  19
 /* YYNRULES -- Number of rules.  */
-#define YYNRULES  72
+#define YYNRULES  71
 /* YYNSTATES -- Number of states.  */
-#define YYNSTATES  137
+#define YYNSTATES  136
 
 /* YYTRANSLATE[YYX] -- Symbol number corresponding to YYX as returned
    by yylex, with out-of-bounds checking.  */
 #define YYUNDEFTOK  2
-#define YYMAXUTOK   322
+#define YYMAXUTOK   321
 
 #define YYTRANSLATE(YYX)                                                \
   ((unsigned int) (YYX) <= YYMAXUTOK ? yytranslate[YYX] : YYUNDEFTOK)
@@ -505,21 +504,21 @@ static const yytype_uint8 yytranslate[] =
       35,    36,    37,    38,    39,    40,    41,    42,    43,    44,
       45,    46,    47,    48,    49,    50,    51,    52,    53,    54,
       55,    56,    57,    58,    59,    60,    61,    62,    63,    64,
-      65,    66,    67
+      65,    66
 };
 
 #if YYDEBUG
   /* YYRLINE[YYN] -- Source line where rule number YYN was defined.  */
 static const yytype_uint16 yyrline[] =
 {
-       0,   137,   137,   138,   142,   143,   147,   148,   149,   150,
-     151,   152,   156,   160,   178,   179,   182,   186,   190,   201,
-     207,   225,   226,   230,   234,   244,   247,   252,   255,   258,
-     262,   274,   275,   279,   283,   286,   289,   292,   295,   298,
-     305,   318,   319,   322,   326,   329,   332,   335,   340,   343,
-     346,   349,   352,   355,   359,   362,   365,   368,   373,   377,
-     383,   399,   417,   418,   422,   427,   432,   437,   442,   447,
-     452,   457,   462
+       0,   136,   136,   137,   141,   142,   146,   147,   148,   149,
+     150,   151,   155,   159,   177,   178,   181,   185,   189,   200,
+     206,   224,   225,   229,   233,   243,   246,   251,   254,   257,
+     261,   273,   274,   278,   282,   285,   288,   291,   294,   297,
+     304,   317,   318,   321,   326,   345,   348,   351,   354,   359,
+     362,   365,   368,   371,   374,   377,   380,   385,   389,   395,
+     411,   429,   430,   434,   439,   444,   449,   454,   459,   464,
+     469,   474
 };
 #endif
 
@@ -535,12 +534,12 @@ static const char *const yytname[] =
   "OPTFTYPE", "OPTZTYPE", "OPTHTYPE", "OPTBTYPE", "OPTAVALUE", "OPTIVALUE",
   "OPTFVALUE", "OPTZVALUE", "OPTHVALUE", "OPTBVALUE", "HDVN", "HDSO",
   "HDGO", "RGID", "RGCN", "RGDS", "RGDT", "RGFO", "RGKS", "RGLB", "RGPG",
-  "RGPI", "RGPL", "RGPM", "RGPU", "RGSM", "PLATFORM", "PGID", "PGPN",
-  "PGCL", "PGPP", "PGDS", "PGVN", "SQSN", "SQLN", "SQAS", "SQM5", "SQSP",
-  "SQUR", "TAB", "CONTROLCHAR", "EOL", "$accept", "sam", "line", "comment",
-  "header", "headerlist", "hdr", "sequence", "sequencelist", "sq",
-  "program", "programlist", "pg", "readgroup", "readgrouplist", "rg",
-  "alignment", "optlist", "opt", YY_NULLPTR
+  "RGPI", "RGPL", "RGPM", "RGPU", "RGSM", "PGID", "PGPN", "PGCL", "PGPP",
+  "PGDS", "PGVN", "SQSN", "SQLN", "SQAS", "SQM5", "SQSP", "SQUR", "TAB",
+  "CONTROLCHAR", "EOL", "$accept", "sam", "line", "comment", "header",
+  "headerlist", "hdr", "sequence", "sequencelist", "sq", "program",
+  "programlist", "pg", "readgroup", "readgrouplist", "rg", "alignment",
+  "optlist", "opt", YY_NULLPTR
 };
 #endif
 
@@ -555,7 +554,7 @@ static const yytype_uint16 yytoknum[] =
      285,   286,   287,   288,   289,   290,   291,   292,   293,   294,
      295,   296,   297,   298,   299,   300,   301,   302,   303,   304,
      305,   306,   307,   308,   309,   310,   311,   312,   313,   314,
-     315,   316,   317,   318,   319,   320,   321,   322
+     315,   316,   317,   318,   319,   320,   321
 };
 # endif
 
@@ -574,19 +573,19 @@ static const yytype_uint16 yytoknum[] =
 static const yytype_int16 yypact[] =
 {
      -46,     0,   -46,    -9,    44,    37,    15,   -46,    -2,   -46,
-     -46,   -46,   -46,   -46,   -46,   -46,   -46,   -46,     6,    13,
-      22,   -46,   -12,   -46,    23,    38,    46,    51,    56,    57,
-     -46,    30,   -46,    66,    67,    88,    90,    91,    92,    93,
-     108,   109,   110,    11,   111,   112,   113,   -45,    -7,   -46,
-     -46,   114,   115,   116,   117,   118,   119,    -6,   -46,   120,
+     -46,   -46,   -46,   -46,   -46,   -46,   -46,   -46,     6,    12,
+      14,   -46,   -12,   -46,    22,    23,    45,    50,    54,    55,
+     -46,    31,   -46,    56,    65,    66,    67,    88,    90,    91,
+      92,   107,   108,   109,   110,   111,   112,   -45,    -7,   -46,
+     -46,   113,   114,   115,   116,   117,   118,    -6,   -46,   119,
      -46,   -46,   -46,   -46,   -46,   -46,   -46,   -46,   -46,   -46,
      -46,   -46,   -46,   -46,   -46,   -46,   -46,   -46,   -46,   -46,
-     -46,   -46,   -46,   -46,   -46,   -46,   -46,   -46,    61,   -46,
-     -46,   -46,   -46,   -46,   -46,   -46,   -46,   -46,   -46,   -46,
-     121,   -46,   122,   123,   124,   125,   126,   127,   128,   -10,
-      86,   104,   103,   105,   -46,    -5,   -46,   102,   107,   129,
-     130,   106,   101,   131,   132,   133,   -46,   -46,   -46,   -46,
-     -46,   -46,   -46,   -46,   -46,   -46,   -46
+     -46,   -46,   -46,   -46,   -46,   -46,   -46,    61,   -46,   -46,
+     -46,   -46,   -46,   -46,   -46,   -46,   -46,   -46,   -46,   120,
+     -46,   121,   122,   123,   124,   125,   126,   127,   -10,    85,
+     103,   102,   104,   -46,    -5,   -46,   101,   106,   128,   129,
+     105,   100,   130,   131,   132,   -46,   -46,   -46,   -46,   -46,
+     -46,   -46,   -46,   -46,   -46,   -46
 };
 
   /* YYDEFACT[STATE-NUM] -- Default reduction number in state STATE-NUM.
@@ -601,27 +600,27 @@ static const yytype_uint8 yydefact[] =
        0,     0,     0,     0,     0,     0,     0,     0,     0,    41,
       39,     0,     0,     0,     0,     0,     0,     0,    31,     0,
       16,    17,    18,    13,    15,    23,    24,    25,    26,    27,
-      28,    20,    22,    57,    43,    44,    45,    46,    47,    48,
-      49,    50,    51,    53,    52,    54,    55,    56,     0,    59,
-      40,    42,    33,    34,    35,    36,    37,    38,    30,    32,
-       0,    58,     0,     0,     0,     0,     0,     0,     0,     0,
-       0,     0,     0,     0,    60,     0,    62,     0,     0,     0,
-       0,     0,     0,     0,     0,     0,    61,    63,    64,    65,
-      66,    67,    68,    69,    70,    71,    72
+      28,    20,    22,    56,    43,    45,    46,    47,    48,    49,
+      50,    51,    52,    44,    53,    54,    55,     0,    58,    40,
+      42,    33,    34,    35,    36,    37,    38,    30,    32,     0,
+      57,     0,     0,     0,     0,     0,     0,     0,     0,     0,
+       0,     0,     0,    59,     0,    61,     0,     0,     0,     0,
+       0,     0,     0,     0,     0,    60,    62,    63,    64,    65,
+      66,    67,    68,    69,    70,    71
 };
 
   /* YYPGOTO[NTERM-NUM].  */
 static const yytype_int16 yypgoto[] =
 {
-     -46,   -46,   -46,   -46,   -46,   -46,   134,   -46,   -46,   135,
-     -46,   -46,    85,   -46,   -46,    96,   -46,   -46,    31
+     -46,   -46,   -46,   -46,   -46,   -46,   133,   -46,   -46,   134,
+     -46,   -46,    84,   -46,   -46,    95,   -46,   -46,    33
 };
 
   /* YYDEFGOTO[NTERM-NUM].  */
 static const yytype_int8 yydefgoto[] =
 {
       -1,     1,    11,    12,    13,    22,    23,    14,    31,    32,
-      15,    57,    58,    16,    48,    49,    17,   115,   116
+      15,    57,    58,    16,    48,    49,    17,   114,   115
 };
 
   /* YYTABLE[YYPACT[STATE-NUM]] -- What to do in state STATE-NUM.  If
@@ -630,76 +629,76 @@ static const yytype_int8 yydefgoto[] =
 static const yytype_uint8 yytable[] =
 {
        2,    33,    50,     3,     4,     5,     6,     7,    59,     8,
-     110,   111,   112,   113,    60,   110,   111,   112,   113,    83,
-      88,    61,    89,    50,    18,    19,    20,    18,    19,    20,
-      62,    65,    34,    35,    36,    37,    38,    39,    40,    41,
-      42,    43,    44,    45,    46,    33,    66,    51,    52,    53,
-      54,    55,    56,    21,    67,    63,    21,   114,    47,    68,
-      90,    98,   126,    84,    69,    70,     9,    10,    51,    52,
-      53,    54,    55,    56,    73,    74,    34,    35,    36,    37,
+     109,   110,   111,   112,    60,   109,   110,   111,   112,    87,
+      61,    88,    62,    50,    18,    19,    20,    18,    19,    20,
+      65,    66,    34,    35,    36,    37,    38,    39,    40,    41,
+      42,    43,    44,    45,    46,    33,    51,    52,    53,    54,
+      55,    56,    21,    67,    63,    21,   113,    47,    68,    89,
+      97,   125,    69,    70,    73,     9,    10,    51,    52,    53,
+      54,    55,    56,    74,    75,    76,    34,    35,    36,    37,
       38,    39,    40,    41,    42,    43,    44,    45,    46,    24,
-      25,    26,    27,    28,    29,    30,    75,    71,    76,    77,
-      78,    79,    47,    24,    25,    26,    27,    28,    29,    30,
-     117,   118,   119,   120,   121,   122,    80,    81,    82,    85,
-      86,    87,    92,    93,    94,    95,    96,    97,   101,   123,
-     124,   100,   128,   102,   125,   103,   133,   104,   129,   105,
-     132,   106,    99,   107,    91,   108,   127,   109,     0,     0,
-       0,     0,     0,     0,     0,     0,    64,     0,     0,     0,
-       0,   130,   134,   131,     0,   135,    72,     0,   136
+      25,    26,    27,    28,    29,    30,    77,    71,    78,    79,
+      80,    47,    24,    25,    26,    27,    28,    29,    30,   116,
+     117,   118,   119,   120,   121,    81,    82,    83,    84,    85,
+      86,    91,    92,    93,    94,    95,    96,   100,   122,   123,
+      99,   127,   101,   124,   102,   132,   103,   128,   104,   131,
+     105,    98,   106,    90,   107,     0,   108,   126,     0,     0,
+       0,     0,     0,     0,     0,    64,     0,     0,     0,     0,
+     129,   133,   130,     0,   134,    72,     0,   135
 };
 
 static const yytype_int8 yycheck[] =
 {
        0,     8,     8,     3,     4,     5,     6,     7,    10,     9,
-      20,    21,    22,    23,     8,    20,    21,    22,    23,     8,
-      65,     8,    67,     8,    36,    37,    38,    36,    37,    38,
+      20,    21,    22,    23,     8,    20,    21,    22,    23,    64,
+       8,    66,     8,     8,    36,    37,    38,    36,    37,    38,
        8,     8,    39,    40,    41,    42,    43,    44,    45,    46,
-      47,    48,    49,    50,    51,     8,     8,    53,    54,    55,
-      56,    57,    58,    65,     8,    67,    65,    67,    65,     8,
-      67,    67,    67,    52,     8,     8,    66,    67,    53,    54,
-      55,    56,    57,    58,     8,     8,    39,    40,    41,    42,
-      43,    44,    45,    46,    47,    48,    49,    50,    51,    59,
-      60,    61,    62,    63,    64,    65,     8,    67,     8,     8,
-       8,     8,    65,    59,    60,    61,    62,    63,    64,    65,
-      24,    25,    26,    27,    28,    29,     8,     8,     8,     8,
-       8,     8,     8,     8,     8,     8,     8,     8,    67,    25,
-      27,    11,    30,    12,    29,    13,    35,    14,    31,    15,
-      34,    16,    57,    17,    48,    18,   115,    19,    -1,    -1,
-      -1,    -1,    -1,    -1,    -1,    -1,    22,    -1,    -1,    -1,
-      -1,    32,    31,    33,    -1,    33,    31,    -1,    35
+      47,    48,    49,    50,    51,     8,    52,    53,    54,    55,
+      56,    57,    64,     8,    66,    64,    66,    64,     8,    66,
+      66,    66,     8,     8,     8,    65,    66,    52,    53,    54,
+      55,    56,    57,     8,     8,     8,    39,    40,    41,    42,
+      43,    44,    45,    46,    47,    48,    49,    50,    51,    58,
+      59,    60,    61,    62,    63,    64,     8,    66,     8,     8,
+       8,    64,    58,    59,    60,    61,    62,    63,    64,    24,
+      25,    26,    27,    28,    29,     8,     8,     8,     8,     8,
+       8,     8,     8,     8,     8,     8,     8,    66,    25,    27,
+      11,    30,    12,    29,    13,    35,    14,    31,    15,    34,
+      16,    57,    17,    48,    18,    -1,    19,   114,    -1,    -1,
+      -1,    -1,    -1,    -1,    -1,    22,    -1,    -1,    -1,    -1,
+      32,    31,    33,    -1,    33,    31,    -1,    35
 };
 
   /* YYSTOS[STATE-NUM] -- The (internal number of the) accessing
      symbol of state STATE-NUM.  */
 static const yytype_uint8 yystos[] =
 {
-       0,    69,     0,     3,     4,     5,     6,     7,     9,    66,
-      67,    70,    71,    72,    75,    78,    81,    84,    36,    37,
-      38,    65,    73,    74,    59,    60,    61,    62,    63,    64,
-      65,    76,    77,     8,    39,    40,    41,    42,    43,    44,
-      45,    46,    47,    48,    49,    50,    51,    65,    82,    83,
-       8,    53,    54,    55,    56,    57,    58,    79,    80,    10,
-       8,     8,     8,    67,    74,     8,     8,     8,     8,     8,
-       8,    67,    77,     8,     8,     8,     8,     8,     8,     8,
-       8,     8,     8,     8,    52,     8,     8,     8,    65,    67,
-      67,    83,     8,     8,     8,     8,     8,     8,    67,    80,
-      11,    67,    12,    13,    14,    15,    16,    17,    18,    19,
-      20,    21,    22,    23,    67,    85,    86,    24,    25,    26,
-      27,    28,    29,    25,    27,    29,    67,    86,    30,    31,
-      32,    33,    34,    35,    31,    33,    35
+       0,    68,     0,     3,     4,     5,     6,     7,     9,    65,
+      66,    69,    70,    71,    74,    77,    80,    83,    36,    37,
+      38,    64,    72,    73,    58,    59,    60,    61,    62,    63,
+      64,    75,    76,     8,    39,    40,    41,    42,    43,    44,
+      45,    46,    47,    48,    49,    50,    51,    64,    81,    82,
+       8,    52,    53,    54,    55,    56,    57,    78,    79,    10,
+       8,     8,     8,    66,    73,     8,     8,     8,     8,     8,
+       8,    66,    76,     8,     8,     8,     8,     8,     8,     8,
+       8,     8,     8,     8,     8,     8,     8,    64,    66,    66,
+      82,     8,     8,     8,     8,     8,     8,    66,    79,    11,
+      66,    12,    13,    14,    15,    16,    17,    18,    19,    20,
+      21,    22,    23,    66,    84,    85,    24,    25,    26,    27,
+      28,    29,    25,    27,    29,    66,    85,    30,    31,    32,
+      33,    34,    35,    31,    33,    35
 };
 
   /* YYR1[YYN] -- Symbol number of symbol that rule YYN derives.  */
 static const yytype_uint8 yyr1[] =
 {
-       0,    68,    69,    69,    70,    70,    70,    70,    70,    70,
-      70,    70,    71,    72,    73,    73,    74,    74,    74,    74,
-      75,    76,    76,    77,    77,    77,    77,    77,    77,    77,
-      78,    79,    79,    80,    80,    80,    80,    80,    80,    80,
-      81,    82,    82,    83,    83,    83,    83,    83,    83,    83,
-      83,    83,    83,    83,    83,    83,    83,    83,    83,    83,
-      84,    84,    85,    85,    86,    86,    86,    86,    86,    86,
-      86,    86,    86
+       0,    67,    68,    68,    69,    69,    69,    69,    69,    69,
+      69,    69,    70,    71,    72,    72,    73,    73,    73,    73,
+      74,    75,    75,    76,    76,    76,    76,    76,    76,    76,
+      77,    78,    78,    79,    79,    79,    79,    79,    79,    79,
+      80,    81,    81,    82,    82,    82,    82,    82,    82,    82,
+      82,    82,    82,    82,    82,    82,    82,    82,    82,    83,
+      83,    84,    84,    85,    85,    85,    85,    85,    85,    85,
+      85,    85
 };
 
   /* YYR2[YYN] -- Number of symbols on the right hand side of rule YYN.  */
@@ -710,9 +709,9 @@ static const yytype_uint8 yyr2[] =
        3,     1,     2,     2,     2,     2,     2,     2,     2,     1,
        3,     1,     2,     2,     2,     2,     2,     2,     2,     1,
        3,     1,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     3,     2,
-      12,    13,     1,     2,     3,     3,     3,     3,     3,     3,
-       3,     3,     3
+       2,     2,     2,     2,     2,     2,     2,     3,     2,    12,
+      13,     1,     2,     3,     3,     3,     3,     3,     3,     3,
+       3,     3
 };
 
 
@@ -1391,58 +1390,58 @@ yyreduce:
   switch (yyn)
     {
         case 5:
-#line 143 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+#line 142 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     { ERR("CONTROLCHAR %d", (yyvsp[0].strval)[0]);
                    rc_t rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
                    state->rc=rc;
    }
-#line 1400 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 1399 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
   case 6:
-#line 147 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+#line 146 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     { DBG("comment"); }
-#line 1406 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 1405 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
   case 7:
-#line 148 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+#line 147 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     { DBG("header done"); }
-#line 1412 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 1411 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
   case 8:
-#line 149 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+#line 148 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     { DBG("sequence"); }
-#line 1418 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 1417 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
   case 9:
-#line 150 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+#line 149 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     { DBG("program"); }
-#line 1424 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 1423 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
   case 10:
-#line 151 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+#line 150 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     { DBG("readgroup"); }
-#line 1430 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 1429 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
   case 11:
-#line 152 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+#line 151 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     { DBG("alignment"); }
-#line 1436 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 1435 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
   case 12:
-#line 156 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+#line 155 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     { mark_headers(state,"CO"); }
-#line 1442 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 1441 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
   case 13:
-#line 161 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+#line 160 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
         DBG("header list");
         if (!state->hashdvn)
@@ -1457,44 +1456,44 @@ yyreduce:
            WARN("neither SO or GO tags present");
 
         mark_headers(state,"HD"); }
-#line 1461 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 1460 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
   case 16:
-#line 182 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+#line 181 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
         state->hashdvn=true;
         process_header(state,"HD","VN",(yyvsp[0].strval));
         pool_free((yyvsp[0].strval)); }
-#line 1470 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 1469 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
   case 17:
-#line 186 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+#line 185 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
         state->hashdso=true;
         process_header(state,"HD","SO",(yyvsp[0].strval));
         pool_free((yyvsp[0].strval)); }
-#line 1479 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 1478 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
   case 18:
-#line 190 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+#line 189 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
         state->hashdgo=true;
         process_header(state,"HD","GO",(yyvsp[0].strval));
         pool_free((yyvsp[0].strval)); }
-#line 1488 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 1487 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
   case 19:
-#line 201 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+#line 200 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     { WARN("empty tags"); }
-#line 1494 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 1493 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
   case 20:
-#line 208 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+#line 207 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
         DBG("sequence");
         if (!state->hassqsn)
@@ -1510,20 +1509,20 @@ yyreduce:
             state->rc=rc;
         }
         mark_headers(state,"SQ"); }
-#line 1514 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 1513 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
   case 23:
-#line 230 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+#line 229 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
         state->hassqsn=true;
         process_header(state,"SQ",(yyvsp[-1].strval),(yyvsp[0].strval));
         pool_free((yyvsp[0].strval)); }
-#line 1523 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 1522 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
   case 24:
-#line 234 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+#line 233 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
         if (!inrange((yyvsp[0].strval),1,INT32_MAX))
         {
@@ -1534,51 +1533,51 @@ yyreduce:
         state->hassqln=true;
         process_header(state,"SQ",(yyvsp[-1].strval),(yyvsp[0].strval));
         pool_free((yyvsp[0].strval)); }
-#line 1538 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 1537 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
   case 25:
-#line 244 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+#line 243 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
         process_header(state,"SQ",(yyvsp[-1].strval),(yyvsp[0].strval));
         pool_free((yyvsp[0].strval)); }
-#line 1546 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 1545 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
   case 26:
-#line 247 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+#line 246 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
         if (!ismd5((yyvsp[0].strval)))
             WARN("M5 value not followed by MD5");
         process_header(state,"SQ",(yyvsp[-1].strval),(yyvsp[0].strval));
         pool_free((yyvsp[0].strval)); }
-#line 1556 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 1555 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
   case 27:
-#line 252 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+#line 251 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
         process_header(state,"SQ",(yyvsp[-1].strval),(yyvsp[0].strval));
         pool_free((yyvsp[0].strval)); }
-#line 1564 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 1563 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
   case 28:
-#line 255 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+#line 254 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
         process_header(state,"SQ",(yyvsp[-1].strval),(yyvsp[0].strval));
         pool_free((yyvsp[0].strval)); }
-#line 1572 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 1571 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
   case 29:
-#line 258 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+#line 257 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     { WARN("Unexpected tab in sequence"); }
-#line 1578 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 1577 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
   case 30:
-#line 263 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+#line 262 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
         DBG("program");
         if (!state->haspgid)
@@ -1588,68 +1587,68 @@ yyreduce:
             state->rc=rc;
         }
         mark_headers(state,"PG"); }
-#line 1592 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 1591 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
   case 33:
-#line 279 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+#line 278 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
         state->haspgid=true;
         process_header(state,"PG",(yyvsp[-1].strval),(yyvsp[0].strval));
         pool_free((yyvsp[0].strval)); }
-#line 1601 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 1600 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
   case 34:
-#line 283 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+#line 282 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
         process_header(state,"PG",(yyvsp[-1].strval),(yyvsp[0].strval));
         pool_free((yyvsp[0].strval)); }
-#line 1609 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 1608 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
   case 35:
-#line 286 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+#line 285 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
         process_header(state,"PG",(yyvsp[-1].strval),(yyvsp[0].strval));
         pool_free((yyvsp[0].strval)); }
-#line 1617 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 1616 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
   case 36:
-#line 289 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+#line 288 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
         process_header(state,"PG",(yyvsp[-1].strval),(yyvsp[0].strval));
         pool_free((yyvsp[0].strval)); }
-#line 1625 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 1624 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
   case 37:
-#line 292 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+#line 291 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
         process_header(state,"PG",(yyvsp[-1].strval),(yyvsp[0].strval));
         pool_free((yyvsp[0].strval)); }
-#line 1633 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 1632 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
   case 38:
-#line 295 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+#line 294 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
         process_header(state,"PG",(yyvsp[-1].strval),(yyvsp[0].strval));
         pool_free((yyvsp[0].strval)); }
-#line 1641 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 1640 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
   case 39:
-#line 298 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+#line 297 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
         WARN("Bogus value in PG:%s",(yyvsp[0].strval));
         pool_free((yyvsp[0].strval)); }
-#line 1649 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 1648 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
   case 40:
-#line 306 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+#line 305 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
         DBG("readgroup ");
         if (!state->hasrgid)
@@ -1660,152 +1659,159 @@ yyreduce:
         }
 
         mark_headers(state,"RG"); }
-#line 1664 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 1663 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
   case 43:
-#line 322 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+#line 321 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
         state->hasrgid=true;
         process_header(state,"RG",(yyvsp[-1].strval),(yyvsp[0].strval));
         pool_free((yyvsp[0].strval)); }
-#line 1673 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 1672 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
   case 44:
 #line 326 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
+        if (
+            strcasecmp((yyvsp[0].strval),"illumina") && /* most frequent */
+            strcmp((yyvsp[0].strval),"CAPILLARY") &&
+            strcmp((yyvsp[0].strval),"LS454") &&
+            strcasecmp((yyvsp[0].strval),"solid") &&
+            strcmp((yyvsp[0].strval),"HELICOS") &&
+            strcmp((yyvsp[0].strval),"IONTORRENT") &&
+            strcmp((yyvsp[0].strval),"ONT") &&
+            strcasecmp((yyvsp[0].strval),"pacbio") &&
+            strcmp((yyvsp[0].strval),"\"Complete Genomics\"") && /* not compliant */
+            strcmp((yyvsp[0].strval),"illumina Hiseq") && /* most frequent */
+            strcmp((yyvsp[0].strval),"COMPLETEGENOMICS") && /* not compliant */
+            strcmp((yyvsp[0].strval),"PacBio_SMRT") && /* not compliant */
+            strcmp((yyvsp[0].strval),"PacBio_RS")  /* not compliant */
+        )
+            WARN("Invalid Platform %s", (yyvsp[0].strval));
         process_header(state,"RG",(yyvsp[-1].strval),(yyvsp[0].strval));
         pool_free((yyvsp[0].strval)); }
-#line 1681 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 1696 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
   case 45:
-#line 329 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+#line 345 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
         process_header(state,"RG",(yyvsp[-1].strval),(yyvsp[0].strval));
         pool_free((yyvsp[0].strval)); }
-#line 1689 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 1704 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
   case 46:
-#line 332 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+#line 348 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
         process_header(state,"RG",(yyvsp[-1].strval),(yyvsp[0].strval));
         pool_free((yyvsp[0].strval)); }
-#line 1697 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 1712 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
   case 47:
-#line 335 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+#line 351 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+    {
+        process_header(state,"RG",(yyvsp[-1].strval),(yyvsp[0].strval));
+        pool_free((yyvsp[0].strval)); }
+#line 1720 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+    break;
+
+  case 48:
+#line 354 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
         if (!isfloworder((yyvsp[0].strval)))
             WARN("Flow order incorrec");
         process_header(state,"RG",(yyvsp[-1].strval),(yyvsp[0].strval));
         pool_free((yyvsp[0].strval)); }
-#line 1707 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
-    break;
-
-  case 48:
-#line 340 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
-    {
-        process_header(state,"RG",(yyvsp[-1].strval),(yyvsp[0].strval));
-        pool_free((yyvsp[0].strval)); }
-#line 1715 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 1730 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
   case 49:
-#line 343 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
-    {
-        process_header(state,"RG",(yyvsp[-1].strval),(yyvsp[0].strval));
-        pool_free((yyvsp[0].strval)); }
-#line 1723 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
-    break;
-
-  case 50:
-#line 346 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
-    {
-        process_header(state,"RG",(yyvsp[-1].strval),(yyvsp[0].strval));
-        pool_free((yyvsp[0].strval)); }
-#line 1731 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
-    break;
-
-  case 51:
-#line 349 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
-    {
-        process_header(state,"RG",(yyvsp[-1].strval),(yyvsp[0].strval));
-        pool_free((yyvsp[0].strval)); }
-#line 1739 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
-    break;
-
-  case 52:
-#line 352 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
-    {
-        process_header(state,"RG",(yyvsp[-1].strval),(yyvsp[0].strval));
-        pool_free((yyvsp[0].strval)); }
-#line 1747 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
-    break;
-
-  case 53:
-#line 355 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
-    {
-        ERR("Invalid Platform %s", (yyvsp[0].strval));
-        process_header(state,"RG",(yyvsp[-1].strval),(yyvsp[0].strval));
-        pool_free((yyvsp[0].strval)); }
-#line 1756 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
-    break;
-
-  case 54:
 #line 359 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
         process_header(state,"RG",(yyvsp[-1].strval),(yyvsp[0].strval));
         pool_free((yyvsp[0].strval)); }
-#line 1764 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 1738 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
-  case 55:
+  case 50:
 #line 362 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
         process_header(state,"RG",(yyvsp[-1].strval),(yyvsp[0].strval));
         pool_free((yyvsp[0].strval)); }
-#line 1772 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 1746 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
-  case 56:
+  case 51:
 #line 365 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
         process_header(state,"RG",(yyvsp[-1].strval),(yyvsp[0].strval));
         pool_free((yyvsp[0].strval)); }
-#line 1780 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 1754 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
-  case 57:
+  case 52:
 #line 368 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+    {
+        process_header(state,"RG",(yyvsp[-1].strval),(yyvsp[0].strval));
+        pool_free((yyvsp[0].strval)); }
+#line 1762 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+    break;
+
+  case 53:
+#line 371 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+    {
+        process_header(state,"RG",(yyvsp[-1].strval),(yyvsp[0].strval));
+        pool_free((yyvsp[0].strval)); }
+#line 1770 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+    break;
+
+  case 54:
+#line 374 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+    {
+        process_header(state,"RG",(yyvsp[-1].strval),(yyvsp[0].strval));
+        pool_free((yyvsp[0].strval)); }
+#line 1778 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+    break;
+
+  case 55:
+#line 377 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+    {
+        process_header(state,"RG",(yyvsp[-1].strval),(yyvsp[0].strval));
+        pool_free((yyvsp[0].strval)); }
+#line 1786 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+    break;
+
+  case 56:
+#line 380 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
         WARN("Unknown readgroup (RG) tag:%s", (yyvsp[-1].strval));
         pool_free((yyvsp[-1].strval));
         pool_free((yyvsp[0].strval));
         }
-#line 1790 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 1796 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
-  case 58:
-#line 373 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+  case 57:
+#line 385 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
         ERR("empty tags");
         rc_t rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
         state->rc=rc; }
-#line 1799 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
-    break;
-
-  case 59:
-#line 377 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
-    { WARN("empty tags"); }
 #line 1805 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
-  case 60:
-#line 384 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+  case 58:
+#line 389 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+    { WARN("empty tags"); }
+#line 1811 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+    break;
+
+  case 59:
+#line 396 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
         DBG("alignment record %s",(yyvsp[-11].strval));
         process_alignment(state,(yyvsp[-11].strval),(yyvsp[-10].strval),(yyvsp[-9].strval),(yyvsp[-8].strval),(yyvsp[-7].strval),(yyvsp[-6].strval),(yyvsp[-5].strval),(yyvsp[-4].strval),(yyvsp[-3].strval),(yyvsp[-2].strval),(yyvsp[-1].strval));
@@ -1821,11 +1827,11 @@ yyreduce:
         pool_free((yyvsp[-3].strval));
         pool_free((yyvsp[-2].strval));
         pool_free((yyvsp[-1].strval)); }
-#line 1825 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 1831 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
-  case 61:
-#line 400 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+  case 60:
+#line 412 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
         DBG("alignment record with optional tags");
         process_alignment(state,(yyvsp[-12].strval),(yyvsp[-11].strval),(yyvsp[-10].strval),(yyvsp[-9].strval),(yyvsp[-8].strval),(yyvsp[-7].strval),(yyvsp[-6].strval),(yyvsp[-5].strval),(yyvsp[-4].strval),(yyvsp[-3].strval),(yyvsp[-2].strval));
@@ -1841,104 +1847,104 @@ yyreduce:
         pool_free((yyvsp[-4].strval));
         pool_free((yyvsp[-3].strval));
         pool_free((yyvsp[-2].strval)); }
-#line 1845 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
-    break;
-
-  case 62:
-#line 417 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
-    { DBG("opt"); }
 #line 1851 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
-  case 63:
-#line 418 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
-    { DBG(" opts"); }
+  case 61:
+#line 429 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+    { DBG("opt"); }
 #line 1857 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
-  case 64:
-#line 423 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+  case 62:
+#line 430 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+    { DBG(" opts"); }
+#line 1863 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+    break;
+
+  case 63:
+#line 435 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
         DBG("?AA");
         pool_free((yyvsp[-2].strval));
         pool_free((yyvsp[0].strval)); }
-#line 1866 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 1872 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
-  case 65:
-#line 428 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+  case 64:
+#line 440 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
         DBG("?II");
         pool_free((yyvsp[-2].strval));
         pool_free((yyvsp[0].strval)); }
-#line 1875 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 1881 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
-  case 66:
-#line 433 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+  case 65:
+#line 445 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
         DBG("?FF");
         pool_free((yyvsp[-2].strval));
         pool_free((yyvsp[0].strval)); }
-#line 1884 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 1890 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
-  case 67:
-#line 438 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+  case 66:
+#line 450 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
         DBG("?ZZ");
         pool_free((yyvsp[-2].strval));
         pool_free((yyvsp[0].strval)); }
-#line 1893 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 1899 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
-  case 68:
-#line 443 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+  case 67:
+#line 455 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
         DBG("?HH");
         pool_free((yyvsp[-2].strval));
         pool_free((yyvsp[0].strval)); }
-#line 1902 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 1908 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
-  case 69:
-#line 448 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+  case 68:
+#line 460 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
         DBG("?BB");
         pool_free((yyvsp[-2].strval));
         pool_free((yyvsp[0].strval)); }
-#line 1911 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 1917 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
-  case 70:
-#line 453 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+  case 69:
+#line 465 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
         DBG("III");
         pool_free((yyvsp[-2].strval));
         pool_free((yyvsp[0].strval)); }
-#line 1920 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 1926 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
-  case 71:
-#line 458 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+  case 70:
+#line 470 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
         DBG("ZZZ");
         pool_free((yyvsp[-2].strval));
         pool_free((yyvsp[0].strval)); }
-#line 1929 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 1935 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
-  case 72:
-#line 463 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
+  case 71:
+#line 475 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1646  */
     {
         DBG("BBB");
         pool_free((yyvsp[-2].strval));
         pool_free((yyvsp[0].strval)); }
-#line 1938 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 1944 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
     break;
 
 
-#line 1942 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
+#line 1948 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.c" /* yacc.c:1646  */
       default: break;
     }
   /* User semantic actions sometimes alter yychar, and that requires
@@ -2166,6 +2172,6 @@ yyreturn:
 #endif
   return yyresult;
 }
-#line 469 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1906  */
+#line 481 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-grammar.y" /* yacc.c:1906  */
 
 

@@ -108,7 +108,6 @@
 %token <strval> RGPM
 %token <strval> RGPU
 %token <strval> RGSM
-%token <strval> PLATFORM
 
 %token <strval> PGID
 %token <strval> PGPN
@@ -323,6 +322,26 @@ rg:  RGID VALUE {
         state->hasrgid=true;
         process_header(state,"RG",$1,$2);
         pool_free($2); }
+    /* Can't match platforms in lexer, they often collide with CN */
+   | RGPL VALUE {
+        if (
+            strcasecmp($2,"illumina") && /* most frequent */
+            strcmp($2,"CAPILLARY") &&
+            strcmp($2,"LS454") &&
+            strcasecmp($2,"solid") &&
+            strcmp($2,"HELICOS") &&
+            strcmp($2,"IONTORRENT") &&
+            strcmp($2,"ONT") &&
+            strcasecmp($2,"pacbio") &&
+            strcmp($2,"\"Complete Genomics\"") && /* not compliant */
+            strcmp($2,"illumina Hiseq") && /* most frequent */
+            strcmp($2,"COMPLETEGENOMICS") && /* not compliant */
+            strcmp($2,"PacBio_SMRT") && /* not compliant */
+            strcmp($2,"PacBio_RS")  /* not compliant */
+        )
+            WARN("Invalid Platform %s", $2);
+        process_header(state,"RG",$1,$2);
+        pool_free($2); }
    | RGCN VALUE {
         process_header(state,"RG",$1,$2);
         pool_free($2); }
@@ -347,13 +366,6 @@ rg:  RGID VALUE {
         process_header(state,"RG",$1,$2);
         pool_free($2); }
    | RGPI VALUE {
-        process_header(state,"RG",$1,$2);
-        pool_free($2); }
-   | RGPL PLATFORM {
-        process_header(state,"RG",$1,$2);
-        pool_free($2); }
-   | RGPL VALUE {
-        ERR("Invalid Platform %s", $2);
         process_header(state,"RG",$1,$2);
         pool_free($2); }
    | RGPM VALUE {

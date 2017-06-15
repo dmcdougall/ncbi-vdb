@@ -787,7 +787,7 @@ rc_t BAMGetAlignments(SAMExtractor* state)
         u8 mapq = (align.bin_mq_nl >> 8) & 0xff;
         u8 l_read_name = align.bin_mq_nl & 0xff;
         DBG("bin=%d mapq=%d l_read_name=%d", bin, mapq, l_read_name);
-        if (l_read_name > 64) ERR("Long (%d) read_name", l_read_name);
+        if (l_read_name > 90) ERR("Long (%d) read_name", l_read_name);
 
         u16 flag = align.flag_nc >> 16;
         u16 n_cigar_op = align.flag_nc & 0xffff;
