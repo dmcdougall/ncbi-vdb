@@ -38,6 +38,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <unistd.h>
 
 ver_t CC KAppVersion(void) { return 0x1000000; }
@@ -72,7 +73,8 @@ rc_t CC KMain(int argc, char* argv[])
 
         String sfname;
         StringInitCString(&sfname, fname);
-
+        struct timespec stime, etime;
+        clock_gettime(CLOCK_REALTIME, &stime);
         SAMExtractor* extractor;
         rc = SAMExtractorMake(&extractor, infile, &sfname, -1);
         fprintf(stderr, "Made extractor for %s\n", fname);
@@ -135,6 +137,11 @@ rc_t CC KMain(int argc, char* argv[])
         }
 
         fprintf(stderr, "Done with file, %d alignments\n", total);
+        clock_gettime(CLOCK_REALTIME, &etime);
+        u64 nanos = etime.tv_sec - stime.tv_sec;
+        nanos *= 1000000000;
+        nanos += (etime.tv_nsec - stime.tv_nsec);
+        fprintf(stderr, "Parse time %llu ms", nanos / 1000000);
 
         KFileRelease(infile);
         infile = NULL;

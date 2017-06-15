@@ -41,9 +41,8 @@
 #include <kproc/thread.hpp>
 #include <kproc/timeout.h>
 #if LINUX
+#include <mmintrin.h>
 #include <pthread.h>
-#else
-#include <intrin.h>
 #endif
 #include <stdint.h>
 #include <stdio.h>
@@ -636,19 +635,31 @@ void decode_seq(const u8* seqbytes, size_t l_seq, char* seq)
 
 void decode_qual(const u8* qualbytes, size_t l_seq, char* qual)
 {
-    bool absent = false;
-    for (u32 i = 0; i != l_seq; ++i) {
-        if (qualbytes[i] == 255) absent = true;
-        qual[i] = qualbytes[i] + 33;
-    }
-    qual[l_seq] = '\0';
-    if (absent) {
+    if (qualbytes[0] == 255) {
         qual[0] = '*';
         qual[1] = '\0';
+        return;
     }
+#if LINUX
+    // Both qualbytes and qual are pool allocated and 8 byte aligned
+    __m64* av = (__m64*)qual;
+    __m64* bv = (__m64*)qualbytes;
+    __m64 cv = (__m64)0x2121212121212121u; // 33 33 33...
+
+    for (u32 i = 0; i != l_seq / 8; ++i) {
+        av[i] = _mm_add_pi8(bv[i], cv);
+    }
+
+    for (u32 i = 8 * (l_seq / 8); i != l_seq; ++i)
+        qual[i] = qualbytes[i] + 33;
+#else
+    for (u32 i = 0; i != l_seq; ++i) qual[i] = qualbytes[i] + 33;
+#endif
+
+    qual[l_seq] = '\0';
 }
 
-void fast_u32toa(char* buf, u32 val)
+size_t fast_u32toa(char* buf, u32 val)
 {
     static u64 pow10[20];
     static char map10[200];
@@ -657,7 +668,7 @@ void fast_u32toa(char* buf, u32 val)
     if (val <= 9) {
         buf[0] = val + '0';
         buf[1] = '\0';
-        return;
+        return 1;
     }
 
     // Initialize lookup table
@@ -706,16 +717,18 @@ void fast_u32toa(char* buf, u32 val)
         *--buf = map10[i + 1];
         *--buf = map10[i];
     }
+    return lg10;
 }
 
-void fast_i32toa(char* buf, i32 val)
+size_t fast_i32toa(char* buf, i32 val)
 {
     u32 u = (u32)val;
     if (val < 0) {
         *buf++ = '-';
         u = ~u + 1; // twos-complement
-    }
-    fast_u32toa(buf, u);
+        return fast_u32toa(buf, u) + 1;
+    } else
+        return fast_u32toa(buf, u);
 }
 
 char* decode_cigar(u32* cigar, u16 n_cigar_op)
@@ -729,10 +742,7 @@ char* decode_cigar(u32* cigar, u16 n_cigar_op)
         i32 oplen = cigar[i] >> 4;
         i32 op = cigar[i] & 0xf;
 
-        char buf[10]; // 2^28=268435456\0=10 bytes
-        fast_u32toa(buf, oplen);
-        int sz = strlen(buf);
-        memmove(p, buf, sz);
+        size_t sz = fast_u32toa(p, oplen);
         p += sz;
 
         static const char opmap[] = "MIDNSHP=X???????";
@@ -836,11 +846,11 @@ rc_t BAMGetAlignments(SAMExtractor* state)
                 return RC(rcAlign, rcFile, rcParsing, rcData, rcInvalid);
 
             seq = (char*)pool_alloc(align.l_seq + 1);
-            qual = (char*)pool_alloc(align.l_seq + 1);
-
             decode_seq(seqbytes, align.l_seq, seq);
             DBG("seq is '%s'\n", seq);
 
+            // TODO: Make optional, most users don't care about quality
+            qual = (char*)pool_alloc(align.l_seq + 1);
             decode_qual(qualbytes, align.l_seq, qual);
 
             DBG("%d pairs in sequence", align.l_seq);

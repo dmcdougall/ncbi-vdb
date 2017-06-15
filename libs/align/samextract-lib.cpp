@@ -44,7 +44,6 @@
 #include <kproc/thread.hpp>
 #include <kproc/timeout.h>
 #include <pthread.h>
-#include <regex.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -217,34 +216,23 @@ bool isfloworder(const char* str)
     return true;
 }
 
-// Pass in a NULL for cigar to cleanup cache
 bool check_cigar(const char* cigar, const char* seq)
 {
     static unsigned char mult[256];
-    static bool regcompiled = false;
-    static regex_t preg;
     size_t cigarlen = 0;
 
-    if (cigar == NULL) {
-        if (regcompiled) {
-            regcompiled = false;
-            regfree(&preg);
-        }
-
-        return false;
-    }
     if (cigar[0] == '*' && cigar[1] == '\0') return true;
 
     size_t seqlen = strlen(seq);
 
-    // faster to just set these rather than test if initialized?
-    mult['='] = 1;
-    mult['I'] = 1;
-    mult['M'] = 1;
-    mult['S'] = 1;
-    mult['X'] = 1;
+    // faster to just set these rather than test if initialized
+    mult[(u8)'='] = 1;
+    mult[(u8)'I'] = 1;
+    mult[(u8)'M'] = 1;
+    mult[(u8)'S'] = 1;
+    mult[(u8)'X'] = 1;
 
-    char* opcodestr = (char*)malloc(1 + strlen(cigar) / 2);
+    char* opcodestr = (char*)pool_alloc(1 + strlen(cigar) / 2);
     char* opcode = opcodestr;
     const char* p = cigar;
     while (*p) {
@@ -264,7 +252,6 @@ bool check_cigar(const char* cigar, const char* seq)
     // "Sum of lengths of the M/I/S/=/X operations shall equal the length of
     // SEQ."
     if (cigarlen != seqlen) {
-        free(opcodestr);
         return false;
     }
 
@@ -273,22 +260,27 @@ bool check_cigar(const char* cigar, const char* seq)
     // string."
     // Actual valid rule is apparently H?S?[MIDNPX=]+S?H?, but H*S*...S*H*
     // would also be compliant.
-    if (!regcompiled) {
-        int result = regcomp(&preg, "^H*S*[MIDNPXB=]+S*H*$",
-                             REG_EXTENDED | REG_NOSUB);
-        if (result) ERR("Bad regex");
-        regcompiled = true;
-    }
+    opcode = opcodestr;
+    while (*opcode == 'H') ++opcode;
+    while (*opcode == 'S') ++opcode;
+    if (!*opcode) return true;
+    if (*opcode == 'H') return false;
+    static bool valid[256];
+    valid[(u8)'M'] = true;
+    valid[(u8)'I'] = true;
+    valid[(u8)'D'] = true;
+    valid[(u8)'N'] = true;
+    valid[(u8)'P'] = true;
+    valid[(u8)'X'] = true;
+    valid[(u8)'='] = true;
+    while (valid[(u8)*opcode]) ++opcode; // main loop
+    if (!*opcode) return true;
+    while (*opcode == 'S') ++opcode;
+    if (!*opcode) return true;
+    while (*opcode == 'H') ++opcode;
+    if (!*opcode) return true;
 
-    regmatch_t matches[1];
-    if (regexec(&preg, opcodestr, 1, matches, 0) == REG_NOMATCH) {
-        DBG("Bad CIGAR: '%s' '%s'", cigar, opcodestr);
-        free(opcodestr);
-        return false;
-    }
-
-    free(opcodestr);
-    return true;
+    return false;
 }
 
 rc_t process_header(SAMExtractor* state, const char* type, const char* tag,
@@ -561,8 +553,6 @@ LIB_EXPORT rc_t CC SAMExtractorRelease(SAMExtractor* s)
     fname_desc = NULL;
     memset(s, 0, sizeof(SAMExtractor));
     free(s);
-
-    check_cigar(NULL, NULL);
 
     return 0;
 }

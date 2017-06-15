@@ -73,8 +73,8 @@ bool isfloworder(const char* str);
 bool filter(const SAMExtractor* state, String* srname, ssize_t pos);
 void decode_seq(const u8* seqbytes, size_t l_seq, char* seq);
 void decode_qual(const u8* qualbytes, size_t l_seq, char* qual);
-void fast_u32toa(char* buf, u32 val);
-void fast_i32toa(char* buf, i32 val);
+size_t fast_u32toa(char* buf, u32 val);
+size_t fast_i32toa(char* buf, i32 val);
 i64 fast_strtoi64(const char* p);
 char* decode_cigar(u32* cigar, u16 n_cigar_op);
 

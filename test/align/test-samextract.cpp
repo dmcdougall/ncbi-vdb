@@ -58,9 +58,14 @@ static bool tst_fast_u32toa(u32 val)
     char slow[100];
     char fast[100];
     sprintf(slow, "%u", val);
-    fast_u32toa(fast, val);
+    size_t len = fast_u32toa(fast, val);
     if (strcmp(fast, slow)) {
         fprintf(stderr, "mismatch %u '%s' '%s'\n", val, slow, fast);
+        return false;
+    }
+    if (len != strlen(slow)) {
+        fprintf(stderr, "length mismatch %u '%s=%zu' '%s=%zu'", val, slow,
+                strlen(slow), fast, len);
         return false;
     }
     return true;
@@ -71,9 +76,14 @@ static bool tst_fast_i32toa(u32 val)
     char slow[100];
     char fast[100];
     sprintf(slow, "%d", val);
-    fast_i32toa(fast, val);
+    size_t len = fast_i32toa(fast, val);
     if (strcmp(fast, slow)) {
         fprintf(stderr, "mismatch %d '%s' '%s'\n", val, slow, fast);
+        return false;
+    }
+    if (len != strlen(slow)) {
+        fprintf(stderr, "length mismatch %d '%s=%zu' '%s=%zu'", val, slow,
+                strlen(slow), fast, len);
         return false;
     }
     return true;
@@ -117,13 +127,31 @@ TEST_SUITE(SAMExtractTestSuite)
 TEST_CASE(Test_Qual_Decode)
 {
     unsigned char tst1[] = {0, 1, 2, 3};
-    unsigned char tst2[] = {0, 0xff};
+    unsigned char tst2[] = {0xff, 0};
+    unsigned char tst3[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+    unsigned char tst4[] = {0, 1, 2, 3, 4, 5, 6, 7, 8};
+    unsigned char tst5[]
+        = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
+    unsigned char tst6[]
+        = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
+    unsigned char tst7[]
+        = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17};
     char qual[30];
 
     decode_qual(tst1, sizeof(tst1), qual);
     REQUIRE_EQUAL(strcmp(qual, "!\"#$"), 0);
     decode_qual(tst2, sizeof(tst2), qual);
     REQUIRE_EQUAL(strcmp(qual, "*"), 0);
+    decode_qual(tst3, sizeof(tst3), qual);
+    REQUIRE_EQUAL(strcmp(qual, "!\"#$%&'()*+"), 0);
+    decode_qual(tst4, sizeof(tst4), qual);
+    REQUIRE_EQUAL(strcmp(qual, "!\"#$%&'()"), 0);
+    decode_qual(tst5, sizeof(tst5), qual);
+    REQUIRE_EQUAL(strcmp(qual, "!\"#$%&'()*+,-./0"), 0);
+    decode_qual(tst6, sizeof(tst6), qual);
+    REQUIRE_EQUAL(strcmp(qual, "!\"#$%&'()*+,-./01"), 0);
+    decode_qual(tst7, sizeof(tst7), qual);
+    REQUIRE_EQUAL(strcmp(qual, "!\"#$%&'()*+,-./012"), 0);
 }
 
 TEST_CASE(Fast_Sequence)
@@ -255,6 +283,7 @@ TEST_CASE(Decode_Cigar)
 
 TEST_CASE(Check_Cigar)
 {
+    pool_init();
     REQUIRE_EQUAL(check_cigar("1M", "AA"), false);
     REQUIRE_EQUAL(check_cigar("1M", "A"), true);
     REQUIRE_EQUAL(check_cigar("2M", "AA"), true);
@@ -280,7 +309,6 @@ TEST_CASE(Check_Cigar)
     REQUIRE_EQUAL(check_cigar("1H1S1M1S", "AAA"), true);
     REQUIRE_EQUAL(check_cigar("1M1H", "A"), true);
     REQUIRE_EQUAL(check_cigar("1M1S", "AA"), true);
-    check_cigar(NULL, NULL);
     REQUIRE_EQUAL(check_cigar("1H1M", "A"), true);
     REQUIRE_EQUAL(check_cigar("1S1M", "AA"), true);
     REQUIRE_EQUAL(check_cigar("1S1H1M", "AA"), false);
@@ -295,7 +323,7 @@ TEST_CASE(Check_Cigar)
     REQUIRE_EQUAL(check_cigar("1S1H", "AA"), false);
     REQUIRE_EQUAL(check_cigar("1H1S", "AA"), false);
     REQUIRE_EQUAL(check_cigar("1H", "A"), false);
-    check_cigar(NULL, NULL);
+    pool_release();
 }
 
 TEST_CASE(In_Range)
