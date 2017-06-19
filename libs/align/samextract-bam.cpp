@@ -640,21 +640,15 @@ void decode_qual(const u8* qualbytes, size_t l_seq, char* qual)
         qual[1] = '\0';
         return;
     }
-#if LINUX
     // Both qualbytes and qual are pool allocated and 8 byte aligned
-    __m64* av = (__m64*)qual;
-    __m64* bv = (__m64*)qualbytes;
-    __m64 cv = (__m64)0x2121212121212121u; // 33 33 33...
-
-    for (u32 i = 0; i != l_seq / 8; ++i) {
-        av[i] = _mm_add_pi8(bv[i], cv);
-    }
+    u64* out = (u64*)qual;
+    const u64* in = (const u64*)qualbytes;
+    // Assume no overflow/carry of quality
+    for (u32 i = 0; i != l_seq / 8; ++i)
+        out[i] = in[i] + 0x2121212121212121u; // 33 33 33...
 
     for (u32 i = 8 * (l_seq / 8); i != l_seq; ++i)
         qual[i] = qualbytes[i] + 33;
-#else
-    for (u32 i = 0; i != l_seq; ++i) qual[i] = qualbytes[i] + 33;
-#endif
 
     qual[l_seq] = '\0';
 }
@@ -662,7 +656,7 @@ void decode_qual(const u8* qualbytes, size_t l_seq, char* qual)
 size_t fast_u32toa(char* buf, u32 val)
 {
     static u64 pow10[20];
-    static char map10[200];
+    static char map10[100][2];
 
     // fast path:
     if (val <= 9) {
@@ -671,15 +665,14 @@ size_t fast_u32toa(char* buf, u32 val)
         return 1;
     }
 
-    // Initialize lookup table
-    if (map10[199] == 0) {
-        char* p = map10;
+    // Initialize lookup tables
+    if (map10[0][0] != '0') {
+        // gcc double unrolls these, clang once
         for (int i = 0; i != 10; ++i)
             for (int j = 0; j != 10; ++j) {
-                *p++ = i + '0';
-                *p++ = j + '0';
+                map10[10 * i + j][0] = i + '0';
+                map10[10 * i + j][1] = j + '0';
             }
-
         u64 v = 1;
         for (int i = 0; i != 20; ++i) {
             pow10[i] = v;
@@ -703,20 +696,14 @@ size_t fast_u32toa(char* buf, u32 val)
     buf += lg10;
     *buf = '\0';
 
-    while (val >= 100) {
-        u32 i = 2 * (val % 100);
+    while (val >= 10) {
+        buf -= 2;
+        memmove(buf, &map10[val % 100], 2);
         val /= 100;
-        *--buf = map10[i + 1];
-        *--buf = map10[i];
     }
 
-    if (val < 10)
-        *--buf = val + '0';
-    else {
-        u32 i = 2 * val;
-        *--buf = map10[i + 1];
-        *--buf = map10[i];
-    }
+    if (val) *--buf = val + '0';
+
     return lg10;
 }
 
@@ -807,7 +794,7 @@ rc_t BAMGetAlignments(SAMExtractor* state)
         if (!bview.getbytes(state->parsequeue, read_name, l_read_name))
             return RC(rcAlign, rcFile, rcParsing, rcData, rcInvalid);
         DBG("read_name='%s'", read_name);
-        // TODO: Eary out, check filter here, based on rname and pos
+        // TODO: Early out, check filter here, based on rname and pos
         char* scigar = NULL;
         if (n_cigar_op > 0) {
             u32* cigar = (u32*)pool_alloc(n_cigar_op * sizeof(u32));
@@ -1023,7 +1010,8 @@ rc_t threadinflate(SAMExtractor* state)
     // Benchmarking on 32-core E5-2650 shows that even a memory resident BAM
     // file can't utilize more than 12 inflater threads.
     // ~8 seems to be the sweet spot.
-    size_t num_inflaters = MAX(1, MIN(state->num_threads - 1, 12));
+    // This may change if quality parsing is made optional.
+    size_t num_inflaters = MAX(1, MIN(state->num_threads - 1, 9));
     DBG("num_inflaters is %u", num_inflaters);
     // Inflater threads
     for (u32 i = 0; i != num_inflaters; ++i) {

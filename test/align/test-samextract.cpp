@@ -184,7 +184,9 @@ TEST_CASE(Fast_u32toa)
            199,        200,        201,         999,         1000,
            1001,       1010,       1019,        1900,        1988,
            1990,       1992,       2003,        2005,        9999,
-           10000,      99999,      20030613,    20050722,    100000,
+           10000,      10001,      10099,       10002,       10009,
+           10010,      100110,     10100,       10101,       10999,
+           101010,     99999,      20030613,    20050722,    100000,
            1000000,    10000000,   10000000,    100000000,   1000000000,
            2000000000, 2147483647, 2147483648l, 4294967294l, 4294967295l};
     for (int i = 0; i != sizeof(tsts) / sizeof(tsts[0]); ++i)
@@ -198,17 +200,6 @@ TEST_CASE(Fast_u32toa)
     for (u32 u = 0; u != UINT32_MAX; ++u)
         REQUIRE_EQUAL(tst_fast_u32toa(u), true);
 #endif
-}
-
-static bool tst_strtoi64(const char* str)
-{
-    i64 slow = strtoi64(str, NULL, 10);
-    i64 fast = fast_strtoi64(str);
-    if (fast != slow) {
-        fprintf(stderr, "mismatch '%s' %ld %ld\n", str, slow, fast);
-        return false;
-    }
-    return true;
 }
 
 TEST_CASE(Fast_i32toa)
@@ -236,6 +227,17 @@ TEST_CASE(Fast_i32toa)
 #endif
 }
 
+static bool tst_strtoi64(const char* str)
+{
+    i64 slow = strtoi64(str, NULL, 10);
+    i64 fast = fast_strtoi64(str);
+    if (fast != slow) {
+        fprintf(stderr, "mismatch '%s' %ld %ld\n", str, slow, fast);
+        return false;
+    }
+    return true;
+}
+
 TEST_CASE(Fast_strtoi64)
 {
     static const char* tsts[]
@@ -258,8 +260,8 @@ TEST_CASE(Fast_strtoi64)
 
 #ifdef TEST_ALL_THE_INTEGERS
     fprintf(stderr, "all strtoi32\n");
-    for (long i = 2 * INT32_MIN; i != 2 * INT32_MAX; ++i) {
-        sprintf(str, "%ld", i);
+    for (long long i = 2l * INT32_MIN; i != 2l * INT32_MAX; ++i) {
+        sprintf(str, "%lld", i);
         REQUIRE_EQUAL(tst_strtoi64(str), true);
     }
 #endif
