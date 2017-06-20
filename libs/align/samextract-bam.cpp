@@ -943,15 +943,16 @@ rc_t BAMGetAlignments(SAMExtractor* state)
         DBG("no more ttvs");
 
         char sflag[16]; // Enough for i32/u32
-        char spos[16];
-        char spnext[16];
-        char stlen[16];
+        char spos[16] = "0";
+        char spnext[16] = "0";
+        char stlen[16] = "0";
         char smapq[16];
-        fast_i32toa(sflag, flag);
-        fast_i32toa(spos, align.pos + 1);        // Convert to SAM's 1-based
-        fast_i32toa(spnext, align.next_pos + 1); // ""
-        fast_i32toa(stlen, align.tlen);
-        fast_i32toa(smapq, mapq);
+        fast_u32toa(sflag, flag);
+        if (align.pos + 1)
+            fast_i32toa(spos, align.pos + 1); // Convert to SAM's 1-based
+        if (align.next_pos + 1) fast_i32toa(spnext, align.next_pos + 1); // ""
+        if (align.tlen) fast_i32toa(stlen, align.tlen);
+        fast_u32toa(smapq, mapq);
 
         process_alignment(state, read_name, sflag, ref_name, spos,
                           smapq,       // mapq
