@@ -142,6 +142,7 @@ line:
    | CONTROLCHAR { ERR("CONTROLCHAR %d", $1[0]);
                    rc_t rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
                    state->rc=rc;
+                   return END;
    }
    | comment { DBG("comment"); }
    | header { DBG("header done"); }

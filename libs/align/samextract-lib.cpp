@@ -103,6 +103,7 @@ int moredata(char* buf, int* numbytes, size_t maxbytes)
         DBG("nomoredata");
     else
         DBG("  moredata %p %d\ncurline:'%s'", buf, maxbytes, curline);
+    if (curline_len > READBUF_SZ) ERR("Bad length");
     memmove(buf, curline, (size_t)curline_len);
     *numbytes = curline_len;
     curline_len = 0;
@@ -118,9 +119,11 @@ inline rc_t readfile(SAMExtractor* state)
         rc_t rc = KFileReadAll(state->infile, state->file_pos, state->readbuf,
                                sz, &sz);
         state->readbuf_sz = (u32)sz;
+
         state->file_pos += state->readbuf_sz;
         if (rc) {
             ERR("readfile error");
+            state->rc = rc;
             return rc;
         }
         DBG("Read in %d", state->readbuf_sz);
@@ -419,7 +422,6 @@ rc_t process_alignment(SAMExtractor* state, const char* qname,
 // Reads next line into curline, returns false if file complete.
 static bool readline(SAMExtractor* state)
 {
-    DBG("readline");
     if (readfile(state)) return false;
     char* line = curline;
     line[0] = '\0';
@@ -430,18 +432,23 @@ static bool readline(SAMExtractor* state)
     if (nl) {
         nl += 1;
         u32 len = (u32)(nl - (state->readbuf + state->readbuf_pos));
+        if (len > READBUF_SZ) ERR("Bad length");
         memmove(line, state->readbuf + state->readbuf_pos, len);
         curline_len += len;
         state->readbuf_pos += len;
+        if (memchr(line, 0, curline_len - 1)) {
+            ERR("NULLZ found in line: '%s'", line);
+            rc_t rc = RC(rcAlign, rcRow, rcParsing, rcData, rcInvalid);
+            state->rc = rc;
+            return false;
+        }
         line[curline_len + 1] = '\0';
         return true;
     }
 
     // Nope, append and get more
     u32 len = (u32)(state->readbuf_sz - state->readbuf_pos);
-    DBG("readline more %d/%d", state->readbuf_pos, len);
     memmove(line, state->readbuf + state->readbuf_pos, len);
-    DBG("moreline was %d '%s'", strlen(line), line);
     line += len;
     curline_len += len;
 
@@ -451,17 +458,26 @@ static bool readline(SAMExtractor* state)
     // Better be a newline now
     nl = (char*)memchr(state->readbuf, '\n', state->readbuf_sz);
     if (!nl) {
+        //        ERR("No newline present");
         return false;
     }
-    DBG("found newline at %d", nl - state->readbuf);
     nl += 1;
     len = (u32)(nl - state->readbuf);
-    memmove(line, state->readbuf, len);
     curline_len += len;
+    if (curline_len > READBUF_SZ) {
+        ERR("No newline present");
+        return false;
+    }
+    memmove(line, state->readbuf, len);
     state->readbuf_pos += len;
-    line[curline_len + 1] = '\0';
-    DBG("moreline  is %d %d '%s'", curline_len, strlen(line), line);
+    curline[curline_len + 1] = '\0';
 
+    if (memchr(curline, 0, curline_len - 1)) {
+        ERR("NULLZ found in line: '%s' %d", curline, curline_len);
+        rc_t rc = RC(rcAlign, rcRow, rcParsing, rcData, rcInvalid);
+        state->rc = rc;
+        return false;
+    }
     return true;
 }
 
@@ -496,6 +512,7 @@ LIB_EXPORT rc_t CC SAMExtractorMake(SAMExtractor** state, const KFile* fin,
 #endif
 
     DBG("%d threads", s->num_threads);
+    DBG("fname is '%s'", fname_desc);
 
     VectorInit(&s->threads, 0, 0);
     KQueueMake(&s->inflatequeue, 64);
@@ -648,6 +665,7 @@ LIB_EXPORT rc_t CC SAMExtractorGetHeaders(SAMExtractor* s, Vector* headers)
                     break;
                 }
             }
+            if (s->rc) return s->rc;
             break;
         case SAMGZUNSUPPORTED:
         case unknown:
@@ -703,7 +721,8 @@ LIB_EXPORT rc_t CC SAMExtractorGetAlignments(SAMExtractor* s,
 
             if (curline[0] == '@') {
                 ERR("header restarted");
-                break;
+                rc_t rc = RC(rcAlign, rcRow, rcParsing, rcData, rcInvalid);
+                return rc;
             }
 
             rc = SAM_parseline(s);

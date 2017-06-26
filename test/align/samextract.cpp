@@ -24,6 +24,8 @@
  *
  */
 
+#include "/home/vartanianmh/devel/sra-tools/tools/general-loader/general-writer.hpp"
+
 #include <align/samextract-lib.h>
 #include <ctype.h>
 #include <kapp/args.h>
@@ -41,6 +43,7 @@
 #include <time.h>
 #include <unistd.h>
 
+extern "C" {
 ver_t CC KAppVersion(void) { return 0x1000000; }
 
 rc_t CC UsageSummary(char const* name)
@@ -87,6 +90,16 @@ rc_t CC KMain(int argc, char* argv[])
         rc = SAMExtractorGetHeaders(extractor, &headers);
         if (rc) return rc;
         fprintf(stderr, "Got %d headers\n", VectorLength(&headers));
+#if 0
+        GeneralWriter * gw=new GeneralWriter(1, 32768);
+        GeneralWrite &out=*gw;
+        gw->setSoftwarename("samextract 0.1");
+        gw->setRemotePath("samextract.db");
+        gw->useSchema("bamdb.schema");
+        tbl_id=gw->addTable("header");
+        keyid=gw->addcolumn("hdrkey");
+#endif
+
         for (uint32_t i = 0; i != VectorLength(&headers); ++i) {
             Header* hdr = (Header*)VectorGet(&headers, i);
             Vector* tvs = &hdr->tagvalues;
@@ -141,10 +154,11 @@ rc_t CC KMain(int argc, char* argv[])
         u64 nanos = etime.tv_sec - stime.tv_sec;
         nanos *= 1000000000;
         nanos += (etime.tv_nsec - stime.tv_nsec);
-        fprintf(stderr, "Parse time %llu ms", nanos / 1000000);
+        fprintf(stderr, "Parse time %lu ms", nanos / 1000000l);
 
         KFileRelease(infile);
         infile = NULL;
     }
     return 0;
+}
 }
