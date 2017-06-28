@@ -51,8 +51,9 @@ posinteger [+]?[0-9]+
 float  [-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?
 eol    (\r\n|\r|\n)
  /* Exclude tabs, newlines, carrige returns */
-controlchar [\x00-\x08\x0b-\x0c\x0e-\x1f]
 
+ /* controlchar [\x00-\x08\x0b-\x0c\x0e-\x1f\x80-\xff] */
+controlchar [\x00-\x08\x0b-\x0c\x0e-\x1f]
 
 
  /* qname=No @ in first, to distinguish from headers */
@@ -119,7 +120,15 @@ opttag [A-Za-z][A-Za-z0-9]
     DBG("CONTROLCHAR %d",yytext[0]);
     return CONTROLCHAR; }
 \t { DBG(" tab"); return TAB; }
-{eol} { BEGIN INITIAL; DBG("EOL"); return EOL;}
+{eol} {
+    BEGIN INITIAL;
+    DBG("EOL %d",yytext[0]);
+    if (yytext[0]==0)
+    {
+        ERR("NULL");
+        return END;
+    }
+    return EOL; }
 
  /* Header */
 <INITIAL>^@HD   {
@@ -127,8 +136,8 @@ opttag [A-Za-z][A-Za-z0-9]
     DBG( "HEADER");
     /* TODO Header should be in first line only */
     return HEADER; }
-<INHD>"\tVN:" return HDVN;
-<INHD>"\tSO:" return HDSO;
+<INHD>"\tVN:" { DBG("header VN"); return HDVN; }
+<INHD>"\tSO:" { DBG("header SO"); return HDSO; }
 <INHD>"\tGO:" return HDGO;
 <INHD>\t[A-Z][A-Z]: { ERR("Undefined HD tag %s",yytext+1); yyterminate();}
 <INHD>[0-9]+\.[0-9]+ {
@@ -364,7 +373,14 @@ opttag [A-Za-z][A-Za-z0-9]
     return OPTBVALUE; }
 
 
-.|\n       DBG("DEFAULT '%c' ", *yytext);
+.|\n    {
+    if (yytext[0] < ' ' || yytext[0] > '~')
+    {
+        DBG("CONTROLCHAR %d",yytext[0]);
+        return CONTROLCHAR;
+    }
+    ERR("DEFAULT '%c' ", *yytext);
+    return VALUE;}
 <<EOF>> { DBG("EOF"); yyterminate(); }
 %%
 

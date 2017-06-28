@@ -138,7 +138,7 @@ sam: /* beginning of input */
    ;
 
 line:
-    EOL /* Spec is unclear about empty lines, accept for now */
+    EOL { DBG("empty line"); } /* Spec is unclear about empty lines, accept for now */
    | CONTROLCHAR { ERR("CONTROLCHAR %d", $1[0]);
                    rc_t rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
                    state->rc=rc;
@@ -198,7 +198,10 @@ hdr: HDVN VALUE {
         rc_t rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
         state->rc=rc; }
         */
-  | TAB { WARN("empty tags"); }
+  | TAB { ERR("empty tags");
+        rc_t rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
+        state->rc=rc;
+        return END;}
   ;
 
 
@@ -255,7 +258,10 @@ sq:
     | SQUR VALUE {
         process_header(state,"SQ",$1,$2);
         pool_free($2); }
-    | TAB { WARN("Unexpected tab in sequence"); }
+    | TAB { ERR("Unexpected tab in sequence");
+        rc_t rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
+        state->rc=rc;
+        return END;}
     ;
 
 program:

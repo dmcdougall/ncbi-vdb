@@ -26,12 +26,14 @@
 #include "samextract.h"
 #include <align/samextract-lib.h>
 #include <ctype.h>
+#include <glob.h>
 #include <kapp/args.h>
 #include <kapp/main.h>
 #include <kfg/config.h>
 #include <kfs/directory.h>
 #include <kfs/file.h>
 #include <klib/defs.h>
+#include <klib/out.h>
 #include <klib/rc.h>
 #include <klib/text.h>
 #include <klib/vector.h>
@@ -575,6 +577,29 @@ TEST_CASE(Filter)
     REQUIRE_EQUAL(filter(&extractor, &filter_rname, 4), true);
     REQUIRE_EQUAL(filter(&extractor, &filter_rname, 20), true);
 }
+
+TEST_CASE(Fuzz_Hangs)
+{
+    glob_t globbuf;
+
+    if (glob("fuzz/*", GLOB_ERR, NULL, &globbuf)) {
+        fprintf(stderr, "Couldn't glob fuzz/*");
+    }
+    REQUIRE_EQUAL((int)globbuf.gl_pathc, 66);
+    KOutMsg("None of below files should hang:\n");
+    for (size_t i = 0; i != globbuf.gl_pathc; ++i) {
+        KOutMsg("\t%s\n", globbuf.gl_pathv[i]);
+        SAMExtractor extractor;
+        SAMExtractor* e = &extractor;
+        rc_t rc = extract_file(globbuf.gl_pathv[i], &e);
+        REQUIRE_RC(rc);
+        pool_release();
+    }
+    KOutMsg("\n");
+
+    globfree(&globbuf);
+}
+
 // TODO: mempool, how to test an allocator?
 // TODO: negative tests, syntax errors
 
