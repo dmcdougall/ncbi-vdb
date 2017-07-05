@@ -24,7 +24,7 @@
  *
  */
 
-#include "/home/vartanianmh/devel/sra-tools/tools/general-loader/general-writer.hpp"
+#include "../../../sra-tools/tools/general-loader/general-writer.hpp"
 
 #include <align/samextract-lib.h>
 #include <ctype.h>

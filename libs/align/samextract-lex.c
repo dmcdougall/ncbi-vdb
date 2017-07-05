@@ -11215,8 +11215,8 @@ case 3:
 /* rule 3 can match eol */
 YY_RULE_SETUP
 #line 124 "/home/vartanianmh/devel/ncbi-vdb/libs/align/samextract-lex.l"
-{ 
-    BEGIN INITIAL; 
+{
+    BEGIN INITIAL;
     DBG("EOL %d",yytext[0]);
     if (yytext[0]==0)
     {
@@ -11762,7 +11762,7 @@ YY_RULE_SETUP
         DBG("CONTROLCHAR %d",yytext[0]);
         return CONTROLCHAR;
     }
-    ERR("DEFAULT '%c' ", *yytext); 
+    ERR("DEFAULT '%c' ", *yytext);
     return VALUE;}
 	YY_BREAK
 case YY_STATE_EOF(INITIAL):

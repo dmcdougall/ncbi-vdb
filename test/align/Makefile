@@ -22,6 +22,7 @@
 #
 # ===========================================================================
 
+
 default: runtests
 
 TOP ?= $(abspath ../..)
@@ -68,10 +69,12 @@ SAMEXTRACT_OBJ = \
 	$(addsuffix .$(OBJX),$(SAMEXTRACT_SRC))
 
 SAMEXTRACT_LIB = \
+	-L../../../sra-tools/linux/gcc/x86_64/dbg/lib \
 	-skapp \
 	-sktst \
 	-ssam-extract\
-	-sncbi-vdb
+	-sncbi-vdb\
+	-sgeneral-writer
 
 $(TEST_BINDIR)/samextract: $(SAMEXTRACT_OBJ)
 	$(LP) --exe -o $@ $^ $(SAMEXTRACT_LIB)
