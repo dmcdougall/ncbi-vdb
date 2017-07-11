@@ -309,7 +309,14 @@ rc_t process_header(SAMExtractor* state, const char* type, const char* tag,
         DBG("optional tag");
     }
 
-    TagValue* tv = (TagValue*)pool_alloc(sizeof(TagValue));
+    if (value == NULL) {
+        ERR("Null value for type:%s tag:%s", type, tag);
+        rc_t rc = RC(rcAlign, rcRow, rcParsing, rcData, rcInvalid);
+        state->rc = rc;
+        return rc;
+    }
+
+    TagValue* tv = (TagValue*)pool_alloc(sizeof(*tv));
     tv->tag = pool_strdup(tag);
     tv->value = pool_strdup(value);
     VectorAppend(&state->tagvalues, NULL, tv);
@@ -320,7 +327,7 @@ rc_t process_header(SAMExtractor* state, const char* type, const char* tag,
 rc_t mark_headers(SAMExtractor* state, const char* type)
 {
     DBG("mark_headers");
-    Header* hdr = (Header*)pool_alloc(sizeof(Header));
+    Header* hdr = (Header*)pool_alloc(sizeof(*hdr));
     hdr->headercode = type;
     VectorCopy(&state->tagvalues, &hdr->tagvalues);
     VectorAppend(&state->headers, NULL, hdr);
@@ -400,7 +407,7 @@ rc_t process_alignment(SAMExtractor* state, const char* qname,
 
     // TODO: ordered
 
-    Alignment* align = (Alignment*)pool_alloc(sizeof(Alignment));
+    Alignment* align = (Alignment*)pool_alloc(sizeof(*align));
 
     align->qname = qname;
     align->flags = fast_strtoi64(flag);

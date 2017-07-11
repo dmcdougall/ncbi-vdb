@@ -42,6 +42,7 @@ void morecore(size_t alloc_size)
     cur_block = malloc(alloc_size);
     if (cur_block == NULL) {
         ERR("out of memory");
+        abort();
     }
     cur_block_remain = alloc_size;
 
@@ -89,6 +90,7 @@ char* pool_strdup(const char* str)
 {
     if (!str) {
         ERR("Empty pool_strdup");
+        abort();
         return NULL;
     } else {
         size_t len = strlen(str) + 1;

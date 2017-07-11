@@ -181,15 +181,16 @@ headerlist:   hdr
 
 hdr: HDVN VALUE {
         state->hashdvn=true;
-        process_header(state,"HD","VN",$2);
+        if (process_header(state,"HD","VN",$2)) return END;
+        DBG("HDVN VALUE");
         pool_free($2); }
    | HDSO VALUE {
         state->hashdso=true;
-        process_header(state,"HD","SO",$2);
+        if (process_header(state,"HD","SO",$2)) return END;
         pool_free($2); }
    | HDGO VALUE {
         state->hashdgo=true;
-        process_header(state,"HD","GO",$2);
+        if (process_header(state,"HD","GO",$2)) return END;
         pool_free($2); }
         /* TODO: Handle >2 tabs in a row */
         /*
@@ -232,7 +233,7 @@ sequencelist: sq
 sq:
       SQSN VALUE {
         state->hassqsn=true;
-        process_header(state,"SQ",$1,$2);
+        if (process_header(state,"SQ",$1,$2)) return END;
         pool_free($2); }
     | SQLN VALUE {
         if (!inrange($2,1,INT32_MAX))
@@ -242,21 +243,21 @@ sq:
             state->rc=rc;
         }
         state->hassqln=true;
-        process_header(state,"SQ",$1,$2);
+        if (process_header(state,"SQ",$1,$2)) return END;
         pool_free($2); }
     | SQAS VALUE {
-        process_header(state,"SQ",$1,$2);
+        if (process_header(state,"SQ",$1,$2)) return END;
         pool_free($2); }
     | SQM5 VALUE {
         if (!ismd5($2))
             WARN("M5 value not followed by MD5");
-        process_header(state,"SQ",$1,$2);
+        if (process_header(state,"SQ",$1,$2)) return END;
         pool_free($2); }
     | SQSP VALUE {
-        process_header(state,"SQ",$1,$2);
+        if (process_header(state,"SQ",$1,$2)) return END;
         pool_free($2); }
     | SQUR VALUE {
-        process_header(state,"SQ",$1,$2);
+        if (process_header(state,"SQ",$1,$2)) return END;
         pool_free($2); }
     | TAB { ERR("Unexpected tab in sequence");
         rc_t rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
@@ -284,22 +285,22 @@ programlist: pg
 pg:
       PGID VALUE {
         state->haspgid=true;
-        process_header(state,"PG",$1,$2);
+        if (process_header(state,"PG",$1,$2)) return END;
         pool_free($2); }
     | PGPN VALUE {
-        process_header(state,"PG",$1,$2);
+        if (process_header(state,"PG",$1,$2)) return END;
         pool_free($2); }
     | PGCL VALUE {
-        process_header(state,"PG",$1,$2);
+        if (process_header(state,"PG",$1,$2)) return END;
         pool_free($2); }
     | PGPP VALUE {
-        process_header(state,"PG",$1,$2);
+        if (process_header(state,"PG",$1,$2)) return END;
         pool_free($2); }
     | PGDS VALUE {
-        process_header(state,"PG",$1,$2);
+        if (process_header(state,"PG",$1,$2)) return END;
         pool_free($2); }
     | PGVN VALUE {
-        process_header(state,"PG",$1,$2);
+        if (process_header(state,"PG",$1,$2)) return END;
         pool_free($2); }
     | VALUE {
         WARN("Bogus value in PG:%s",$1);
@@ -327,7 +328,7 @@ readgrouplist:   rg
 
 rg:  RGID VALUE {
         state->hasrgid=true;
-        process_header(state,"RG",$1,$2);
+        if (process_header(state,"RG",$1,$2)) return END;
         pool_free($2); }
     /* Can't match platforms in lexer, they often collide with CN */
    | RGPL VALUE {
@@ -347,42 +348,42 @@ rg:  RGID VALUE {
             strcmp($2,"PacBio_RS")  /* not compliant */
         )
             WARN("Invalid Platform %s", $2);
-        process_header(state,"RG",$1,$2);
+        if (process_header(state,"RG",$1,$2)) return END;
         pool_free($2); }
    | RGCN VALUE {
-        process_header(state,"RG",$1,$2);
+        if (process_header(state,"RG",$1,$2)) return END;
         pool_free($2); }
    | RGDS VALUE {
-        process_header(state,"RG",$1,$2);
+        if (process_header(state,"RG",$1,$2)) return END;
         pool_free($2); }
    | RGDT VALUE {
-        process_header(state,"RG",$1,$2);
+        if (process_header(state,"RG",$1,$2)) return END;
         pool_free($2); }
    | RGFO VALUE {
         if (!isfloworder($2))
             WARN("Flow order incorrec");
-        process_header(state,"RG",$1,$2);
+        if (process_header(state,"RG",$1,$2)) return END;
         pool_free($2); }
    | RGKS VALUE {
-        process_header(state,"RG",$1,$2);
+        if (process_header(state,"RG",$1,$2)) return END;
         pool_free($2); }
    | RGLB VALUE {
-        process_header(state,"RG",$1,$2);
+        if (process_header(state,"RG",$1,$2)) return END;
         pool_free($2); }
    | RGPG VALUE {
-        process_header(state,"RG",$1,$2);
+        if (process_header(state,"RG",$1,$2)) return END;
         pool_free($2); }
    | RGPI VALUE {
-        process_header(state,"RG",$1,$2);
+        if (process_header(state,"RG",$1,$2)) return END;
         pool_free($2); }
    | RGPM VALUE {
-        process_header(state,"RG",$1,$2);
+        if (process_header(state,"RG",$1,$2)) return END;
         pool_free($2); }
    | RGPU VALUE {
-        process_header(state,"RG",$1,$2);
+        if (process_header(state,"RG",$1,$2)) return END;
         pool_free($2); }
    | RGSM VALUE {
-        process_header(state,"RG",$1,$2);
+        if (process_header(state,"RG",$1,$2)) return END;
         pool_free($2); }
    | VALUE VALUE {
         WARN("Unknown readgroup (RG) tag:%s", $1);

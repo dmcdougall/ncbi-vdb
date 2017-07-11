@@ -32,7 +32,8 @@ MODULE = test/align
 TEST_TOOLS = \
 	test-load-index \
 	test-samextract \
-	samextract
+	samextract \
+	bamfuzz
 
 include $(TOP)/build/Makefile.env
 
@@ -58,7 +59,6 @@ TEST_INDEX_LIB = \
 
 $(TEST_BINDIR)/test-load-index: $(TEST_INDEX_OBJ)
 	$(LP) --exe -o $@ $^ $(TEST_INDEX_LIB)
-
 #-------------------------------------------------------------------------------
 # samextract
 #
@@ -73,11 +73,30 @@ SAMEXTRACT_LIB = \
 	-skapp \
 	-sktst \
 	-ssam-extract\
-	-sncbi-vdb\
-	-sgeneral-writer
+	-sncbi-vdb
+
 
 $(TEST_BINDIR)/samextract: $(SAMEXTRACT_OBJ)
 	$(LP) --exe -o $@ $^ $(SAMEXTRACT_LIB)
+
+#-------------------------------------------------------------------------------
+# bamfuzz
+#
+BAMFUZZ_SRC = \
+	bamfuzz
+
+BAMFUZZ_OBJ = \
+	$(addsuffix .$(OBJX),$(BAMFUZZ_SRC))
+
+BAMFUZZ_LIB = \
+	-skapp \
+	-sktst \
+	-ssam-extract\
+	-sncbi-vdb
+
+$(TEST_BINDIR)/bamfuzz: $(BAMFUZZ_OBJ)
+	$(LP) --exe -o $@ $^ $(BAMFUZZ_LIB)
+
 
 #-------------------------------------------------------------------------------
 # test-samextract

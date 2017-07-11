@@ -50,9 +50,17 @@ inline void pool_free(void* buf)
 
 inline void* pool_alloc(size_t alloc_size)
 {
-    if (!alloc_size) ERR("Zero allocation");
+    if (!alloc_size) {
+        ERR("Zero allocation");
+        abort();
+        return NULL;
+    }
 
-    if (!cur_block) ERR("Pool not initialized");
+    if (!cur_block) {
+        ERR("Pool not initialized");
+        abort();
+        return NULL;
+    }
 
     if (alloc_size % 8 != 0)
         alloc_size += 8 - (alloc_size % 8); /* Round up for alignment */

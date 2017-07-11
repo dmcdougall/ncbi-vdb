@@ -157,7 +157,16 @@ class BGZFview
     inline bool getbytes(KQueue* que, char* dest, size_t len)
     {
         DBG("Getting %d", len);
-        if (len == 0) ERR("Empty get");
+        if (dest == NULL) {
+            ERR("NULL dest");
+            *dest = 0;
+            return false;
+        }
+        if (len == 0) {
+            ERR("Empty get");
+            *dest = 0;
+            return false;
+        }
         while (len) {
             if (bgzf == NULL || bgzf->outsize == 0) {
                 DBG("need %d more", len);
@@ -243,7 +252,7 @@ static rc_t seeker(const KThread* kt, void* in)
         u8 extra[256];
         memset(&head, 0, sizeof head);
         head.extra = extra;
-        head.extra_max = sizeof(extra);
+        head.extra_max = sizeof extra;
         char outbuf[64];
         strm.next_out = (Bytef*)outbuf;
         strm.avail_out = 64;
@@ -285,7 +294,7 @@ static rc_t seeker(const KThread* kt, void* in)
 
             state->file_pos += block_size;
 
-            BGZF* bgzf = (BGZF*)malloc(sizeof(BGZF));
+            BGZF* bgzf = (BGZF*)malloc(sizeof(*bgzf));
             KLockMake(&bgzf->lock);
             KLockAcquire(bgzf->lock); // Not ready for parsing
             bgzf->state = compressed;
@@ -468,20 +477,24 @@ rc_t BAMGetHeaders(SAMExtractor* state)
 {
     DBG("BAMGetHeaders");
     char magic[4];
-    if (!bview.getbytes(state->parsequeue, magic, 4)) return 1;
+    if (!bview.getbytes(state->parsequeue, magic, 4))
+        return RC(rcAlign, rcFile, rcParsing, rcData, rcInvalid);
     if (memcmp(magic, "BAM\x01", 4)) {
         ERR("BAM magic not found");
         return RC(rcAlign, rcFile, rcParsing, rcData, rcInvalid);
     }
     i32 l_text;
-    if (!bview.getbytes(state->parsequeue, (char*)&l_text, 4)) return 1;
-    if (l_text < 0) {
-        ERR("error: invalid l_text");
+    if (!bview.getbytes(state->parsequeue, (char*)&l_text, 4))
+        return RC(rcAlign, rcFile, rcParsing, rcData, rcInvalid);
+    if (l_text < 0 || l_text > 1000000) {
+        ERR("error: invalid l_text %d", l_text);
         return RC(rcAlign, rcFile, rcParsing, rcData, rcInvalid);
     }
+    DBG("l_text=%d", l_text);
     if (l_text) {
         char* text = (char*)pool_alloc(l_text + 1);
-        if (!bview.getbytes(state->parsequeue, text, l_text)) return 1;
+        if (!bview.getbytes(state->parsequeue, text, l_text))
+            return RC(rcAlign, rcFile, rcParsing, rcData, rcInvalid);
         text[l_text] = '\0';
 
         DBG("SAM header %d %d:'%s'", l_text, strlen(text), text);
@@ -497,16 +510,22 @@ rc_t BAMGetHeaders(SAMExtractor* state)
                 t += linelen;
             } else {
                 size_t linelen = 1 + nl - t;
-                DBG("ln   linelen %d", linelen);
+                DBG("ln linelen %d", linelen);
                 memmove(curline, t, linelen);
                 curline[linelen] = '\0';
                 t += linelen;
             }
             DBG("curline is '%s'", curline);
-            if (curline[0] != '@')
+            if (curline[0] != '@') {
                 ERR("Not a SAM header line: '%s'", curline);
+                return RC(rcAlign, rcFile, rcParsing, rcData, rcInvalid);
+            }
             curline_len = strlen(curline);
             SAMparse(state);
+            if (state->rc) {
+                ERR("Parser returned error in BAMGetHeaders");
+                return state->rc;
+            }
         }
         pool_free(text);
         text = NULL;
@@ -514,8 +533,9 @@ rc_t BAMGetHeaders(SAMExtractor* state)
         WARN("No SAM header");
     }
 
-    if (!bview.getbytes(state->parsequeue, (char*)&state->n_ref, 4)) return 1;
-    if (state->n_ref < 0) {
+    if (!bview.getbytes(state->parsequeue, (char*)&state->n_ref, 4))
+        return RC(rcAlign, rcFile, rcParsing, rcData, rcInvalid);
+    if (state->n_ref < 0 || state->n_ref > 100000000) {
         ERR("error: invalid n_ref: %d", state->n_ref);
         return RC(rcAlign, rcFile, rcParsing, rcData, rcInvalid);
     }
@@ -523,7 +543,8 @@ rc_t BAMGetHeaders(SAMExtractor* state)
 
     for (int i = 0; i != state->n_ref; ++i) {
         i32 l_name;
-        if (!bview.getbytes(state->parsequeue, (char*)&l_name, 4)) return 1;
+        if (!bview.getbytes(state->parsequeue, (char*)&l_name, 4))
+            return RC(rcAlign, rcFile, rcParsing, rcData, rcInvalid);
         DBG("ref #%d/%d: l_name=%d", i, state->n_ref, l_name);
         if (l_name < 0) {
             ERR("error: invalid reference name length:%d", l_name);
@@ -531,15 +552,18 @@ rc_t BAMGetHeaders(SAMExtractor* state)
         }
         if (l_name > 256) {
             ERR("warning: Long reference name:%d", l_name);
+            return RC(rcAlign, rcFile, rcParsing, rcData, rcInvalid);
         }
         char* name
             = (char*)malloc(l_name + 1); // These need to persist across pools
-        if (!bview.getbytes(state->parsequeue, name, l_name)) return 1;
+        if (!bview.getbytes(state->parsequeue, name, l_name))
+            return RC(rcAlign, rcFile, rcParsing, rcData, rcInvalid);
         DBG("ref #%d: name='%s'", i, name);
         VectorAppend(&state->bam_references, NULL, name);
         name = NULL;
         i32 l_ref;
-        if (!bview.getbytes(state->parsequeue, (char*)&l_ref, 4)) return 1;
+        if (!bview.getbytes(state->parsequeue, (char*)&l_ref, 4))
+            return RC(rcAlign, rcFile, rcParsing, rcData, rcInvalid);
         if (l_ref < 0) ERR("Bad l_ref %d", l_ref);
         DBG("length of reference sequence %d=%d", i, l_ref);
     }
@@ -770,20 +794,34 @@ rc_t BAMGetAlignments(SAMExtractor* state)
             ERR("error: bad next_pos:%d", align.next_pos);
             return RC(rcAlign, rcFile, rcParsing, rcData, rcInvalid);
         }
-        if (align.refID >= 0)
+        if (align.refID >= 0) {
             ref_name = (char*)VectorGet(&state->bam_references, align.refID);
+            if (!ref_name) {
+                WARN("Bad refID %d", align.refID);
+                ref_name = "";
+            }
+        }
 
         DBG("next_ref_ID=%d\n", align.next_refID);
-        if (align.next_refID >= 0)
+        if (align.next_refID >= 0) {
             next_ref_id
                 = (char*)VectorGet(&state->bam_references, align.next_refID);
-        DBG("next_ref_id='%s'\n", next_ref_id);
+            if (!next_ref_id) {
+                WARN("Bad next_ref_ID %d", align.next_refID);
+                next_ref_id = "";
+            }
+            DBG("next_ref_id='%s'\n", next_ref_id);
+        }
 
         DBG("align.bin_mq_nl=%d", align.bin_mq_nl);
         u16 bin = align.bin_mq_nl >> 16;
         u8 mapq = (align.bin_mq_nl >> 8) & 0xff;
         u8 l_read_name = align.bin_mq_nl & 0xff;
         DBG("bin=%d mapq=%d l_read_name=%d", bin, mapq, l_read_name);
+        if (l_read_name == 0) {
+            ERR("Empty read_name");
+            return RC(rcAlign, rcFile, rcParsing, rcData, rcInvalid);
+        }
         if (l_read_name > 90) ERR("Long (%d) read_name", l_read_name);
 
         u16 flag = align.flag_nc >> 16;
@@ -793,6 +831,11 @@ rc_t BAMGetAlignments(SAMExtractor* state)
         char* read_name = (char*)pool_alloc(l_read_name);
         if (!bview.getbytes(state->parsequeue, read_name, l_read_name))
             return RC(rcAlign, rcFile, rcParsing, rcData, rcInvalid);
+        if (strlen(read_name) != l_read_name - 1) {
+            ERR("read_name length mismatch: '%s' not length %d", read_name,
+                l_read_name);
+            return RC(rcAlign, rcFile, rcParsing, rcData, rcInvalid);
+        }
         DBG("read_name='%s'", read_name);
         // TODO: Early out, check filter here, based on rname and pos
         char* scigar = NULL;
@@ -858,7 +901,7 @@ rc_t BAMGetAlignments(SAMExtractor* state)
             + 4; // TODO, why 4?
         DBG("%d bytes remaining for ttvs", remain);
         char* ttvs = NULL;
-        if (remain) {
+        if (remain > 0) {
             ttvs = (char*)pool_alloc(remain);
             if (!bview.getbytes(state->parsequeue, ttvs, remain))
                 return RC(rcAlign, rcFile, rcParsing, rcData, rcInvalid);
