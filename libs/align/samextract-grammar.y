@@ -183,15 +183,15 @@ hdr: HDVN VALUE {
         state->hashdvn=true;
         if (process_header(state,"HD","VN",$2)) return END;
         DBG("HDVN VALUE");
-        pool_free($2); }
+        }
    | HDSO VALUE {
         state->hashdso=true;
         if (process_header(state,"HD","SO",$2)) return END;
-        pool_free($2); }
+        }
    | HDGO VALUE {
         state->hashdgo=true;
         if (process_header(state,"HD","GO",$2)) return END;
-        pool_free($2); }
+        }
         /* TODO: Handle >2 tabs in a row */
         /*
   | TAB TAB {
@@ -234,7 +234,7 @@ sq:
       SQSN VALUE {
         state->hassqsn=true;
         if (process_header(state,"SQ",$1,$2)) return END;
-        pool_free($2); }
+        }
     | SQLN VALUE {
         if (!inrange($2,1,INT32_MAX))
         {
@@ -244,21 +244,21 @@ sq:
         }
         state->hassqln=true;
         if (process_header(state,"SQ",$1,$2)) return END;
-        pool_free($2); }
+        }
     | SQAS VALUE {
         if (process_header(state,"SQ",$1,$2)) return END;
-        pool_free($2); }
+        ; }
     | SQM5 VALUE {
         if (!ismd5($2))
             WARN("M5 value not followed by MD5");
         if (process_header(state,"SQ",$1,$2)) return END;
-        pool_free($2); }
+        ; }
     | SQSP VALUE {
         if (process_header(state,"SQ",$1,$2)) return END;
-        pool_free($2); }
+        ; }
     | SQUR VALUE {
         if (process_header(state,"SQ",$1,$2)) return END;
-        pool_free($2); }
+        ; }
     | TAB { ERR("Unexpected tab in sequence");
         rc_t rc=RC(rcAlign,rcRow,rcParsing,rcData,rcInvalid);
         state->rc=rc;
@@ -286,25 +286,25 @@ pg:
       PGID VALUE {
         state->haspgid=true;
         if (process_header(state,"PG",$1,$2)) return END;
-        pool_free($2); }
+        ; }
     | PGPN VALUE {
         if (process_header(state,"PG",$1,$2)) return END;
-        pool_free($2); }
+        ; }
     | PGCL VALUE {
         if (process_header(state,"PG",$1,$2)) return END;
-        pool_free($2); }
+        ; }
     | PGPP VALUE {
         if (process_header(state,"PG",$1,$2)) return END;
-        pool_free($2); }
+        ; }
     | PGDS VALUE {
         if (process_header(state,"PG",$1,$2)) return END;
-        pool_free($2); }
+        ; }
     | PGVN VALUE {
         if (process_header(state,"PG",$1,$2)) return END;
-        pool_free($2); }
+        ; }
     | VALUE {
         WARN("Bogus value in PG:%s",$1);
-        pool_free($1); }
+         }
     ;
 
 
@@ -329,7 +329,7 @@ readgrouplist:   rg
 rg:  RGID VALUE {
         state->hasrgid=true;
         if (process_header(state,"RG",$1,$2)) return END;
-        pool_free($2); }
+        ; }
     /* Can't match platforms in lexer, they often collide with CN */
    | RGPL VALUE {
         if (
@@ -349,46 +349,46 @@ rg:  RGID VALUE {
         )
             WARN("Invalid Platform %s", $2);
         if (process_header(state,"RG",$1,$2)) return END;
-        pool_free($2); }
+        ; }
    | RGCN VALUE {
         if (process_header(state,"RG",$1,$2)) return END;
-        pool_free($2); }
+        ; }
    | RGDS VALUE {
         if (process_header(state,"RG",$1,$2)) return END;
-        pool_free($2); }
+        ; }
    | RGDT VALUE {
         if (process_header(state,"RG",$1,$2)) return END;
-        pool_free($2); }
+        ; }
    | RGFO VALUE {
         if (!isfloworder($2))
             WARN("Flow order incorrec");
         if (process_header(state,"RG",$1,$2)) return END;
-        pool_free($2); }
+        ; }
    | RGKS VALUE {
         if (process_header(state,"RG",$1,$2)) return END;
-        pool_free($2); }
+        ; }
    | RGLB VALUE {
         if (process_header(state,"RG",$1,$2)) return END;
-        pool_free($2); }
+        ; }
    | RGPG VALUE {
         if (process_header(state,"RG",$1,$2)) return END;
-        pool_free($2); }
+        ; }
    | RGPI VALUE {
         if (process_header(state,"RG",$1,$2)) return END;
-        pool_free($2); }
+        ; }
    | RGPM VALUE {
         if (process_header(state,"RG",$1,$2)) return END;
-        pool_free($2); }
+        ; }
    | RGPU VALUE {
         if (process_header(state,"RG",$1,$2)) return END;
-        pool_free($2); }
+        ; }
    | RGSM VALUE {
         if (process_header(state,"RG",$1,$2)) return END;
-        pool_free($2); }
+        ; }
    | VALUE VALUE {
         WARN("Unknown readgroup (RG) tag:%s", $1);
-        pool_free($1);
-        pool_free($2);
+        
+        ;
         }
    | TAB TAB EOL {
         ERR("empty tags");
@@ -404,34 +404,12 @@ alignment:
      {
         DBG("alignment record %s",$1);
         process_alignment(state,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11);
-
-        pool_free($1);
-        pool_free($2);
-        pool_free($3);
-        pool_free($4);
-        pool_free($5);
-        pool_free($6);
-        pool_free($7);
-        pool_free($8);
-        pool_free($9);
-        pool_free($10);
-        pool_free($11); }
+     }
      | QNAME FLAG RNAME POS MAPQ CIGAR RNEXT PNEXT TLEN SEQ QUAL optlist EOL
-    {
+     {
         DBG("alignment record with optional tags");
         process_alignment(state,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11);
-
-        pool_free($1);
-        pool_free($2);
-        pool_free($3);
-        pool_free($4);
-        pool_free($5);
-        pool_free($6);
-        pool_free($7);
-        pool_free($8);
-        pool_free($9);
-        pool_free($10);
-        pool_free($11); }
+     }
     ;
 
 optlist: opt { DBG("opt"); }
@@ -442,48 +420,39 @@ opt:
     OPTTAG OPTATYPE OPTAVALUE
     {
         DBG("?AA");
-        pool_free($1);
-        pool_free($3); }
+    }
     | OPTTAG OPTITYPE OPTIVALUE
     {
         DBG("?II");
-        pool_free($1);
-        pool_free($3); }
+    }
     | OPTTAG OPTFTYPE OPTFVALUE
     {
         DBG("?FF");
-        pool_free($1);
-        pool_free($3); }
+    }
     | OPTTAG OPTZTYPE OPTZVALUE
     {
         DBG("?ZZ");
-        pool_free($1);
-        pool_free($3); }
+    }
     | OPTTAG OPTHTYPE OPTHVALUE
     {
         DBG("?HH");
-        pool_free($1);
-        pool_free($3); }
+    }
     | OPTTAG OPTBTYPE OPTBVALUE
     {
         DBG("?BB");
-        pool_free($1);
-        pool_free($3); }
+    }
     | OPTITAG OPTITYPE OPTIVALUE
     {
         DBG("III");
-        pool_free($1);
-        pool_free($3); }
+    }
     | OPTZTAG OPTZTYPE OPTZVALUE
     {
         DBG("ZZZ");
-        pool_free($1);
-        pool_free($3); }
+    }
     | OPTBTAG OPTBTYPE OPTBVALUE
     {
         DBG("BBB");
-        pool_free($1);
-        pool_free($3); }
+    }
     ;
 
 %%

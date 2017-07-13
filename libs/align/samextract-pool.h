@@ -41,13 +41,6 @@ void morecore(size_t alloc_size);
 extern void* cur_block;
 extern size_t cur_block_remain;
 
-/* Could conceivably reclaim last allocation */
-inline void pool_free(void* buf)
-{
-    if (DEBUG && buf) memset(buf, 0, 8); /* Assist with UAF */
-    return;
-}
-
 inline void* pool_alloc(size_t alloc_size)
 {
     if (!alloc_size) {

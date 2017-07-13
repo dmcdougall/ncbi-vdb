@@ -527,7 +527,6 @@ rc_t BAMGetHeaders(SAMExtractor* state)
                 return state->rc;
             }
         }
-        pool_free(text);
         text = NULL;
     } else {
         WARN("No SAM header");
@@ -850,7 +849,6 @@ rc_t BAMGetAlignments(SAMExtractor* state)
             //   Likely 1/5 that, but pool allocation cheaper than
             //   computing.
             scigar = decode_cigar(cigar, n_cigar_op);
-            pool_free(cigar);
             cigar = NULL;
             DBG("scigar is '%s'", scigar);
         } else {
@@ -886,8 +884,6 @@ rc_t BAMGetAlignments(SAMExtractor* state)
             DBG("%d pairs in sequence", align.l_seq);
             DBG("seq='%s'", seq);
             DBG("qual='%s'", qual);
-            pool_free(qualbytes);
-            pool_free(seqbytes);
             seqbytes = NULL;
         } else {
             seq = (char*)pool_alloc(1);
@@ -1007,15 +1003,10 @@ rc_t BAMGetAlignments(SAMExtractor* state)
                           qual         // qual
                           );
 
-        pool_free(read_name);
         read_name = NULL;
-        pool_free(seq);
         seq = NULL;
-        pool_free(qual);
         qual = NULL;
-        pool_free(ttvs);
         ttvs = NULL;
-        pool_free(scigar);
         scigar = NULL;
 
         if (VectorLength(&state->alignments) == 64) {
