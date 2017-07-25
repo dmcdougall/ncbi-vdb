@@ -243,7 +243,7 @@ static rc_t DirDlgDirectoryChanged ( struct KTUIDlg * dlg, dir_dlg_data * data, 
     if ( rc == 0 )
         rc = KTUIDlgDraw( dlg, false );
 
-	return rc;
+    return rc;
 }
 
 

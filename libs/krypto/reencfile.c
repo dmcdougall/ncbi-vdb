@@ -1186,7 +1186,7 @@ LIB_EXPORT rc_t CC KEncryptFileMakeRead (const KFile ** pself,
     return rc;
 }
 
-
+#if 0
 /* ----------
  * Write mode re-encrypted file 
  */
@@ -1207,7 +1207,7 @@ static const KFile_vt_v1 vtKReencFileWrite =
     /* 1.1 */
     KReencFileType
 };
-
+#endif
 
 LIB_EXPORT rc_t CC KReencFileMakeWrite (KFile ** pself, 
                                         KFile * encrypted,

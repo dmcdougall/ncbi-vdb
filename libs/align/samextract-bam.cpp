@@ -428,7 +428,7 @@ static rc_t inflater(const KThread* kt, void* in)
                 case Z_STREAM_END:
                     DBG("\t\tthread %lu OK %d %d %lu", threadid,
                         strm.avail_in, strm.avail_out, strm.total_out);
-                    bgzf->outsize = strm.total_out;
+                    bgzf->outsize = (u32)strm.total_out;
                     bgzf->state = uncompressed;
                     DBG("Ready for parsing, unlocking");
                     KLockUnlock(bgzf->lock); // OK to parse now
@@ -492,7 +492,7 @@ rc_t BAMGetHeaders(SAMExtractor* state)
     }
     DBG("l_text=%d", l_text);
     if (l_text) {
-        char* text = (char*)pool_alloc(l_text + 1);
+        char* text = (char*)pool_alloc((u32)l_text + 1);
         if (!bview.getbytes(state->parsequeue, text, l_text))
             return RC(rcAlign, rcFile, rcParsing, rcData, rcInvalid);
         text[l_text] = '\0';
@@ -830,7 +830,7 @@ rc_t BAMGetAlignments(SAMExtractor* state)
         char* read_name = (char*)pool_alloc(l_read_name);
         if (!bview.getbytes(state->parsequeue, read_name, l_read_name))
             return RC(rcAlign, rcFile, rcParsing, rcData, rcInvalid);
-        if (strlen(read_name) != l_read_name - 1) {
+        if (strlen(read_name) != (size_t)l_read_name - 1) {
             ERR("read_name length mismatch: '%s' not length %d", read_name,
                 l_read_name);
             return RC(rcAlign, rcFile, rcParsing, rcData, rcInvalid);

@@ -1159,10 +1159,10 @@ static KPage * KPageFileIndexFind( KPageFile *self, uint32_t page_id )
     if ( PAGE_IDX_DEPTH( page_id ) > depth )
         return NULL;
 
-	if ( tmp == NULL )
+    if ( tmp == NULL )
         return NULL;
 
-	while ( depth > 1 )
+    while ( depth > 1 )
     {
         offset = ( ( page_id - 1 ) >> ( depth - 1 ) * 8 ) & 0xff;
         if ( tmp[ offset ] == NULL )

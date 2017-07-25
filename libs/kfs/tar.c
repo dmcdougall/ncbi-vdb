@@ -84,14 +84,12 @@
 #if _DEBUGGING
 static const char * get_bool_string (bool b)
 {
-    switch (b)
+    if (b)
     {
-    case true:
-	return "true";
-    case false:
-	return "false";
-    default:
-	return "not-false";
+        return "true";
+    } else
+    {
+        return "false";
     }
 }
 #endif
@@ -1133,10 +1131,10 @@ static rc_t	sparse_data_pop (sparse_data ** q, sparse_data **item)
     if ((q == NULL) || (item == NULL))
         return -1;
 
-	*item = *q;
-	*q = (*item)->next;
-	(*item)->next = NULL;
-	return 0;
+    *item = *q;
+    *q = (*item)->next;
+    (*item)->next = NULL;
+    return 0;
 }
 
 static rc_t	sparse_data_kill (sparse_data ** q)

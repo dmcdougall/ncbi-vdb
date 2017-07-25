@@ -55,8 +55,7 @@
 extern "C" {
 #endif
 
-
-#define PROD_CACHE  	  2                   	/** default size of Production Cache ***/
+#define PROD_CACHE 2 /** default size of Production Cache ***/
 
 /* IT IS A BAD IDEA TO USE EXTERN COLUMNS IN EXPRESSIONS
    but it used to be okay in version 0 of the schema, so
@@ -76,7 +75,7 @@ extern "C" {
 #define PROD_NAME 1
 #endif
 
-#define VDB_DEBUG(msg) DBGMSG(DBG_VDB,DBG_FLAG(DBG_VDB_RESOLVE), msg )
+#define VDB_DEBUG(msg) DBGMSG(DBG_VDB, DBG_FLAG(DBG_VDB_RESOLVE), msg)
 
 /*--------------------------------------------------------------------------
  * forwards
@@ -87,7 +86,6 @@ struct VColumn;
 struct VPhysical;
 struct VProdResolve;
 struct VBlobMRUCacheCursorContext;
-
 
 /*--------------------------------------------------------------------------
  * VProduction
@@ -121,17 +119,17 @@ enum
     chainUncommitted
 };
 
-#if ! VPRODUCTION_DECLARED_IN_XFORM_H
+#if !VPRODUCTION_DECLARED_IN_XFORM_H
 typedef struct VProduction VProduction;
 #endif
 struct VProduction
 {
 #if PROD_NAME
-    const char *name;
+    const char* name;
 #endif
 #if PROD_CACHE
     /* cached output */
-    struct VBlob *cache [ PROD_CACHE ];
+    struct VBlob* cache[PROD_CACHE];
     uint32_t cache_cnt;
     uint32_t cache_wash_access_cnt;
 #endif
@@ -160,7 +158,6 @@ struct VProduction
     VBlobMRUCacheCursorContext cctx;
 };
 
-
 /* Make
  *  allocation and parent initialization
  *  called from the "Make" functions below
@@ -187,10 +184,9 @@ struct VProduction
  *    chainDecoding    - when pulling from physical to output
  *    chainUncommitted - when resolving trigger and validation expressions
  */
-rc_t VProductionMake ( VProduction **prod, Vector *owned, size_t size,
-    int var, int sub, const char *name, const VFormatdecl *fd,
-    const VTypedesc *desc, const VCtxId *cid, uint8_t chain );
-
+rc_t VProductionMake(VProduction** prod, Vector* owned, size_t size, int var,
+                     int sub, const char* name, const VFormatdecl* fd,
+                     const VTypedesc* desc, const VCtxId* cid, uint8_t chain);
 
 /* Whack
  *  virtual whacker
@@ -200,30 +196,30 @@ rc_t VProductionMake ( VProduction **prod, Vector *owned, size_t size,
  *  "owned" [ IN, NULL OKAY ] - a Vector owning production
  *  if not NULL, production will be removed from vector
  */
-void CC VProductionWhack ( void *item, void *owned );
+void CC VProductionWhack(void* item, void* owned);
 
-
-#if ! VPRODUCTION_DECLARED_IN_XFORM_H
+#if !VPRODUCTION_DECLARED_IN_XFORM_H
 /* IdRange
  *  obtains intersection of all physical sources
  *
  *  "first" [ IN/OUT ] and "last" [ IN/OUT ] - range to intersect
  */
-rc_t VProductionColumnIdRange ( const VProduction *self,
-    int64_t *first, int64_t *last );
-rc_t VProductionPageIdRange ( VProduction *self,
-    int64_t id, int64_t *first, int64_t *last );
+rc_t VProductionColumnIdRange(const VProduction* self, int64_t* first,
+                              int64_t* last);
+rc_t VProductionPageIdRange(VProduction* self, int64_t id, int64_t* first,
+                            int64_t* last);
 
 /* RowLength
  *  get row length for a particular row
  */
-uint32_t VProductionRowLength ( const VProduction *self, int64_t row_id );
+uint32_t VProductionRowLength(const VProduction* self, int64_t row_id);
 
 /* FixedRowLength
  *  get fixed row length for entire column
  *  returns 0 if not fixed
  */
-uint32_t VProductionFixedRowLength ( const VProduction *self, int64_t row_id, bool ignore_self );
+uint32_t VProductionFixedRowLength(const VProduction* self, int64_t row_id,
+                                   bool ignore_self);
 
 #endif /* ! VPRODUCTION_DECLARED_IN_XFORM_H */
 
@@ -231,19 +227,21 @@ uint32_t VProductionFixedRowLength ( const VProduction *self, int64_t row_id, bo
  *  fetch a blob containing at least the requested row
  *  returns a new reference
  */
-rc_t VProductionReadBlob ( const VProduction *self, struct VBlob **vblob, int64_t id , uint32_t cnt, struct VBlobMRUCacheCursorContext* cctx);
+rc_t VProductionReadBlob(const VProduction* self, struct VBlob** vblob,
+                         int64_t id, uint32_t cnt,
+                         struct VBlobMRUCacheCursorContext* cctx);
 
 /* IsStatic
  *  trace all the way to a physical production
  */
-rc_t VProductionIsStatic ( const VProduction *self, bool *is_static );
+rc_t VProductionIsStatic(const VProduction* self, bool* is_static);
 
 /* GetKColumn
  *  drills down to physical production to get a KColumn,
  *  and if that fails, indicate whether the column is static
  */
-rc_t VProductionGetKColumn ( const VProduction * self, struct KColumn ** kcol, bool * is_static );
-
+rc_t VProductionGetKColumn(const VProduction* self, struct KColumn** kcol,
+                           bool* is_static);
 
 /*--------------------------------------------------------------------------
  * VSimpleProd
@@ -266,23 +264,22 @@ typedef struct VSimpleProd VSimpleProd;
 struct VSimpleProd
 {
     VProduction dad;
-    VProduction *in;
-    struct VCursor const *curs;
+    VProduction* in;
+    struct VCursor const* curs;
 };
 
-rc_t VSimpleProdMake ( VProduction **prod, Vector *owned,
-    struct VCursor const *curs,int sub, const char *name, const VFormatdecl *fd,
-    const VTypedesc *desc, const VCtxId *cid,
-    VProduction *in, uint8_t chain );
+rc_t VSimpleProdMake(VProduction** prod, Vector* owned,
+                     struct VCursor const* curs, int sub, const char* name,
+                     const VFormatdecl* fd, const VTypedesc* desc,
+                     const VCtxId* cid, VProduction* in, uint8_t chain);
 
-#define VSimpleProdDestroy( self ) \
-    ( ( void ) 0 )
+#define VSimpleProdDestroy(self) ((void)0)
 
 /* Read
  *  return a blob containing row id
  */
-rc_t VSimpleProdRead ( VSimpleProd *self, struct VBlob **vblob, int64_t id, uint32_t cnt, struct VBlobMRUCacheCursorContext *cctx );
-
+rc_t VSimpleProdRead(VSimpleProd* self, struct VBlob** vblob, int64_t id,
+                     uint32_t cnt, struct VBlobMRUCacheCursorContext* cctx);
 
 /*--------------------------------------------------------------------------
  * VFunctionProd
@@ -305,11 +302,11 @@ struct VFunctionProd
 
     /* back-pointer to owning cursor
        not a reference, not to be released */
-    struct VCursor const *curs;
+    struct VCursor const* curs;
 
     /* object and optional destructor */
-    void *fself;
-    void ( CC * whack ) ( void *self );
+    void* fself;
+    void(CC* whack)(void* self);
 
     /* runtime function */
     union
@@ -323,12 +320,12 @@ struct VFunctionProd
 
         /* merge type */
         VBlobFuncN bfN;
-        
+
         /* compare type */
         VBlobCompareFunc cf;
 
         /* internal types */
-        void ( * bswap ) ( void*, const void*, uint64_t );
+        void (*bswap)(void*, const void*, uint64_t);
 
     } u;
 
@@ -336,29 +333,28 @@ struct VFunctionProd
     Vector parms;
 
     /* adaptive prefetch parameters */
-   int64_t start_id;
-   int64_t stop_id;
+    int64_t start_id;
+    int64_t stop_id;
 };
 
+rc_t VFunctionProdMake(VFunctionProd** prod, Vector* owned,
+                       struct VCursor const* curs, int sub, const char* name,
+                       const VFormatdecl* fd, const VTypedesc* desc,
+                       uint8_t chain);
 
-rc_t VFunctionProdMake ( VFunctionProd **prod, Vector *owned,
-    struct VCursor const *curs, int sub, const char *name,
-    const VFormatdecl *fd, const VTypedesc *desc, uint8_t chain );
-
-void VFunctionProdDestroy ( VFunctionProd *self );
-
+void VFunctionProdDestroy(VFunctionProd* self);
 
 /* BuiltInComparison
  */
-rc_t VFunctionProdMakeBuiltInComp ( VProduction **prod, Vector *owned,
-    const char *name, struct VProdResolve const *resolve,
-    VProduction *orig, VProduction *test );
-
+rc_t VFunctionProdMakeBuiltInComp(VProduction** prod, Vector* owned,
+                                  const char* name,
+                                  struct VProdResolve const* resolve,
+                                  VProduction* orig, VProduction* test);
 
 /* Read
  */
-rc_t VFunctionProdRead ( VFunctionProd *self, struct VBlob **vblob, int64_t id , uint32_t cnt);
-
+rc_t VFunctionProdRead(VFunctionProd* self, struct VBlob** vblob, int64_t id,
+                       uint32_t cnt);
 
 /*--------------------------------------------------------------------------
  * VScriptProd
@@ -374,24 +370,22 @@ typedef struct VScriptProd VScriptProd;
 struct VScriptProd
 {
     VProduction dad;
-    VProduction *rtn;
+    VProduction* rtn;
     Vector owned;
-    struct VCursor const *curs;
+    struct VCursor const* curs;
 };
 
+rc_t VScriptProdMake(VScriptProd** prod, Vector* owned,
+                     struct VCursor const* curs, int sub, const char* name,
+                     const VFormatdecl* fd, const VTypedesc* desc,
+                     uint8_t chain);
 
-rc_t VScriptProdMake ( VScriptProd **prod, Vector *owned,
-    struct VCursor const *curs, int sub, const char *name, const VFormatdecl *fd,
-    const VTypedesc *desc, uint8_t chain );
-
-void VScriptProdDestroy ( VScriptProd *self );
-
+void VScriptProdDestroy(VScriptProd* self);
 
 /* Read
  */
-rc_t VScriptProdRead ( VScriptProd *self,
-    struct VBlob **vblob, int64_t id, uint32_t cnt);
-
+rc_t VScriptProdRead(VScriptProd* self, struct VBlob** vblob, int64_t id,
+                     uint32_t cnt);
 
 /*--------------------------------------------------------------------------
  * VPhysicalProd
@@ -407,24 +401,26 @@ typedef struct VPhysicalProd VPhysicalProd;
 struct VPhysicalProd
 {
     VProduction dad;
-    struct VPhysical *phys;
+    struct VPhysical* phys;
 };
 
-rc_t VPhysicalProdMake ( VProduction **prod, Vector *owned,
-    struct VCursor *curs, struct VPhysical *phys, int sub, const char *name,
-    const VFormatdecl *fd, const VTypedesc *desc );
+rc_t VPhysicalProdMake(VProduction** prod, Vector* owned,
+                       struct VCursor* curs, struct VPhysical* phys, int sub,
+                       const char* name, const VFormatdecl* fd,
+                       const VTypedesc* desc);
 
-void VPhysicalProdDestroy ( VPhysicalProd *self );
-
+void VPhysicalProdDestroy(VPhysicalProd* self);
 
 /* Read
  */
-rc_t VPhysicalProdRead ( VPhysicalProd *self,
-    struct VBlob **vblob, int64_t id, uint32_t cnt );
+rc_t VPhysicalProdRead(VPhysicalProd* self, struct VBlob** vblob, int64_t id,
+                       uint32_t cnt);
 
-rc_t VPhysicalProdColumnIdRange (const VPhysicalProd *self, int64_t *first, int64_t *last );
+rc_t VPhysicalProdColumnIdRange(const VPhysicalProd* self, int64_t* first,
+                                int64_t* last);
 
-uint32_t VPhysicalProdFixedRowLength(const VPhysicalProd *self, int64_t row_id );
+uint32_t VPhysicalProdFixedRowLength(const VPhysicalProd* self,
+                                     int64_t row_id);
 
 /*--------------------------------------------------------------------------
  * VColumnProd
@@ -439,21 +435,17 @@ typedef struct VColumnProd VColumnProd;
 struct VColumnProd
 {
     VProduction dad;
-    struct VColumn *col;
+    struct VColumn* col;
 };
 
+rc_t VColumnProdMake(VProduction** prodp, Vector* owned, struct VColumn* col,
+                     int sub, const char* name);
 
-rc_t VColumnProdMake ( VProduction **prodp, Vector *owned,
-    struct VColumn *col, int sub, const char *name );
-
-void VColumnProdDestroy ( VColumnProd *self );
-
+void VColumnProdDestroy(VColumnProd* self);
 
 /* Read
  */
-rc_t VColumnProdRead ( VColumnProd *self,
-    struct VBlob **vblob, int64_t id );
-
+rc_t VColumnProdRead(VColumnProd* self, struct VBlob** vblob, int64_t id);
 
 #ifdef __cplusplus
 }

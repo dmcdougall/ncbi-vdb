@@ -2654,10 +2654,10 @@ rc_t VCursorLaunchPagemapThread(VCursor *curs)
     if ( s_disable_pagemap_thread )
         return RC ( rcVDB, rcCursor, rcExecuting, rcThread, rcNotAvailable );
 
-	rc = KLockMake ( & curs -> pmpr.lock );
-	if(rc == 0)
+    rc = KLockMake ( & curs -> pmpr.lock );
+    if(rc == 0)
     {
-		rc = KConditionMake ( & curs -> pmpr.cond );
+        rc = KConditionMake ( & curs -> pmpr.cond );
         if(rc == 0)
         {
             rc = KThreadMake ( & curs -> pagemap_thread, run_pagemap_thread, curs );
