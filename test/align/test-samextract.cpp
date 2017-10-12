@@ -522,6 +522,7 @@ TEST_CASE(BAMfile)
     REQUIRE_RC(SAMExtractorRelease(extractor));
 }
 
+#if 0
 TEST_CASE(SAMfile)
 {
     const char* fname = "small.sam";
@@ -558,6 +559,7 @@ TEST_CASE(SAMfile)
 
     KFileRelease(infile);
 }
+#endif
 
 TEST_CASE(Filter)
 {
