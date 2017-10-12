@@ -66,7 +66,8 @@ void pool_release(void)
     DBG("pool_release");
     DBG("pool used %d", POOL_BLOCK_SZ - cur_block_remain);
     DBG("pools:%d", VectorLength(&allocs));
-    for (u32 i = 0; i != VectorLength(&allocs); ++i) {
+    u32 i;
+    for (i = 0; i != VectorLength(&allocs); ++i) {
         void* pool = VectorGet(&allocs, i);
         DBG("freeing %p", pool);
         /*        memset(pool, 0, POOL_BLOCK_SZ); */ /* Assist with UAF */
