@@ -34,38 +34,13 @@
 extern "C" {
 #endif
 void pool_init(void);
+void* pool_alloc(size_t alloc_size);
 void pool_release(void);
 char* pool_strdup(const char* str);
 char* pool_memdup(const char* str, size_t len);
 void morecore(size_t alloc_size);
 extern void* cur_block;
 extern size_t cur_block_remain;
-
-inline void* pool_alloc(size_t alloc_size)
-{
-    if (!alloc_size) {
-        ERR("Zero allocation");
-        abort();
-        return NULL;
-    }
-
-    if (!cur_block) {
-        ERR("Pool not initialized");
-        abort();
-        return NULL;
-    }
-
-    if (alloc_size % 8 != 0)
-        alloc_size += 8 - (alloc_size % 8); /* Round up for alignment */
-    if (alloc_size > cur_block_remain)
-        morecore(MAX(alloc_size, POOL_BLOCK_SZ));
-
-    void* buf = cur_block;
-    cur_block = (void*)((char*)cur_block + alloc_size);
-    cur_block_remain -= alloc_size;
-
-    return buf;
-}
 
 #ifdef __cplusplus
 }
