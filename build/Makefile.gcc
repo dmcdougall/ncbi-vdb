@@ -46,7 +46,7 @@ LP = @ $(TOP)/build/ld.sh $(OS) $(ARCH) g++ \
 	-MD --srcdir $(SRCDIR) --bindir $(BINDIR) -L$(LIBDIR):$(ILIBDIR)
 
 # tool options
-WARN = -Wall -Wno-long-long 
+WARN = -Wall -Wno-long-long
 ifneq (sun,$(OS))
     WARN += -Wno-variadic-macros
 endif
@@ -55,10 +55,10 @@ ifeq (64,$(BITS))
 	CARCH = -m64
 else
 ifeq (32_64,$(BITS))
-	CARCH = -arch i386 -arch x86_64  
-else    
+	CARCH = -arch i386 -arch x86_64
+else
 	CARCH = -m32
-endif    
+endif
 endif
 
 ifeq (prof, $(BUILD))
@@ -74,12 +74,7 @@ ifeq (dbg, $(BUILD))
 	# must be specified in the order shown.
 	PED = -std=gnu99 -pedantic # -fdiagnostics-show-option
 else
-
-OPT = -O3 -Wno-variadic-macros -fno-strict-aliasing -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=1
-ifeq (x86_64, $(ARCH))
-	OPT += -Wall
-endif
-
+	OPT = -O3 -Wno-variadic-macros -fno-strict-aliasing -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=1 -Wall
 endif
 
 ifeq (mac,$(OS))

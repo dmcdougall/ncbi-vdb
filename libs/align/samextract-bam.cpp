@@ -197,6 +197,7 @@ static BGZFview bview;
 
 static rc_t seeker(const KThread* kt, void* in)
 {
+    rc_t rc;
     SAMExtractor* state = (SAMExtractor*)in;
 #if LINUX
     pthread_t threadid = pthread_self();
@@ -230,22 +231,30 @@ static rc_t seeker(const KThread* kt, void* in)
                 break;
             case Z_MEM_ERROR:
                 ERR("error: Out of memory in zlib");
-                return RC(rcAlign, rcFile, rcReading, rcMemory, rcExhausted);
+                rc = RC(rcAlign, rcFile, rcReading, rcMemory, rcExhausted);
+                state->rc = rc;
+                return rc;
             case Z_VERSION_ERROR:
                 ERR("zlib version is not compatible; need version %s "
                     "but "
                     "have %s",
                     ZLIB_VERSION, zlibVersion());
-                return RC(rcAlign, rcFile, rcConstructing, rcNoObj,
-                          rcUnexpected);
+                rc = RC(rcAlign, rcFile, rcConstructing, rcNoObj,
+                        rcUnexpected);
+                state->rc = rc;
+                return rc;
             case Z_STREAM_ERROR:
                 ERR("zlib stream error");
-                return RC(rcAlign, rcFile, rcConstructing, rcNoObj,
-                          rcUnexpected);
+                rc = RC(rcAlign, rcFile, rcConstructing, rcNoObj,
+                        rcUnexpected);
+                state->rc = rc;
+                return rc;
             default:
                 ERR("zlib error");
-                return RC(rcAlign, rcFile, rcConstructing, rcNoObj,
-                          rcUnexpected);
+                rc = RC(rcAlign, rcFile, rcConstructing, rcNoObj,
+                        rcUnexpected);
+                state->rc = rc;
+                return rc;
         }
 
         gz_header head;
@@ -259,7 +268,9 @@ static rc_t seeker(const KThread* kt, void* in)
         zrc = inflateGetHeader(&strm, &head);
         if (zrc != Z_OK) {
             ERR("zlib inflate error %d %s", zrc, strm.msg);
-            return RC(rcAlign, rcFile, rcConstructing, rcNoObj, rcUnexpected);
+            rc = RC(rcAlign, rcFile, rcConstructing, rcNoObj, rcUnexpected);
+            state->rc = rc;
+            return rc;
         }
         while (head.done == 0) {
             DBG("inflating gzip header");
@@ -268,8 +279,10 @@ static rc_t seeker(const KThread* kt, void* in)
                 for (int i = 0; i != 4; ++i)
                     DBG("readbuf: %x", (unsigned char)state->readbuf[i]);
                 ERR("zlib inflate error %d %s", zrc, strm.msg);
-                return RC(rcAlign, rcFile, rcConstructing, rcNoObj,
-                          rcUnexpected);
+                rc = RC(rcAlign, rcFile, rcConstructing, rcNoObj,
+                        rcUnexpected);
+                state->rc = rc;
+                return rc;
             }
         }
 
@@ -336,7 +349,9 @@ static rc_t seeker(const KThread* kt, void* in)
             }
         } else {
             ERR("error: BAM required extra extension not found");
-            return RC(rcAlign, rcFile, rcParsing, rcData, rcInvalid);
+            rc = RC(rcAlign, rcFile, rcParsing, rcData, rcInvalid);
+            state->rc = rc;
+            return rc;
         }
 
         DBG("reading in at %d", state->file_pos);
@@ -346,6 +361,7 @@ static rc_t seeker(const KThread* kt, void* in)
         state->readbuf_sz = (u32)sz;
         if (rc) {
             ERR("readfile error");
+            state->rc = rc;
             return rc;
         }
         DBG("Read in %d", state->readbuf_sz);
@@ -386,7 +402,9 @@ static rc_t inflater(const KThread* kt, void* in)
                 bgzf->insize);
             if (bgzf->state != compressed) {
                 ERR("Inflater bad state");
-                return RC(rcAlign, rcFile, rcReading, rcData, rcInvalid);
+                rc = RC(rcAlign, rcFile, rcReading, rcData, rcInvalid);
+                state->rc = rc;
+                return rc;
             }
 
             memset(&strm, 0, sizeof strm);
@@ -403,23 +421,31 @@ static rc_t inflater(const KThread* kt, void* in)
                     break;
                 case Z_MEM_ERROR:
                     ERR("Out of memory in zlib");
-                    return RC(rcAlign, rcFile, rcReading, rcMemory,
-                              rcExhausted);
+                    rc = RC(rcAlign, rcFile, rcReading, rcMemory,
+                            rcExhausted);
+                    state->rc = rc;
+                    return rc;
                 case Z_VERSION_ERROR:
                     ERR("zlib version is not compatible; need "
                         "version %s but "
                         "have %s",
                         ZLIB_VERSION, zlibVersion());
-                    return RC(rcAlign, rcFile, rcConstructing, rcNoObj,
-                              rcUnexpected);
+                    rc = RC(rcAlign, rcFile, rcConstructing, rcNoObj,
+                            rcUnexpected);
+                    state->rc = rc;
+                    return rc;
                 case Z_STREAM_ERROR:
                     ERR("zlib stream error");
-                    return RC(rcAlign, rcFile, rcConstructing, rcNoObj,
-                              rcUnexpected);
+                    rc = RC(rcAlign, rcFile, rcConstructing, rcNoObj,
+                            rcUnexpected);
+                    state->rc = rc;
+                    return rc;
                 default:
                     ERR("zlib error %s", strm.msg);
-                    return RC(rcAlign, rcFile, rcConstructing, rcNoObj,
-                              rcUnexpected);
+                    rc = RC(rcAlign, rcFile, rcConstructing, rcNoObj,
+                            rcUnexpected);
+                    state->rc = rc;
+                    return rc;
             }
 
             zrc = inflate(&strm, Z_FINISH);
@@ -435,23 +461,31 @@ static rc_t inflater(const KThread* kt, void* in)
                     break;
                 case Z_MEM_ERROR:
                     ERR("error: Out of memory in zlib");
-                    return RC(rcAlign, rcFile, rcReading, rcMemory,
-                              rcExhausted);
+                    rc = RC(rcAlign, rcFile, rcReading, rcMemory,
+                            rcExhausted);
+                    state->rc = rc;
+                    return rc;
                 case Z_VERSION_ERROR:
                     ERR("zlib version is not compatible; need "
                         "version %s but "
                         "have %s",
                         ZLIB_VERSION, zlibVersion());
-                    return RC(rcAlign, rcFile, rcConstructing, rcNoObj,
-                              rcUnexpected);
+                    rc = RC(rcAlign, rcFile, rcConstructing, rcNoObj,
+                            rcUnexpected);
+                    state->rc = rc;
+                    return rc;
                 case Z_STREAM_ERROR:
                     ERR("zlib stream error %s", strm.msg);
-                    return RC(rcAlign, rcFile, rcConstructing, rcNoObj,
-                              rcUnexpected);
+                    rc = RC(rcAlign, rcFile, rcConstructing, rcNoObj,
+                            rcUnexpected);
+                    state->rc = rc;
+                    return rc;
                 default:
                     ERR("zlib inflate error %d %s", zrc, strm.msg);
-                    return RC(rcAlign, rcFile, rcConstructing, rcNoObj,
-                              rcUnexpected);
+                    rc = RC(rcAlign, rcFile, rcConstructing, rcNoObj,
+                            rcUnexpected);
+                    state->rc = rc;
+                    return rc;
             }
             inflateEnd(&strm);
         } else if ((int)GetRCObject(rc) == rcTimeout
@@ -465,6 +499,7 @@ static rc_t inflater(const KThread* kt, void* in)
             }
         } else {
             WARN("rc=%d", rc);
+            state->rc = rc;
             return rc;
         }
     }
@@ -801,7 +836,7 @@ rc_t BAMGetAlignments(SAMExtractor* state)
             }
         }
 
-        DBG("next_ref_ID=%d\n", align.next_refID);
+        DBG("next_ref_ID=%d", align.next_refID);
         if (align.next_refID >= 0) {
             next_ref_id
                 = (char*)VectorGet(&state->bam_references, align.next_refID);
@@ -875,7 +910,7 @@ rc_t BAMGetAlignments(SAMExtractor* state)
 
             seq = (char*)pool_alloc(align.l_seq + 1);
             decode_seq(seqbytes, align.l_seq, seq);
-            DBG("seq is '%s'\n", seq);
+            DBG("seq is '%s'", seq);
 
             // TODO: Make optional, most users don't care about quality
             qual = (char*)pool_alloc(align.l_seq + 1);
@@ -1011,6 +1046,11 @@ rc_t BAMGetAlignments(SAMExtractor* state)
 
         if (VectorLength(&state->alignments) == 64) {
             DBG("Have %d BAM alignments", VectorLength(&state->alignments));
+            if (state->rc)
+            {
+                ERR("Something went wrong: %d",state->rc);
+                return state->rc;
+            }
             return 0;
         }
     }
