@@ -120,73 +120,15 @@ rc_t CC KMain(int argc, char* argv[])
     KQueueSeal(extractor->parsequeue);
 
     extractor->file_type = BAM;
-    //    Vector headers;
     rc = BAMGetHeaders(extractor);
     if (rc) {
         fprintf(stderr, "BAMGetHeaders rc=%d\n", rc);
     } else {
         rc = BAMGetAlignments(extractor);
-        //    rc = SAMExtractorGetHeaders(extractor, &headers);
         if (rc) {
             fprintf(stderr, "BAMGetAlignments rc=%d\n", rc);
         }
     }
-//    fprintf(stderr, "Got %d headers\n", VectorLength(&headers));
-#if 0
-    GeneralWriter * gw=new GeneralWriter(1, 32768);
-    GeneralWrite &out=*gw;
-    gw->setSoftwarename("samextract 0.1");
-    gw->setRemotePath("samextract.db");
-    gw->useSchema("bamdb.schema");
-    tbl_id=gw->addTable("header");
-    keyid=gw->addcolumn("hdrkey");
-#endif
-#if 0
-    for (uint32_t i = 0; i != VectorLength(&headers); ++i) {
-        Header* hdr = (Header*)VectorGet(&headers, i);
-        Vector* tvs = &hdr->tagvalues;
-        //            fprintf(stderr,"\tHeader%d: %s\n", i,
-        //            hdr->headercode);
-        for (uint32_t j = 0; j != VectorLength(tvs); ++j) {
-            TagValue* tv = (TagValue*)VectorGet(tvs, j);
-
-            //                fprintf(stderr,"\t\t%d\t%s %s\n", j,
-            //                tv->tag, tv->value);
-        }
-        // Do stuff with headers
-    }
-//    SAMExtractorInvalidateHeaders(extractor);
-    fprintf(stderr, "Getting Alignments\n");
-    int total = 0;
-    uint32_t vlen;
-    do {
-        Vector alignments;
-        rc = SAMExtractorGetAlignments(extractor, &alignments);
-        if (rc) {
-            fprintf(stderr, "GetAligned returned rc\n");
-            return rc;
-        }
-        vlen = VectorLength(&alignments);
-        total += vlen;
-        //            fprintf(stderr, "Got %d alignments\n", total);
-        //            fprintf(stderr,"\n\nReturned %d alignments\n",vlen);
-        for (uint32_t i = 0; i != vlen; ++i) {
-            Alignment* align = (Alignment*)VectorGet(&alignments, i);
-            //                if (strlen(align->cigar) > 0)
-            //                    fprintf(stderr, "cigar is %s\n",
-            //                    align->cigar);
-            //                fprintf(stderr,"\tAlignment%2d: %s\n", i,
-            //                align->read);
-            // Do stuff with headers
-        }
-        //            fprintf(stderr,"\n");
-        SAMExtractorInvalidateAlignments(extractor);
-#endif
-    // if (total > 100000) break;
-    //    } while (vlen);
-
-    //    fprintf(stderr, "Done with file, %d alignments\n", total);
-
     KFileRelease(infile);
     SAMExtractorRelease(extractor);
     infile = NULL;

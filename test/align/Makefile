@@ -32,7 +32,7 @@ MODULE = test/align
 TEST_TOOLS = \
 	test-load-index \
 	test-samextract \
-	samextract \
+	samtogw \
 	bamfuzz
 
 include $(TOP)/build/Makefile.env
@@ -42,7 +42,7 @@ $(TEST_TOOLS): makedirs
 
 clean: stdclean
 
-INCDIRS += -I$(TOP)/libs/align
+INCDIRS += -I$(TOP)/libs/align -I$(TOP)/../ngs-tools/libs/general-writer/inc
 #-------------------------------------------------------------------------------
 # test-load-index
 #
@@ -60,24 +60,24 @@ TEST_INDEX_LIB = \
 $(TEST_BINDIR)/test-load-index: $(TEST_INDEX_OBJ)
 	$(LP) --exe -o $@ $^ $(TEST_INDEX_LIB)
 #-------------------------------------------------------------------------------
-# samextract
+# samtogw
 #
-SAMEXTRACT_SRC = \
-	samextract
+samtogw_SRC = \
+	samtogw
 
-SAMEXTRACT_OBJ = \
-	$(addsuffix .$(OBJX),$(SAMEXTRACT_SRC))
+samtogw_OBJ = \
+	$(addsuffix .$(OBJX),$(samtogw_SRC))
 
-SAMEXTRACT_LIB = \
-	-L../../../sra-tools/linux/gcc/x86_64/dbg/lib \
+samtogw_LIB = \
+	-L/home/vartanianmh/ncbi-outdir/ngs-tools/linux/gcc/x86_64/dbg/ilib/ \
 	-skapp \
 	-sktst \
 	-ssam-extract\
-	-sncbi-vdb
+	-sncbi-vdb \
+	-sgeneral-writer
 
-
-$(TEST_BINDIR)/samextract: $(SAMEXTRACT_OBJ)
-	$(LP) --exe -o $@ $^ $(SAMEXTRACT_LIB)
+$(TEST_BINDIR)/samtogw: $(samtogw_OBJ)
+	$(LP) --exe -o $@ $^ $(samtogw_LIB)
 
 #-------------------------------------------------------------------------------
 # bamfuzz
@@ -129,5 +129,5 @@ run-test-samextract:
 # runtests
 runtests: run-test-samextract
 
-.PHONY: test-samextract
+.PHONY: $(TEST_TOOLS)
 

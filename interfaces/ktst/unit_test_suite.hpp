@@ -176,7 +176,7 @@ public:
     typedef void ( TestCase ::* TestMethod ) ();
 
 protected:
-    TestCase(const std::string &name) { Init(name); }
+    TestCase(const std::string &name) : _ec(0) { Init(name); }
 
 public:    
     // explicit destruction, to be used before calling exit() in out-of-process test runner

@@ -703,8 +703,9 @@ LIB_EXPORT rc_t CC SAMExtractorInvalidateHeaders(SAMExtractor* s)
         VectorWhack(&hdr->tagvalues, NULL, NULL);
         hdr = NULL;
     }
-    pool_release();
-    pool_init();
+    // TODO: FIXME
+//    pool_release();
+//    pool_init();
     VectorWhack(&s->headers, NULL, NULL);
     VectorWhack(&s->tagvalues, NULL, NULL);
     VectorWhack(s->prev_headers, NULL, NULL);

@@ -115,7 +115,7 @@ static rc_t extract_buf(const char* buf, const size_t sz,
 {
     rc_t rc;
     char* tmpfname = tempnam(NULL, "tst");
-    FILE* fout = fopen(tmpfname, "wb");
+    FILE* fout = fopen(tmpfname, "wbx");
     fwrite(buf, sz, 1, fout);
     fclose(fout);
     rc = extract_file(tmpfname, extractor);
