@@ -68,15 +68,9 @@ static rc_t process(const char* fname)
 
     if (rc) return rc;
 
-    Vector headers;
-    rc = SAMExtractorGetHeaders(extractor, &headers);
-    if (rc) return rc;
-    fprintf(stderr, "Got %d headers\n", VectorLength(&headers));
-
     GeneralWriter* gw = new GeneralWriter(1); // stdout
     // GeneralWriter* gw = new GeneralWriter("out_path");
     gw->setRemotePath("sam.db");
-    // TODO: Headers to a key/value schema. Add source, tool version?
     gw->useSchema("bamdb.schema", "NCBI:align:db:BAM_DB #1.0.0");
     gw->setSoftwareName("samtogw", "0.1");
     int tbl_id = gw->addTable("ir");
@@ -90,13 +84,27 @@ static rc_t process(const char* fname)
     int pcr_dup_id = gw->addColumn(tbl_id, "PCR_DUPLICATE", 8);
     int bad_id = gw->addColumn(tbl_id, "BAD", 8);
 
+    int tv_id = gw->addTable("hdrs");
+    int hdr_id = gw->addColumn(tv_id, "HDR", 8);
+    int tag_id = gw->addColumn(tv_id, "TAG", 8);
+    int val_id = gw->addColumn(tv_id, "VALUE", 8);
+
     gw->open();
+
+    Vector headers;
+    rc = SAMExtractorGetHeaders(extractor, &headers);
+    if (rc) return rc;
+    fprintf(stderr, "Got %d headers\n", VectorLength(&headers));
 
     for (uint32_t i = 0; i != VectorLength(&headers); ++i) {
         Header* hdr = (Header*)VectorGet(&headers, i);
         Vector* tvs = &hdr->tagvalues;
         for (uint32_t j = 0; j != VectorLength(tvs); ++j) {
             TagValue* tv = (TagValue*)VectorGet(tvs, j);
+            gw->write(hdr_id, 8, hdr->headercode, strlen(hdr->headercode));
+            gw->write(tag_id, 8, tv->tag, strlen(tv->tag));
+            gw->write(val_id, 8, tv->value, strlen(tv->value));
+            gw->nextRow(tv_id);
         }
         // Do stuff with headers
     }

@@ -42,8 +42,16 @@ table NCBI:align:tbl:ir #1.0.0
 
 };
 
+table NCBI:align:tbl:hdrs #1.0.0
+{
+    column ascii HDR;
+    column ascii TAG;
+    column ascii VALUE;
+};
+
 database NCBI:align:db:BAM_DB #1.0.0
 {
     table NCBI:align:tbl:ir #1 ir;
+    table NCBI:align:tbl:hdrs #1 hdrs;
 };
 
