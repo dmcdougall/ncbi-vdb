@@ -44,14 +44,25 @@ table NCBI:align:tbl:ir #1.0.0
 
 table NCBI:align:tbl:hdrs #1.0.0
 {
+    column U64 GROUP;
     column ascii HDR;
     column ascii TAG;
     column ascii VALUE;
+};
+
+table NCBI:align:tbl:meta #1.0.0
+{
+    column ascii TOOL;
+    column ascii CMDLINE;
+    column ascii INPUT_FILE;
+    column U64 NUM_HEADERS;
+    column U64 NUM_ALIGNMENTS;
 };
 
 database NCBI:align:db:BAM_DB #1.0.0
 {
     table NCBI:align:tbl:ir #1 ir;
     table NCBI:align:tbl:hdrs #1 hdrs;
+    table NCBI:align:tbl:meta #1 meta;
 };
 

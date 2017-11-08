@@ -42,6 +42,8 @@
 #include <time.h>
 #include <unistd.h>
 
+static const char tool_name[] = "samtogw";
+
 namespace ncbi
 {
 static rc_t process(const char* fname)
@@ -72,7 +74,8 @@ static rc_t process(const char* fname)
     // GeneralWriter* gw = new GeneralWriter("out_path");
     gw->setRemotePath("sam.db");
     gw->useSchema("bamdb.schema", "NCBI:align:db:BAM_DB #1.0.0");
-    gw->setSoftwareName("samtogw", "0.1");
+    gw->setSoftwareName(tool_name, "0.1");
+
     int tbl_id = gw->addTable("ir");
     int read_name_id = gw->addColumn(tbl_id, "READ_NAME", 8);
     int read_id = gw->addColumn(tbl_id, "READ", 8);
@@ -85,9 +88,17 @@ static rc_t process(const char* fname)
     int bad_id = gw->addColumn(tbl_id, "BAD", 8);
 
     int tv_id = gw->addTable("hdrs");
+    int group_id = gw->addColumn(tv_id, "GROUP", 64);
     int hdr_id = gw->addColumn(tv_id, "HDR", 8);
     int tag_id = gw->addColumn(tv_id, "TAG", 8);
     int val_id = gw->addColumn(tv_id, "VALUE", 8);
+
+    int meta_id = gw->addTable("meta");
+    int tool_id = gw->addColumn(meta_id, "TOOL", 8);
+    int cmdline_id = gw->addColumn(meta_id, "CMDLINE", 8);
+    int input_file_id = gw->addColumn(meta_id, "INPUT_FILE", 8);
+    int num_headers_id = gw->addColumn(meta_id, "NUM_HEADERS", 64);
+    int num_alignments_id = gw->addColumn(meta_id, "NUM_ALIGNMENTS", 64);
 
     gw->open();
 
@@ -96,11 +107,14 @@ static rc_t process(const char* fname)
     if (rc) return rc;
     fprintf(stderr, "Got %d headers\n", VectorLength(&headers));
 
-    for (uint32_t i = 0; i != VectorLength(&headers); ++i) {
+    uint64_t num_headers = VectorLength(&headers);
+
+    for (uint64_t i = 0; i != num_headers; ++i) {
         Header* hdr = (Header*)VectorGet(&headers, i);
         Vector* tvs = &hdr->tagvalues;
-        for (uint32_t j = 0; j != VectorLength(tvs); ++j) {
+        for (uint64_t j = 0; j != VectorLength(tvs); ++j) {
             TagValue* tv = (TagValue*)VectorGet(tvs, j);
+            gw->write(group_id, 64, &i, 1);
             gw->write(hdr_id, 8, hdr->headercode, strlen(hdr->headercode));
             gw->write(tag_id, 8, tv->tag, strlen(tv->tag));
             gw->write(val_id, 8, tv->value, strlen(tv->value));
@@ -111,7 +125,7 @@ static rc_t process(const char* fname)
     SAMExtractorInvalidateHeaders(extractor);
 
     fprintf(stderr, "Getting Alignments\n");
-    int total = 0;
+    uint64_t total = 0;
     uint32_t vlen;
     do {
         Vector alignments;
@@ -122,10 +136,11 @@ static rc_t process(const char* fname)
         }
         vlen = VectorLength(&alignments);
         total += vlen;
-        fprintf(stderr, "Returned %d alignments, %d total\n", vlen, total);
+        fprintf(stderr, "Returned %d alignments, %lu total\n", vlen, total);
         for (uint32_t i = 0; i != vlen; ++i) {
             Alignment* align = (Alignment*)VectorGet(&alignments, i);
-            fprintf(stderr, "\tAlignment%2d: %s\n", i, align->read);
+            //            fprintf(stderr, "\tAlignment%2d: %s\n", i,
+            //            align->read);
             gw->write(read_id, 8, align->read, strlen(align->read));
             gw->write(read_name_id, 8, align->qname, strlen(align->qname));
             uint32_t flags = align->flags;
@@ -146,6 +161,13 @@ static rc_t process(const char* fname)
         SAMExtractorInvalidateAlignments(extractor);
     } while (vlen);
 
+    gw->write(tool_id, 8, tool_name, strlen(tool_name));
+    gw->write(cmdline_id, 8, fname, strlen(fname));
+    gw->write(input_file_id, 8, fname, strlen(fname));
+    gw->write(num_headers_id, 64, &num_headers, 1);
+    gw->write(num_alignments_id, 64, &total, 1);
+    gw->nextRow(meta_id);
+
     gw->endStream();
     delete gw;
 
@@ -155,7 +177,7 @@ static rc_t process(const char* fname)
         return rc;
     }
 
-    fprintf(stderr, "Done with file, %d alignments\n", total);
+    fprintf(stderr, "Done with file, %lu alignments\n", total);
     clock_gettime(CLOCK_REALTIME, &etime);
     u64 nanos = etime.tv_sec - stime.tv_sec;
     nanos *= 1000000000;

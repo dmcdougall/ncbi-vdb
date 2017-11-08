@@ -3,3 +3,4 @@
 *.bam
 *.o
 *.d
+sam.db
