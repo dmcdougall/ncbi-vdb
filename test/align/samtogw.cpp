@@ -56,7 +56,10 @@ static rc_t process(const char* fname)
 
     rc = KDirectoryOpenFileRead(srcdir, &infile, fname);
     KDirectoryRelease(srcdir);
-    if (rc) return rc;
+    if (rc) {
+        fprintf(stderr, "Couldn't open file %s:%d\n", fname, rc);
+        return rc;
+    }
     srcdir = NULL;
 
     String sfname;
@@ -65,16 +68,22 @@ static rc_t process(const char* fname)
     clock_gettime(CLOCK_REALTIME, &stime);
     SAMExtractor* extractor;
     rc = SAMExtractorMake(&extractor, infile, &sfname, -1);
+    if (rc) {
+        fprintf(stderr, "Error %d\n", rc);
+        return rc;
+    }
     fprintf(stderr, "Made extractor for %s\n", fname);
-    if (rc) return rc;
-
-    if (rc) return rc;
 
     GeneralWriter* gw = new GeneralWriter(1); // stdout
     // GeneralWriter* gw = new GeneralWriter("out_path");
     gw->setRemotePath("sam.db");
     gw->useSchema("bamdb.schema", "NCBI:align:db:BAM_DB #1.0.0");
-    gw->setSoftwareName(tool_name, "0.1");
+    char buffer[512];
+    // ver_t version=KAppVersion();
+    // snprintf(buffer,sizeof buffer, "%x", version);
+    snprintf(buffer, sizeof buffer, "0.1");
+    // SraReleaeVersionPrint(
+    gw->setSoftwareName(tool_name, buffer);
 
     int tbl_id = gw->addTable("ir");
     int read_name_id = gw->addColumn(tbl_id, "READ_NAME", 8);
@@ -127,6 +136,7 @@ static rc_t process(const char* fname)
     fprintf(stderr, "Getting Alignments\n");
     uint64_t total = 0;
     uint32_t vlen;
+    time_t tprev, tcur;
     do {
         Vector alignments;
         rc = SAMExtractorGetAlignments(extractor, &alignments);
@@ -136,7 +146,11 @@ static rc_t process(const char* fname)
         }
         vlen = VectorLength(&alignments);
         total += vlen;
-        fprintf(stderr, "Returned %d alignments, %lu total\n", vlen, total);
+        tprev = time(NULL);
+        if (tprev != tcur) {
+            tcur = tprev;
+            fprintf(stderr, "Loaded %lu alignments\n", total);
+        }
         for (uint32_t i = 0; i != vlen; ++i) {
             Alignment* align = (Alignment*)VectorGet(&alignments, i);
             //            fprintf(stderr, "\tAlignment%2d: %s\n", i,
@@ -211,8 +225,8 @@ rc_t CC KMain(int argc, char* argv[])
     }
     while (--argc) {
         const char* fname = *(++argv);
-        rc_t ret = ncbi::process(fname);
+        rc = ncbi::process(fname);
     }
-    return 0;
+    return rc;
 }
 }

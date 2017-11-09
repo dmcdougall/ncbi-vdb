@@ -888,8 +888,7 @@ rc_t BAMGetAlignments(SAMExtractor* state)
             DBG("scigar is '%s'", scigar);
         } else {
             DBG("close, but no cigar");
-            scigar = (char*)pool_alloc(1);
-            scigar[0] = '\0';
+            scigar = pool_strdup("*");
         }
 
         u64 bytesofseq = 0;
@@ -1046,9 +1045,8 @@ rc_t BAMGetAlignments(SAMExtractor* state)
 
         if (VectorLength(&state->alignments) == 64) {
             DBG("Have %d BAM alignments", VectorLength(&state->alignments));
-            if (state->rc)
-            {
-                ERR("Something went wrong: %d",state->rc);
+            if (state->rc) {
+                ERR("Something went wrong: %d", state->rc);
                 return state->rc;
             }
             return 0;
