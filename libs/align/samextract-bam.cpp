@@ -521,7 +521,7 @@ rc_t BAMGetHeaders(SAMExtractor* state)
     i32 l_text;
     if (!bview.getbytes(state->parsequeue, (char*)&l_text, 4))
         return RC(rcAlign, rcFile, rcParsing, rcData, rcInvalid);
-    if (l_text < 0 || l_text > 1000000) {
+    if (l_text < 0 || l_text > 3000000) {
         ERR("error: invalid l_text %d", l_text);
         return RC(rcAlign, rcFile, rcParsing, rcData, rcInvalid);
     }
