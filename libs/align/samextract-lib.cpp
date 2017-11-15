@@ -257,6 +257,9 @@ bool check_cigar(const char* cigar, const char* seq)
         return false;
     }
 
+    // TODO: "Recommended practice #2: Adjacent CIGAR operations should be
+    // different
+
     // "H can only be present as the first and/or last operation."
     // "S may only have H operations between them and the ends of the CIGAR
     // string."

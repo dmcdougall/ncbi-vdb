@@ -35,6 +35,7 @@
 #include <klib/rc.h>
 #include <klib/text.h>
 #include <klib/vector.h>
+#include <linux/limits.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -76,7 +77,12 @@ static rc_t process(const char* fname)
 
     GeneralWriter* gw = new GeneralWriter(1); // stdout
     // GeneralWriter* gw = new GeneralWriter("out_path");
-    gw->setRemotePath("sam.db");
+    char bname[PATH_MAX];
+    snprintf(bname, sizeof bname, "%s", fname);
+    char* base = basename(bname);
+    char dbname[PATH_MAX];
+    snprintf(dbname, sizeof dbname, "%s.db", base);
+    gw->setRemotePath(dbname);
     gw->useSchema("bamdb.schema", "NCBI:align:db:BAM_DB #1.0.0");
     char buffer[512];
     // ver_t version=KAppVersion();
