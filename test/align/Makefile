@@ -33,7 +33,8 @@ TEST_TOOLS = \
 	test-load-index \
 	test-samextract \
 	samtogw \
-	bamfuzz
+	bamfuzz \
+	irvrfy
 
 include $(TOP)/build/Makefile.env
 
@@ -43,6 +44,8 @@ $(TEST_TOOLS): makedirs
 clean: stdclean
 
 INCDIRS += -I$(TOP)/libs/align -I$(TOP)/../ngs-tools/libs/general-writer/inc
+
+
 #-------------------------------------------------------------------------------
 # test-load-index
 #
@@ -59,16 +62,20 @@ TEST_INDEX_LIB = \
 
 $(TEST_BINDIR)/test-load-index: $(TEST_INDEX_OBJ)
 	$(LP) --exe -o $@ $^ $(TEST_INDEX_LIB)
+
+run-test-load-index: $(TEST_BINDIR)/test-load-index
+	@ export LD_LIBRARY_PATH=$(LIBDIR) ; $(TEST_BINDIR)/test-load-index
+
 #-------------------------------------------------------------------------------
 # samtogw
 #
-samtogw_SRC = \
+SAMTOGW_SRC = \
 	samtogw
 
-samtogw_OBJ = \
-	$(addsuffix .$(OBJX),$(samtogw_SRC))
+SAMTOGW_OBJ = \
+	$(addsuffix .$(OBJX),$(SAMTOGW_SRC))
 
-samtogw_LIB = \
+SAMTOGW_LIB = \
 	-L/home/vartanianmh/ncbi-outdir/ngs-tools/linux/gcc/x86_64/dbg/ilib/ \
 	-skapp \
 	-sktst \
@@ -76,8 +83,8 @@ samtogw_LIB = \
 	-sncbi-vdb \
 	-sgeneral-writer
 
-$(TEST_BINDIR)/samtogw: $(samtogw_OBJ)
-	$(LP) --exe -o $@ $^ $(samtogw_LIB)
+$(TEST_BINDIR)/samtogw: $(SAMTOGW_OBJ)
+	$(LP) --exe -o $@ $^ $(SAMTOGW_LIB)
 
 #-------------------------------------------------------------------------------
 # bamfuzz
@@ -97,6 +104,25 @@ BAMFUZZ_LIB = \
 $(TEST_BINDIR)/bamfuzz: $(BAMFUZZ_OBJ)
 	$(LP) --exe -o $@ $^ $(BAMFUZZ_LIB)
 
+#-------------------------------------------------------------------------------
+# irvrfy
+#
+IRVRFY_SRC = \
+	irvrfy
+
+IRVRFY_OBJ = \
+	$(addsuffix .$(OBJX),$(IRVRFY_SRC))
+
+IRVRFY_LIB = \
+	-L/home/vartanianmh/ncbi-outdir/ngs-tools/linux/gcc/x86_64/dbg/ilib/ \
+	-skapp \
+	-sktst \
+	-ssam-extract\
+	-sncbi-wvdb \
+	-sgeneral-writer
+
+$(TEST_BINDIR)/irvrfy: $(IRVRFY_OBJ)
+	$(LP) --exe -o $@ $^ $(IRVRFY_LIB)
 
 #-------------------------------------------------------------------------------
 # test-samextract
@@ -119,15 +145,12 @@ $(TEST_BINDIR)/test-samextract: $(TEST_SAMEXTRACT_OBJ)
 valgrind_samextract: std
 	valgrind --ncbi --show-reachable=no $(TEST_BINDIR)/test-samextract
 
-run-test-samextract:
-	@ echo test-samextract $(TEST_BINDIR): BEGIN ...
-	@ echo LD_ is $(LD_LIBRARY_PATH)
-#	@ export LD_LIBRARY_PATH=$(LIBDIR) ; $(TEST_BINDIR)/test-samextract
+run-test-samextract: $(TEST_BINDIR)/test-samextract
 	@ export LD_LIBRARY_PATH=$(LIBDIR) ; $(TEST_BINDIR)/test-samextract
-	@ echo ... test-samextract: END
+
 
 # runtests
-runtests: run-test-samextract
+runtests: run-test-load-index run-test-samextract
 
 .PHONY: $(TEST_TOOLS)
 
