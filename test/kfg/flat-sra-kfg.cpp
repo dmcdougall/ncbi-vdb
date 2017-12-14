@@ -417,7 +417,8 @@ rc_t CC UsageSummary ( const char * prog_name ) { return 0; }
 extern "C" {
     ver_t CC KAppVersion ( void ) { return 0; }
     rc_t CC KMain ( int argc, char *argv [] ) {
-const char * p = getenv("http_proxy");
+ncbi::NK::TestEnv::SetVerbosity(ncbi::NK::LogLevel::e_all);
+//const char * p = getenv("http_proxy");
 //cerr << "http_proxy = '" << ( p == NULL ? "NULL" : p ) << "'\n";
 if ( 1 ) assert ( ! KDbgSetString ( "VFS" ) );
         KConfigDisableUserSettings();
