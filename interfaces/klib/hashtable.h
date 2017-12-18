@@ -60,12 +60,12 @@ typedef struct KHashTable
 // "self" [ OUT ] - Self
 // "key_size" [ IN ] - Number of bytes keys require
 // "value_size" [ IN ] - Can be 0 (set). Number of bytes values require.
-// "initial_buckets" [ IN ] - Hint about initial capacity. 0=default
+// "capacity" [ IN ] - Hint about initial capacity. 0=default
 // "max_load_factor" [ IN ] - When hash table exceeds this, grow. 0=0.6
 // "key_cstr" [ IN ] - If strcmp(*key) should be used on keys rather than
 //                     memcmp. Caller still owns key's memory.
 KLIB_EXTERN rc_t CC KHashTableInit(KHashTable* self, size_t key_size,
-                                   size_t value_size, size_t initial_buckets,
+                                   size_t value_size, size_t capacity,
                                    double max_load_factor, bool key_cstr);
 
 // Destroy hash table and optionally elements.

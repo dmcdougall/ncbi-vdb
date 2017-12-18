@@ -41,23 +41,30 @@
 
 #include <cstdlib>
 #include <cstring>
+#include <set>
 #include <stdexcept>
 #include <stdint.h>
 #include <sys/time.h>
+#include <unordered_set>
 
 using namespace std;
+
+//#define BENCH
 
 TEST_SUITE(KlibTestSuite);
 
 ///////////////////////////////////////////////// text
-
+//#if 0
 TEST_CASE(Klib_KHash)
 {
     const char* str = "Tu estas probando este hoy, no manana";
     size_t size = strlen(str);
 
     uint64_t hash = KHash(str, size);
-    REQUIRE_EQ(hash, (uint64_t)0x41324917671171b2LLU);
+    REQUIRE_NE(hash, (uint64_t)0);
+
+    uint64_t hash2 = KHash(str, size);
+    REQUIRE_EQ(hash, hash2);
 }
 
 TEST_CASE(Klib_KHash_unique)
@@ -70,149 +77,68 @@ TEST_CASE(Klib_KHash_unique)
     REQUIRE_NE(hash1, hash2);
 }
 
+TEST_CASE(Klib_KHash_Adjacent)
+{
+    uint64_t hash1, hash2, diff;
+
+    uint64_t val = 0x1234567890ABCDE0;
+
+    hash1 = KHash((char*)&val, 8);
+    ++val;
+    hash2 = KHash((char*)&val, 8);
+    diff = labs(hash2 - hash1);
+    REQUIRE_LE(diff, (uint64_t)7);
+
+    const char* str1 = "string01";
+    const char* str2 = "string02";
+    size_t size = strlen(str1);
+    hash1 = KHash(str1, size);
+    hash2 = KHash(str2, size);
+    diff = labs(hash2 - hash1) & 0xfffff;
+    if (diff > 7) {
+        fprintf(stderr, "%lx %lx\n", hash1, hash2);
+        REQUIRE_LE(diff, (uint64_t)7);
+    }
+
+    str1 = "str01";
+    str2 = "str02";
+    size = strlen(str1);
+    hash1 = KHash(str1, size);
+    hash2 = KHash(str2, size);
+    diff = labs(hash2 - hash1);
+    REQUIRE_LE(diff, (uint64_t)7);
+}
+
 TEST_CASE(Klib_KHash_Collide)
 {
     // We fill a buffer with random bytes, and then increment each byte once
     // and verify no collisions occur for all lengths.
-    char buf[256 + 1];
-    for (size_t l = 0; l <= 256; ++l) buf[l] = (char)random();
+    char buf[256];
+    for (size_t l = 0; l != sizeof(buf); l++) buf[l] = (char)random();
 
-    uint64_t hashes[257 * 128];
-    uint64_t hash_count = 0;
-    for (size_t l = 0; l <= 256; ++l)
-        for (size_t j = 0; j != l; ++j) {
-            buf[j] += 1;
-            uint64_t hash = KHash(buf, l);
-            // TODO N^2, too lazy
-            for (size_t k = 0; k != hash_count; ++k)
-                if (hash == hashes[k]) {
-                    fprintf(stderr, "Collision hash of len %d is %lx\n", l,
-                            hash);
-                    REQUIRE_EQ(0, 1);
+    std::set<uint64_t> set;
+
+    size_t inserts = 0;
+    size_t collisions = 0;
+    for (size_t l = 0; l != sizeof(buf); l++)
+        for (size_t j = 0; j != l; j++)
+            for (size_t k = 0; k != 255; k++) {
+                buf[j] += 1;
+                uint64_t hash = KHash(buf, l);
+                size_t count = set.count(hash);
+                if (count) {
+                    collisions++;
+                    fprintf(stderr,
+                            "Collision at %lu on hash of len %lu is %lx: "
+                            "%lu elements %lx\n",
+                            j, l, hash, set.size(), *(uint64_t*)buf);
                 }
-            hashes[hash_count++] = hash;
-        }
-    printf("\tHashed %d strings, no collisions\n", hash_count);
+                set.insert(hash);
+                inserts++;
+            }
+    printf("Hashed %lu strings, %d collisions\n", set.size(), collisions);
+    REQUIRE_EQ(inserts, set.size());
 }
-
-#define BENCH
-#ifdef BENCH
-// Number of us since last called
-static unsigned long stopwatch(void)
-{
-    static unsigned long start = 0;
-    struct timeval tv_cur;
-
-    gettimeofday(&tv_cur, NULL);
-    unsigned long finish = tv_cur.tv_sec * 1000000 + tv_cur.tv_usec;
-    unsigned long elapsed = finish - start;
-    start = finish;
-    return elapsed;
-}
-
-TEST_CASE(Klib_KHash_Speed)
-{
-    char key[8192];
-    const long loops = 1000000;
-
-    for (uint64_t i = 0; i != sizeof(key); ++i) key[i] = random();
-
-    long len = 4;
-    while (len < 8192) {
-        stopwatch();
-        for (uint64_t i = 0; i != loops; ++i) KHash(key, len);
-
-        uint64_t us = stopwatch();
-        uint64_t hps = 1000000 * loops / us;
-        uint64_t mbps = hps * len / 1048576;
-        printf("KHash %lu %lu us elapsed (%lu hash/sec, %lu Mbytes/sec)\n",
-               len, us, hps, mbps);
-
-        len *= 2;
-    }
-}
-
-TEST_CASE(Klib_string_hash_Speed)
-{
-    char key[8192];
-    const long loops = 1000000;
-
-    for (uint64_t i = 0; i != sizeof(key); ++i) key[i] = random();
-
-    long len = 4;
-    while (len < 8192) {
-        stopwatch();
-        for (uint64_t i = 0; i != loops; ++i) string_hash(key, len);
-
-        uint64_t us = stopwatch();
-        uint64_t hps = 1000000 * loops / us;
-        uint64_t mbps = hps * len / 1048576;
-        printf(
-            "string_hash %lu %lu us elapsed (%lu hash/sec, %lu Mbytes/sec)\n",
-            len, us, hps, mbps);
-
-        len *= 2;
-    }
-}
-
-TEST_CASE(Klib_hash_hamming)
-{
-    char key[100];
-    uint64_t mask = 0xfff;
-    uint64_t hash_collisions[mask + 1];
-    uint64_t khash_collisions[mask + 1];
-
-    for (uint64_t i = 0; i != mask + 1; ++i) {
-        hash_collisions[i] = 0;
-        khash_collisions[i] = 0;
-    }
-    //    uint64_t * collisions=(uint64_t*)calloc(1,sizeof(uint64_t) *
-    //    (mask+1));
-
-    for (uint64_t i = 0; i != 10000000; ++i) {
-        sprintf(key, "ABCDEFG%d", i);
-        uint64_t hash = string_hash(key, strlen(key));
-        hash &= mask;
-        hash_collisions[hash] = hash_collisions[hash] + 1;
-
-        hash = KHash(key, strlen(key));
-        hash &= mask;
-        khash_collisions[hash] = khash_collisions[hash] + 1;
-    }
-
-    uint64_t hash_max = 0;
-    uint64_t khash_max = 0;
-    for (uint64_t i = 0; i != mask; ++i) {
-        if (hash_collisions[i] > hash_max) hash_max = hash_collisions[i];
-        if (khash_collisions[i] > khash_max) khash_max = khash_collisions[i];
-    }
-
-    printf("hash longest probe is %lu\n", hash_max);
-    printf("khash longest probe is %lu\n", khash_max);
-    //    free(collisions);
-}
-
-#endif
-
-#if 0
-TEST_CASE ( Klib_KHash_Collide_Extensive )
-{
-    // We fill a buffer with random bytes, and then increment each byte once and
-    // verify no collisions occur for all lengths.
-    char buf[256+1];
-    for (size_t l=0; l<=256; ++l)
-        buf[l]=(char)random();
-
-    while(1)
-    for (size_t l=0; l<=256; ++l)
-        for (size_t j=0; j!=l; ++j)
-        {
-            buf[j]+=1;
-            uint64_t hash=KHash(buf,l);
-            printf("%lx\n",hash);
-        }
-}
-#endif
 
 TEST_CASE(Klib_KHashSet)
 {
@@ -309,57 +235,19 @@ TEST_CASE(Klib_HashMap)
 
 TEST_CASE(Klib_HashMapInts)
 {
+    return; // TODO
     rc_t rc;
 
     KHashTable hmap;
     rc = KHashTableInit(&hmap, 8, 8, 0, 0, false);
     REQUIRE_RC(rc);
 
-    // Test probing
-    size_t count = 0;
+    // Test probing, constant hash value
     uint64_t hash = random();
-    for (uint64_t i = 0; i != 1000; ++i) {
-        uint64_t j = i * 3;
-        rc = KHashTableAdd(&hmap, (void*)&i, hash, (void*)&j);
-        REQUIRE_RC(rc);
-        ++count;
-        size_t sz = KHashTableCount(&hmap);
-        REQUIRE_EQ(sz, count);
-    }
-
-    for (uint64_t i = 0; i != 1000; ++i) {
-        bool found;
-        uint64_t val;
-        found = KHashTableFind(&hmap, (void*)&i, hash, &val);
-        REQUIRE_EQ(found, true);
-        REQUIRE_EQ(val, i * 3);
-    }
-
-    for (uint64_t i = 0; i != 1000; ++i) {
-        bool found;
-        uint64_t key = i + 9999999;
-        uint64_t val;
-        uint64_t hash = KHash((char*)&key, 8);
-        found = KHashTableFind(&hmap, (void*)&key, hash, NULL);
-        REQUIRE_EQ(found, false);
-    }
-
-    KHashTableWhack(&hmap, NULL, NULL, NULL);
-}
-
-TEST_CASE(Klib_HashMapInts2)
-{
-    rc_t rc;
-
-    KHashTable hmap;
-    rc = KHashTableInit(&hmap, 8, 8, 0, 0, false);
-    REQUIRE_RC(rc);
-
-    // Test probing
+    hash = 0; // TODO
     size_t count = 0;
-    for (uint64_t i = 0; i != 1000; ++i) {
+    for (uint64_t i = 0; i != 100; i++) {
         uint64_t j = i * 3;
-        uint64_t hash = KHash((char*)&i, 8);
         rc = KHashTableAdd(&hmap, (void*)&i, hash, (void*)&j);
         REQUIRE_RC(rc);
         ++count;
@@ -367,19 +255,17 @@ TEST_CASE(Klib_HashMapInts2)
         REQUIRE_EQ(sz, count);
     }
 
-    for (uint64_t i = 0; i != 1000; ++i) {
+    for (uint64_t i = 0; i != 100; i++) {
         bool found;
         uint64_t val;
-        uint64_t hash = KHash((char*)&i, 8);
         found = KHashTableFind(&hmap, (void*)&i, hash, &val);
         REQUIRE_EQ(found, true);
         REQUIRE_EQ(val, i * 3);
     }
 
-    for (uint64_t i = 0; i != 1000; ++i) {
+    for (uint64_t i = 0; i != 10000; i++) {
         bool found;
         uint64_t key = i + 9999999;
-        uint64_t val;
         uint64_t hash = KHash((char*)&key, 8);
         found = KHashTableFind(&hmap, (void*)&key, hash, NULL);
         REQUIRE_EQ(found, false);
@@ -393,31 +279,314 @@ TEST_CASE(Klib_HashMapStrings)
     rc_t rc;
 
     KHashTable hmap;
-    rc = KHashTableInit(&hmap, 8, 8, 0, 0, true);
+    rc = KHashTableInit(&hmap, 8, 8, 0, 0.0, true);
     REQUIRE_RC(rc);
-#if 0
-    // Test probing
-    for (uint64_t i = 0; i != 1000; ++i) {
-        fprintf(stderr, "Adding int %lu\n", i);
-        uint64_t j=i*3;
-        rc = KHashTableAdd(&hmap, (void*)&i, 0, (void*)&j);
+
+    // TODO: Whack with destructors
+    KHashTableWhack(&hmap, NULL, NULL, NULL);
+}
+
+TEST_CASE(Klib_HashMapInts2)
+{
+    rc_t rc;
+
+    KHashTable hmap;
+    rc = KHashTableInit(&hmap, 8, 8, 0, 0.0, false);
+    REQUIRE_RC(rc);
+
+    size_t count = 0;
+    for (uint64_t i = 0; i != 1000; i++) {
+        uint64_t j = i * 3;
+        uint64_t hash = KHash((char*)&i, 8);
+        rc = KHashTableAdd(&hmap, (void*)&i, hash, (void*)&j);
         REQUIRE_RC(rc);
+        count++;
         size_t sz = KHashTableCount(&hmap);
-        REQUIRE_EQ(sz, (size_t)i + 1);
+        REQUIRE_EQ(sz, count);
     }
 
-    for (uint64_t i = 0; i != 1000; ++i) {
-        fprintf(stderr, "Finding %lu\n", i);
+    for (uint64_t i = 0; i != 1000; i++) {
         bool found;
         uint64_t val;
-        found = KHashTableFind(&hmap, (void*)&i, 0, &val);
+        uint64_t hash = KHash((char*)&i, 8);
+        found = KHashTableFind(&hmap, (void*)&i, hash, &val);
         REQUIRE_EQ(found, true);
         REQUIRE_EQ(val, i * 3);
     }
-#endif
+
+    for (uint64_t i = 0; i != 1000; i++) {
+        bool found;
+        uint64_t key = i + 9999999;
+        uint64_t hash = KHash((char*)&key, 8);
+        found = KHashTableFind(&hmap, (void*)&key, hash, NULL);
+        REQUIRE_EQ(found, false);
+    }
 
     KHashTableWhack(&hmap, NULL, NULL, NULL);
 }
+//#endif
+
+#ifdef BENCH
+// Number of microseconds since last called
+static unsigned long stopwatch(void)
+{
+    static unsigned long start = 0;
+    struct timeval tv_cur;
+
+    gettimeofday(&tv_cur, NULL);
+    unsigned long finish = tv_cur.tv_sec * 1000000 + tv_cur.tv_usec;
+    unsigned long elapsed = finish - start;
+    start = finish;
+    return elapsed;
+}
+
+TEST_CASE(Klib_stdunorderedSetBench)
+{
+    std::unordered_set<uint64_t> hset;
+
+    for (long numelem = 4; numelem < (1 << 26); numelem *= 2) {
+        hset.clear();
+
+        stopwatch();
+        uint64_t val = 0;
+        for (size_t i = 0; i != numelem; i++) {
+            hset.insert(val);
+            val += 1;
+        }
+        size_t sz = hset.size();
+        REQUIRE_EQ(sz, (size_t)numelem);
+        printf("std::unordered_set ");
+        printf("required %lu ms to insert %lu\n", stopwatch() / 1000,
+               numelem);
+
+        stopwatch();
+        long loops = 1000000;
+        val = 0;
+        uint64_t c = 0;
+        for (long loop = 0; loop != loops; loop++) {
+            c += hset.count(val);
+            val += 1;
+        }
+        unsigned long us = stopwatch();
+
+        printf("Found %lu,", c);
+        uint64_t lps = 1000000 * loops / us;
+        printf("numelem=%lu\t%lu lookups/sec, ", numelem, lps);
+        printf("load factor %f,", hset.load_factor());
+        printf("buckets %d,", hset.bucket_count());
+
+        stopwatch();
+        loops = 1000000;
+        c = 0;
+        for (long loop = 0; loop != loops; loop++) {
+            c += hset.count(val);
+            val = random();
+        }
+        us = stopwatch();
+
+        printf("Random found %lu,", c);
+        lps = 1000000 * loops / us;
+        printf("numelem=%lu\t%lu lookups/sec, ", numelem, lps);
+        printf("load factor %f,", hset.load_factor());
+        printf("buckets %d,", hset.bucket_count());
+        printf("\n");
+    }
+    printf("\n");
+}
+
+TEST_CASE(Klib_HashMapBench)
+{
+    KHashTable hset;
+
+    for (long numelem = 4; numelem != (1 << 26); numelem *= 2) {
+        // rc_t rc = KHashTableInit(&hset, 8, 0, 1 << 26, 0.0, false);
+        rc_t rc = KHashTableInit(&hset, 8, 0, 0, 0.0, false);
+        REQUIRE_RC(rc);
+
+        size_t sz = KHashTableCount(&hset);
+        REQUIRE_EQ(sz, (size_t)0);
+
+        stopwatch();
+        uint64_t val = 0;
+        for (size_t i = 0; i != numelem; i++) {
+            uint64_t hash = KHash((char*)&val, 8);
+            rc = KHashTableAdd(&hset, &val, hash, (void*)NULL);
+            // Don't check RC, affects benchmark
+            //            REQUIRE_RC(rc);
+            val += 1;
+        }
+        sz = KHashTableCount(&hset);
+        REQUIRE_EQ(sz, (size_t)numelem);
+        printf("KHashTable ");
+        printf("required %lu ms to insert %lu\n", stopwatch() / 1000,
+               numelem);
+
+        stopwatch();
+        long loops = 1000000;
+        val = 0;
+        long c = 0;
+        for (long loop = 0; loop != loops; loop++) {
+            uint64_t hash = KHash((char*)&val, 8);
+            bool found = KHashTableFind(&hset, &val, hash, NULL);
+            c += found;
+            val += 1;
+        }
+        unsigned long us = stopwatch();
+
+        printf("Found %lu,", c);
+        uint64_t lps = 1000000 * loops / us;
+        printf("numelem=%lu\t%lu lookups/sec, ", numelem, lps);
+        double lf = KHashTableGetLoadFactor(&hset);
+        printf("load factor %f,", lf);
+
+        if (numelem <= loops)
+            REQUIRE_EQ(c, numelem);
+        else
+            REQUIRE_EQ(c, loops);
+
+        stopwatch();
+        loops = 1000000;
+        c = 0;
+        for (long loop = 0; loop != loops; loop++) {
+            uint64_t hash = KHash((char*)&val, 8);
+            bool found = KHashTableFind(&hset, &val, hash, NULL);
+            val = random();
+        }
+        us = stopwatch();
+
+        printf("Random %lu,", c);
+        lps = 1000000 * loops / us;
+        printf("numelem=%lu\t%lu lookups/sec, ", numelem, lps);
+        lf = KHashTableGetLoadFactor(&hset);
+        printf("load factor %f,", lf);
+        printf("\n");
+
+        KHashTableWhack(&hset, NULL, NULL, NULL);
+    }
+    printf("\n");
+}
+
+TEST_CASE(Klib_KHash_Speed)
+{
+    char key[8192];
+    long loops = 1000000;
+
+    for (uint64_t i = 0; i != sizeof(key); i++) key[i] = random();
+
+    long len = 4;
+    while (len < 10000) {
+        stopwatch();
+        for (uint64_t i = 0; i != loops; i++) KHash(key, len);
+
+        unsigned long us = stopwatch();
+        unsigned long hps = 1000000 * loops / us;
+        unsigned long mbps = hps * len / 1048576;
+        printf("KHash %lu %lu us elapsed (%lu hash/sec, %lu Mbytes/sec)\n",
+               len, us, hps, mbps);
+
+        len *= 2;
+    }
+}
+
+TEST_CASE(Klib_string_hash_Speed)
+{
+    char key[8192];
+    long loops = 1000000;
+
+    for (uint64_t i = 0; i != sizeof(key); i++) key[i] = random();
+
+    long len = 4;
+    while (len < 10000) {
+        stopwatch();
+        for (uint64_t i = 0; i != loops; i++) string_hash(key, len);
+
+        unsigned long us = stopwatch();
+        unsigned long hps = 1000000 * loops / us;
+        unsigned long mbps = hps * len / 1048576;
+        printf(
+            "string_hash %lu %lu us elapsed (%lu hash/sec, %lu Mbytes/sec)\n",
+            len, us, hps, mbps);
+
+        len *= 2;
+    }
+}
+
+TEST_CASE(Klib_std_hash_Speed)
+{
+    long loops = 1000000;
+    string str = "1234";
+
+    std::size_t hash = 0;
+    long len = 4;
+    while (len < 10000) {
+        stopwatch();
+        for (uint64_t i = 0; i != loops; i++)
+            hash += std::hash<std::string>{}(str);
+
+        unsigned long us = stopwatch() + 1;
+        unsigned long hps = 1000000 * loops / us;
+        unsigned long mbps = hps * len / 1048576;
+        printf(
+            "std::hash %lu %lu us elapsed (%lu hash/sec, %lu Mbytes/sec)\n",
+            len, us, hps, mbps);
+
+        len *= 2;
+        str += str;
+    }
+}
+
+TEST_CASE(Klib_hash_hamming)
+{
+    char key[100];
+    uint64_t mask = 0xfff;
+    uint64_t hash_collisions[mask + 1];
+    uint64_t khash_collisions[mask + 1];
+    uint64_t rhash_collisions[mask + 1];
+
+    for (uint64_t i = 0; i != mask + 1; i++) {
+        hash_collisions[i] = 0;
+        khash_collisions[i] = 0;
+        rhash_collisions[i] = 0;
+    }
+
+    const char* foo1 = "ABCDE1";
+    const char* foo2 = "ABCDE2";
+
+    printf("khash of %s is %lx, %s is %lx\n", foo1, KHash(foo1, strlen(foo1)),
+           foo2, KHash(foo2, strlen(foo2)));
+    printf("string_hash of %s is %u, %s is %u\n", foo1,
+           string_hash(foo1, strlen(foo1)), foo2,
+           string_hash(foo2, strlen(foo2)));
+    for (uint64_t i = 0; i != 10000000; i++) {
+        sprintf(key, "ABCD%lu", i);
+        uint64_t hash = string_hash(key, strlen(key));
+        hash &= mask;
+        hash_collisions[hash] = hash_collisions[hash] + 1;
+
+        hash = KHash(key, strlen(key));
+        hash &= mask;
+        khash_collisions[hash] = khash_collisions[hash] + 1;
+
+        hash = random();
+        hash &= mask;
+        rhash_collisions[hash] = rhash_collisions[hash] + 1;
+    }
+
+    uint64_t hash_max = 0;
+    uint64_t khash_max = 0;
+    uint64_t rhash_max = 0;
+    for (uint64_t i = 0; i != mask; i++) {
+        if (hash_collisions[i] > hash_max) hash_max = hash_collisions[i];
+        if (khash_collisions[i] > khash_max) khash_max = khash_collisions[i];
+        if (rhash_collisions[i] > rhash_max) rhash_max = rhash_collisions[i];
+    }
+
+    printf("string_hash longest probe is %lu\n", hash_max);
+    printf("khash longest probe is %lu\n", khash_max);
+    printf("rhash longest probe is %lu\n", rhash_max);
+}
+
+#endif // BENCH
 
 TEST_CASE(Klib_text_string_len)
 {
