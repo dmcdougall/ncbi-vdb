@@ -114,7 +114,7 @@ TEST_CASE(Klib_KHash_Collide)
 {
     // We fill a buffer with random bytes, and then increment each byte once
     // and verify no collisions occur for all lengths.
-    char buf[256];
+    char buf[37];
     for (size_t l = 0; l != sizeof(buf); l++) buf[l] = (char)random();
 
     std::set<uint64_t> set;
@@ -137,7 +137,7 @@ TEST_CASE(Klib_KHash_Collide)
                 set.insert(hash);
                 inserts++;
             }
-    printf("Hashed %lu strings, %d collisions\n", set.size(), collisions);
+    printf("  Hashed %lu strings, %d collisions\n", set.size(), collisions);
     REQUIRE_EQ(inserts, set.size());
 }
 
@@ -335,8 +335,8 @@ TEST_CASE(Klib_HashMapValid)
 
     std::unordered_map<uint32_t, uint32_t> map;
 
-    for (int i = 0; i != 200; ++i) {
-        uint32_t key = random() % 50;
+    for (int i = 0; i != 100000; ++i) {
+        uint32_t key = random() % 500;
         uint32_t value = i;
 
         auto pair = std::make_pair(key, value);
@@ -352,8 +352,8 @@ TEST_CASE(Klib_HashMapValid)
     size_t hmapcount = KHashTableCount(&hmap);
     REQUIRE_EQ(mapcount, hmapcount);
 
-    for (int i = 0; i != 1000; ++i) {
-        uint32_t key = random() % 100;
+    for (int i = 0; i != 100000; ++i) {
+        uint32_t key = random() % 1000;
         uint64_t hash = KHash((char*)&key, 4);
         uint32_t hvalue = 0;
         bool hfound = KHashTableFind(&hmap, (void*)&key, hash, &hvalue);

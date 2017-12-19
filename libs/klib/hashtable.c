@@ -282,6 +282,7 @@ LIB_EXPORT rc_t CC KHashTableAdd(KHashTable* self, const void* key,
 LIB_EXPORT double CC KHashTableGetLoadFactor(const KHashTable* self)
 {
     if (self == NULL) return 0.0;
+    if (self->num_buckets == 0) return 0.0;
 
     double load_factor = (double)self->count / (double)self->num_buckets;
     return load_factor;
