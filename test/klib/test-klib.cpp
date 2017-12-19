@@ -45,16 +45,17 @@
 #include <stdexcept>
 #include <stdint.h>
 #include <sys/time.h>
+#include <unordered_map>
 #include <unordered_set>
+#include <utility>
 
 using namespace std;
 
-//#define BENCH
+//#define BENCHMARK
 
 TEST_SUITE(KlibTestSuite);
 
 ///////////////////////////////////////////////// text
-//#if 0
 TEST_CASE(Klib_KHash)
 {
     const char* str = "Tu estas probando este hoy, no manana";
@@ -235,7 +236,6 @@ TEST_CASE(Klib_HashMap)
 
 TEST_CASE(Klib_HashMapInts)
 {
-    return; // TODO
     rc_t rc;
 
     KHashTable hmap;
@@ -244,7 +244,7 @@ TEST_CASE(Klib_HashMapInts)
 
     // Test probing, constant hash value
     uint64_t hash = random();
-    hash = 0; // TODO
+    hash = random() % 5;
     size_t count = 0;
     for (uint64_t i = 0; i != 100; i++) {
         uint64_t j = i * 3;
@@ -324,9 +324,53 @@ TEST_CASE(Klib_HashMapInts2)
 
     KHashTableWhack(&hmap, NULL, NULL, NULL);
 }
-//#endif
 
-#ifdef BENCH
+TEST_CASE(Klib_HashMapValid)
+{
+    rc_t rc;
+
+    KHashTable hmap;
+    rc = KHashTableInit(&hmap, 4, 4, 0, 0.0, false);
+    REQUIRE_RC(rc);
+
+    std::unordered_map<uint32_t, uint32_t> map;
+
+    for (int i = 0; i != 200; ++i) {
+        uint32_t key = random() % 50;
+        uint32_t value = i;
+
+        auto pair = std::make_pair(key, value);
+        map.erase(key);
+        map.insert(pair);
+
+        uint64_t hash = KHash((char*)&key, 4);
+        rc = KHashTableAdd(&hmap, (void*)&key, hash, (void*)&value);
+        REQUIRE_RC(rc);
+    }
+
+    size_t mapcount = map.size();
+    size_t hmapcount = KHashTableCount(&hmap);
+    REQUIRE_EQ(mapcount, hmapcount);
+
+    for (int i = 0; i != 1000; ++i) {
+        uint32_t key = random() % 100;
+        uint64_t hash = KHash((char*)&key, 4);
+        uint32_t hvalue = 0;
+        bool hfound = KHashTableFind(&hmap, (void*)&key, hash, &hvalue);
+
+        auto mapfound = map.find(key);
+        if (mapfound == map.end()) {
+            REQUIRE_EQ(hfound, false);
+        } else {
+            REQUIRE_EQ(hfound, true);
+            uint32_t mvalue = mapfound->second;
+            REQUIRE_EQ(hvalue, mvalue);
+        }
+    }
+    KHashTableWhack(&hmap, NULL, NULL, NULL);
+}
+
+#ifdef BENCHMARK
 // Number of microseconds since last called
 static unsigned long stopwatch(void)
 {
@@ -586,7 +630,7 @@ TEST_CASE(Klib_hash_hamming)
     printf("rhash longest probe is %lu\n", rhash_max);
 }
 
-#endif // BENCH
+#endif // BENCHMARK
 
 TEST_CASE(Klib_text_string_len)
 {
