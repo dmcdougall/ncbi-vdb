@@ -38,6 +38,7 @@
 #include <klib/printf.h>
 #include <klib/sort.h>
 #include <klib/text.h>
+#include <klib/vector.h>
 
 #include <cstdlib>
 #include <cstring>
@@ -45,6 +46,7 @@
 #include <stdexcept>
 #include <stdint.h>
 #include <sys/time.h>
+#include <unistd.h>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
@@ -137,7 +139,7 @@ TEST_CASE(Klib_KHash_Collide)
                 set.insert(hash);
                 inserts++;
             }
-    printf("  Hashed %lu strings, %d collisions\n", set.size(), collisions);
+    printf("  Hashed %lu strings, %lu collisions\n", set.size(), collisions);
     REQUIRE_EQ(inserts, set.size());
 }
 
@@ -335,24 +337,22 @@ TEST_CASE(Klib_HashMapValid)
 
     std::unordered_map<uint32_t, uint32_t> map;
 
-    for (int i = 0; i != 100000; ++i) {
-        uint32_t key = random() % 500;
+    for (int i = 0; i != (4 * 1024 * 1024); ++i) {
+        uint32_t key = random();
         uint32_t value = i;
 
         auto pair = std::make_pair(key, value);
         map.erase(key);
         map.insert(pair);
-
         uint64_t hash = KHash((char*)&key, 4);
         rc = KHashTableAdd(&hmap, (void*)&key, hash, (void*)&value);
-        REQUIRE_RC(rc);
     }
 
     size_t mapcount = map.size();
     size_t hmapcount = KHashTableCount(&hmap);
     REQUIRE_EQ(mapcount, hmapcount);
 
-    for (int i = 0; i != 100000; ++i) {
+    for (int i = 0; i != 10000; ++i) {
         uint32_t key = random() % 1000;
         uint64_t hash = KHash((char*)&key, 4);
         uint32_t hvalue = 0;
@@ -388,7 +388,7 @@ TEST_CASE(Klib_stdunorderedSetBench)
 {
     std::unordered_set<uint64_t> hset;
 
-    for (long numelem = 4; numelem < (1 << 26); numelem *= 2) {
+    for (unsigned long numelem = 4; numelem < (1ULL << 26); numelem *= 2) {
         hset.clear();
 
         stopwatch();
@@ -438,12 +438,62 @@ TEST_CASE(Klib_stdunorderedSetBench)
     printf("\n");
 }
 
+TEST_CASE(Klib_JudyBench)
+{
+    KVector* kv;
+    for (unsigned long numelem = 4; numelem != (1ULL << 26); numelem *= 2) {
+        KVectorMake(&kv);
+
+        stopwatch();
+        uint64_t val = 0;
+        for (size_t i = 0; i != numelem; i++) {
+            val += 1;
+            KVectorSetU64(kv, val, i);
+        }
+
+        stopwatch();
+        unsigned long loops = 1000000;
+        val = 0;
+        unsigned long c = 0;
+        for (long loop = 0; loop != loops; loop++) {
+            size_t found;
+            KVectorGetU64(kv, val, &found);
+
+            c += found;
+            val += 1;
+        }
+        unsigned long us = stopwatch();
+
+        printf("Judy Found %lu,", c);
+        uint64_t lps = 1000000 * loops / us;
+        printf("numelem=%lu\t%lu lookups/sec, ", numelem, lps);
+
+        stopwatch();
+        loops = 1000000;
+        c = 0;
+        for (long loop = 0; loop != loops; loop++) {
+            size_t found;
+            KVectorGetU64(kv, val, &found);
+            val = random();
+        }
+        us = stopwatch();
+
+        printf("Random %lu,", c);
+        lps = 1000000 * loops / us;
+        printf("numelem=%lu\t%lu lookups/sec, ", numelem, lps);
+        printf("\n");
+
+        KVectorRelease(kv);
+    }
+    printf("\n");
+}
+
 TEST_CASE(Klib_HashMapBench)
 {
     KHashTable hset;
 
-    for (long numelem = 4; numelem != (1 << 26); numelem *= 2) {
-        // rc_t rc = KHashTableInit(&hset, 8, 0, 1 << 26, 0.0, false);
+    for (unsigned long numelem = 4; numelem != (1ULL << 26); numelem *= 2) {
+        // rc_t rc = KHashTableInit(&hset, 8, 0, 1ULL << 26, 0.0, false);
         rc_t rc = KHashTableInit(&hset, 8, 0, 0, 0.0, false);
         REQUIRE_RC(rc);
 
@@ -455,7 +505,7 @@ TEST_CASE(Klib_HashMapBench)
         for (size_t i = 0; i != numelem; i++) {
             uint64_t hash = KHash((char*)&val, 8);
             rc = KHashTableAdd(&hset, &val, hash, (void*)NULL);
-            // Don't check RC, affects benchmark
+            // Don't invoke REQUIRE_RC, affects benchmark
             //            REQUIRE_RC(rc);
             val += 1;
         }
@@ -466,9 +516,9 @@ TEST_CASE(Klib_HashMapBench)
                numelem);
 
         stopwatch();
-        long loops = 1000000;
+        unsigned long loops = 1000000;
         val = 0;
-        long c = 0;
+        unsigned long c = 0;
         for (long loop = 0; loop != loops; loop++) {
             uint64_t hash = KHash((char*)&val, 8);
             bool found = KHashTableFind(&hset, &val, hash, NULL);
