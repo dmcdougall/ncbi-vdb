@@ -27,13 +27,11 @@
 #ifndef _h_klib_hashfile_
 #define _h_klib_hashfile_
 
-#ifndef _h_klib_extern_
-#include <klib/extern.h>
-#endif
-
-#ifndef _h_klib_defs_
+#include <kfs/file.h>
 #include <klib/defs.h>
-#endif
+#include <klib/extern.h>
+#include <klib/rc.h>
+#include <sys/types.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -46,18 +44,18 @@ typedef struct KHashFile KHashFile;
  * "self" [ OUT ] - Self
  * "hashfile" [ IN ] - If not NULL, where to spill data.
  */
-KLIB_EXTERN rc_t KHashFileInit(KHashFile** self, KFile * hashfile);
+KLIB_EXTERN rc_t KHashFileMake(KHashFile** self, struct KFile* hashfile);
 
 /* Destroy hash file.
  */
-KLIB_EXTERN void KHashFileWhack(KHashFile* self)
+KLIB_EXTERN void KHashFileDispose(KHashFile* self);
 
 /* Return number of items in hash file. */
 KLIB_EXTERN size_t KHashFileCount(const KHashFile* self);
 
 /* Lookup key in hash file, return pointer to value if found or NULL if key
  * doesn't exist.
- * Keys will initially be searched via keyhash, and colliisions dealt with via
+ * Keys will initially be searched via keyhash, and collisions dealt with via
  * memcmp (specialized for key_size==32 or 64).
  * "key" [ IN ] - Key to lookup.
  * "key_size" [ IN ] - Length of key.
@@ -66,13 +64,11 @@ KLIB_EXTERN size_t KHashFileCount(const KHashFile* self);
  * if found. Can be NULL if only existence check needed.
  * "value_size" [ OUT ] - Length of value if found.
  * Returns true if key found.
+ * *value will remain validly allocated until KHashFile is destroyed.
  */
-KLIB_EXTERN bool KHashFileFind(const KHashFile* self, 
-                               const void* key,
-                               const size_t key_size,
-                               const uint64_t keyhash,
-                               void* value,
-                               size_t * value_size);
+KLIB_EXTERN bool KHashFileFind(const KHashFile* self, const void* key,
+                               const size_t key_size, const uint64_t keyhash,
+                               void* value, size_t* value_size);
 
 /* Add or replace key/value pair
  * "key" [ IN ] - Key to insert.
@@ -84,10 +80,8 @@ KLIB_EXTERN bool KHashFileFind(const KHashFile* self,
  * value_size=strlen(value)+1 so terminator copied into container.
  */
 KLIB_EXTERN rc_t KHashFileAdd(KHashFile* self, const void* key,
-                              const size_t key_size,
-                              const uint64_t keyhash, 
-                              const void* value,
-                              const size_t value_size);
+                              const size_t key_size, const uint64_t keyhash,
+                              const void* value, const size_t value_size);
 
 /* Delete key/value pair
  * "key" [ IN ] - Key to delete.
@@ -96,8 +90,7 @@ KLIB_EXTERN rc_t KHashFileAdd(KHashFile* self, const void* key,
  * Returns true if key was present.
  */
 KLIB_EXTERN bool KHashFileDelete(KHashFile* self, const void* key,
-                                 const size_t key_size,
-                                  uint64_t keyhash);
+                                 const size_t key_size, uint64_t keyhash);
 
 /* Make Iterator.
  * Will become invalid after any insertions. Only one valid iterator per
@@ -113,9 +106,8 @@ KLIB_EXTERN void KHashFileIteratorMake(KHashFile* self);
  * Returns true if additional keys available
  */
 KLIB_EXTERN bool KHashFileIteratorNext(KHashFile* self, void* key,
-                                       size_t * key_size,
-                                        void* value,
-                                        size_t * value_size);
+                                       size_t* key_size, void* value,
+                                       size_t* value_size);
 
 /* Reserve space for capacity elements */
 KLIB_EXTERN rc_t KHashFileReserve(KHashFile* self, size_t capacity);

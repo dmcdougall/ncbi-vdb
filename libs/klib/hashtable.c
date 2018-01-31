@@ -153,7 +153,7 @@ static rc_t rehash(KHashTable* self, size_t capacity)
     return 0;
 }
 
-LIB_EXPORT rc_t KHashTableInit(KHashTable** self, size_t key_size,
+LIB_EXPORT rc_t KHashTableMake(KHashTable** self, size_t key_size,
                                size_t value_size, size_t capacity,
                                double max_load_factor, hashkey_type key_type)
 {
@@ -199,10 +199,10 @@ LIB_EXPORT rc_t KHashTableInit(KHashTable** self, size_t key_size,
     return 0;
 }
 
-LIB_EXPORT void KHashTableWhack(KHashTable* self,
-                                void (*keywhack)(void* item, void* data),
-                                void (*valuewhack)(void* item, void* data),
-                                void* data)
+LIB_EXPORT void KHashTableDispose(KHashTable* self,
+                                  void (*keywhack)(void* item, void* data),
+                                  void (*valuewhack)(void* item, void* data),
+                                  void* data)
 {
     if (self == NULL) return;
 

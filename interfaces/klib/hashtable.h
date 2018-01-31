@@ -58,7 +58,7 @@ typedef enum hashkey_type { raw, cstr } hashkey_type;
  *                     only pointer to key will be placed in container.
  *                     Caller still responsible for key's memory allocation.
  */
-KLIB_EXTERN rc_t KHashTableInit(KHashTable** self, size_t key_size,
+KLIB_EXTERN rc_t KHashTableMake(KHashTable** self, size_t key_size,
                                 size_t value_size, size_t capacity,
                                 double max_load_factor,
                                 hashkey_type key_type);
@@ -69,10 +69,10 @@ KLIB_EXTERN rc_t KHashTableInit(KHashTable** self, size_t key_size,
  * "valuewhack" [ IN ] - "" value. Ignored if value_size==0 (set).
  * TODO: keywhack and valuewhack not implemented
  */
-KLIB_EXTERN void KHashTableWhack(KHashTable* self,
-                                 void (*keywhack)(void* item, void* data),
-                                 void (*valuewhack)(void* item, void* data),
-                                 void* data);
+KLIB_EXTERN void KHashTableDispose(KHashTable* self,
+                                   void (*keywhack)(void* item, void* data),
+                                   void (*valuewhack)(void* item, void* data),
+                                   void* data);
 
 /* Return number of items in hash table. */
 KLIB_EXTERN size_t KHashTableCount(const KHashTable* self);
