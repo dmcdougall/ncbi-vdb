@@ -68,7 +68,6 @@ static double getloadfactor(const KHashTable* self)
     double load_factor = (double)self->load / (double)self->num_buckets;
     return load_factor;
 }
-*/
 
 static void dump(const KHashTable* self)
 {
@@ -95,6 +94,7 @@ static void dump(const KHashTable* self)
         fprintf(stderr, "\n");
     }
 }
+*/
 
 static rc_t rehash(KHashTable* self, size_t capacity)
 {
