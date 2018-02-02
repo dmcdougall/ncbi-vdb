@@ -41,7 +41,10 @@
 #include <klib/printf.h>
 #include <klib/sort.h>
 #include <klib/text.h>
+#include <klib/time.h>
 #include <klib/vector.h>
+#include <kproc/lock.h>
+#include <kproc/thread.h>
 
 #include <cstdlib>
 #include <cstring>
@@ -58,10 +61,29 @@
 
 using namespace std;
 
-static const size_t RAND_SIZE = 1048576;
-static char* RANDS = NULL;
+#define RANDS_SIZE 2000000
+static uint64_t RANDS[RANDS_SIZE];
+static volatile bool KEEPRUNNING = true;
+static KHashFile* HMAP = NULL;
+static KDirectory* DIR = NULL;
+static KFile* BACKING = NULL;
 
-/* #define BENCHMARK */
+#define BENCHMARK
+
+#ifdef BENCHMARK
+// Number of microseconds since last called
+static unsigned long stopwatch(void)
+{
+    static unsigned long start = 0;
+    struct timeval tv_cur;
+
+    gettimeofday(&tv_cur, NULL);
+    unsigned long finish = tv_cur.tv_sec * 1000000 + tv_cur.tv_usec;
+    unsigned long elapsed = finish - start;
+    start = finish;
+    return elapsed;
+}
+#endif // BENCHMARK
 
 TEST_SUITE(KHashFileTestSuite);
 
@@ -73,7 +95,6 @@ TEST_CASE(Klib_KHashFileSet)
     size_t size = strlen(str1);
 
     KHashFile* hset = NULL;
-
     rc = KHashFileMake(NULL, NULL);
     REQUIRE_RC_FAIL(rc);
     REQUIRE_EQ((void*)hset, (void*)NULL);
@@ -110,24 +131,12 @@ TEST_CASE(Klib_KHashFileSet)
 
 TEST_CASE(Klib_hashfileMap)
 {
+    rc_t rc;
     const char* str1 = "Tu estas probando este hoy, no manana";
     const char* str2 = "Tu estas probando este hoy, no mananX";
 
-    KDirectory* dir = NULL;
-    rc_t rc;
-    rc = KDirectoryNativeDir(&dir);
-    REQUIRE_RC(rc);
-
-    const char* fname = tmpnam(NULL);
-    KFile* backing = NULL;
-    rc = KDirectoryCreateFile(dir, &backing, true, 0600, kcmInit, fname);
-    // TODO | kcmParents?
-    REQUIRE_RC(rc);
-//    rc = KFileSetSize(backing, 4096);
-//    REQUIRE_RC(rc);
-
     KHashFile* hmap;
-    rc = KHashFileMake(&hmap, backing);
+    rc = KHashFileMake(&hmap, BACKING);
     REQUIRE_RC(rc);
 
     size_t sz = KHashFileCount(hmap);
@@ -188,34 +197,21 @@ TEST_CASE(Klib_hashfileMap)
     REQUIRE_EQ(sz, (size_t)2);
 
     KHashFileDispose(hmap);
-    rc = KDirectoryRemove(dir, true, "%s", fname);
-    REQUIRE_RC(rc);
-    KFileRelease(backing);
-    KDirectoryRelease(dir);
 }
 
 TEST_CASE(Klib_hashfileMapDeletes)
 {
     rc_t rc;
 
-    KDirectory* dir = NULL;
-    rc = KDirectoryNativeDir(&dir);
-    REQUIRE_RC(rc);
-
-    const char* fname = tmpnam(NULL);
-    KFile* backing = NULL;
-    rc = KDirectoryCreateFile(dir, &backing, true, 0600, kcmInit, fname);
-    REQUIRE_RC(rc);
-
     KHashFile* hmap = NULL;
-    rc = KHashFileMake(&hmap, backing);
+    rc = KHashFileMake(&hmap, BACKING);
     REQUIRE_RC(rc);
 
     size_t sz = KHashFileCount(hmap);
     REQUIRE_EQ(sz, (size_t)0);
 
     std::vector<std::string> strs, vals;
-    const size_t loops = 100000;
+    const size_t loops = 10000;
     for (size_t i = 0; i != loops; ++i) {
         strs.push_back(
             string(1 + (random() % 500), char(32 + random() % 90)));
@@ -262,19 +258,184 @@ TEST_CASE(Klib_hashfileMapDeletes)
     }
 
     KHashFileDispose(hmap);
-    rc = KDirectoryRemove(dir, true, "%s", fname);
-    REQUIRE_RC(rc);
-    KFileRelease(backing);
-    KDirectoryRelease(dir);
 }
 
-TEST_CASE(Klib_hashfilethreads)
+static rc_t inserter(const KThread* thread, void* data)
 {
+    rc_t rc;
+    while (KEEPRUNNING) {
+        size_t idx = random() % RANDS_SIZE;
+        uint64_t key = RANDS[idx];
+        uint64_t val = key + 1;
+        uint64_t hash = KHash((const char*)&key, 8);
+        rc = KHashFileAdd(HMAP, &key, sizeof(key), hash, &val, sizeof(val));
+        if (rc != 0) {
+            fprintf(stderr, "Add failed\n");
+            // REQUIRE_RC(rc);
+        }
+        if (val != key + 1) {
+            fprintf(stderr, "val touched\n");
+            // REQUIRE_EQ((uint64_t)val,(uint64_t)key+1);
+        }
+    }
+    return 0;
+}
 
+static rc_t deleter(const KThread* thread, void* data)
+{
+    while (KEEPRUNNING) {
+        size_t idx = random() % RANDS_SIZE;
+        uint64_t key = RANDS[idx];
+        uint64_t hash = KHash((const char*)&key, 8);
+        KHashFileDelete(HMAP, &key, sizeof(key), hash);
+    }
+
+    return 0;
+}
+
+static rc_t finder(const KThread* thread, void* data)
+{
+    while (KEEPRUNNING) {
+        size_t idx = random() % RANDS_SIZE;
+        uint64_t key = RANDS[idx];
+        uint64_t val = 0;
+        size_t val_size = 9;
+        uint64_t hash = KHash((const char*)&key, 8);
+        bool found
+            = KHashFileFind(HMAP, &key, sizeof(key), hash, &val, &val_size);
+        if (found) {
+            if (val_size != sizeof(val)) {
+                fprintf(stderr, "bad find size\n");
+            }
+            if (val != key + 1) {
+                fprintf(stderr, "bad find\n");
+            }
+            val_size = 9;
+        } else {
+            if (val != 0) {
+                fprintf(stderr, "bad not found\n");
+            }
+        }
+    }
+
+    return 0;
+}
+
+static rc_t notfinder(const KThread* thread, void* data)
+{
+    while (KEEPRUNNING) {
+        uint64_t key = random() * random() + random();
+        uint64_t val = 9;
+        size_t val_size = 9;
+        uint64_t hash = KHash((const char*)&key, 8);
+        bool found
+            = KHashFileFind(HMAP, &key, sizeof(key), hash, &val, &val_size);
+        if (found) {
+            fprintf(stderr, "false found\n");
+        } else {
+            if (val != 9 || val_size != 9) {
+                fprintf(stderr, "bad not not found\n");
+            }
+        }
+    }
+
+    return 0;
 }
 
 #ifdef BENCHMARK
+static rc_t bench_inserter(const KThread* thread, void* data)
+{
+    rc_t rc;
+    uint64_t rnd = random() * random() + random();
+    while (KEEPRUNNING) {
+        rnd *= 38259023411ULL;
+        rnd += 413234128309ULL;
+        uint64_t key = rnd;
+        uint64_t val = key + 1;
+        uint64_t hash = KHash((const char*)&key, 8);
+        rc = KHashFileAdd(HMAP, &key, sizeof(key), hash, &val, sizeof(val));
+        if (rc != 0) {
+            fprintf(stderr, "Add failed\n");
+            // REQUIRE_RC(rc);
+        }
+    }
+
+    return 0;
+}
+
+TEST_CASE(Klib_Bench_hashfilethreads)
+{
+    KEEPRUNNING = true;
+    KHashFileMake(&HMAP, BACKING);
+
+    const size_t NUM_THREADS = 100;
+    for (long i = 0; i != NUM_THREADS; ++i) {
+        KThread* thrd;
+        KThreadMake(&thrd, bench_inserter, (void*)i);
+    }
+
+    while (KHashFileCount(HMAP) < 1000000) {
+        fprintf(stderr, "warming %lu\n", KHashFileCount(HMAP));
+        KSleepMs(100);
+    }
+
+    stopwatch();
+    while (KHashFileCount(HMAP) < 10000000) {
+        fprintf(stderr, "warmed %lu\n", KHashFileCount(HMAP));
+        KSleepMs(100);
+    }
+    size_t cnt = KHashFileCount(HMAP);
+    unsigned long us = stopwatch();
+    double lps = (double)cnt / us;
+    fprintf(stderr,
+            "%lu threads required %lu ms to insert %lu (%.1f Minserts/sec)\n",
+            NUM_THREADS, us / 1000, cnt, lps);
+    KEEPRUNNING = false;
+    KSleepMs(100);
+    KHashFileDispose(HMAP);
+}
 #endif // BENCHMARK
+
+TEST_CASE(Klib_hashfilethreads)
+{
+    KEEPRUNNING = true;
+    KHashFileMake(&HMAP, BACKING);
+
+    Vector threads;
+    VectorInit(&threads, 0, 0);
+    const size_t NUM_THREADS = 40;
+    for (long i = 0; i != NUM_THREADS; ++i) {
+        KThread* thrd;
+        KThreadMake(&thrd, inserter, (void*)i);
+        VectorAppend(&threads, NULL, thrd);
+        KThreadMake(&thrd, deleter, (void*)i);
+        VectorAppend(&threads, NULL, thrd);
+        KThreadMake(&thrd, finder, (void*)i);
+        VectorAppend(&threads, NULL, thrd);
+        KThreadMake(&thrd, notfinder, (void*)i);
+        VectorAppend(&threads, NULL, thrd);
+    }
+
+    while (KHashFileCount(HMAP) < 100000) {
+        fprintf(stderr, "%lu\n", KHashFileCount(HMAP));
+        KSleepMs(100);
+    }
+    fprintf(stderr, "warmed up\n");
+
+    for (size_t loops = 0; loops != 10; ++loops) {
+        fprintf(stderr, "%lu\n", KHashFileCount(HMAP));
+        KSleepMs(1000);
+    }
+    KEEPRUNNING = false;
+    KSleepMs(100);
+
+    for (long i = 0; i != VectorLength(&threads); ++i) {
+        KThread* thrd = (KThread*)VectorGet(&threads, i);
+        KThreadRelease(thrd);
+    }
+    VectorWhack(&threads, NULL, NULL);
+    KHashFileDispose(HMAP);
+}
 
 extern "C" {
 
@@ -290,16 +451,32 @@ const char UsageDefaultName[] = "test-hashfile";
 
 rc_t CC KMain(int argc, char* argv[])
 {
+    rc_t rc;
     srandom(time(NULL));
 
-    RANDS = (char*)malloc(RAND_SIZE);
+    for (size_t i = 0; i != RANDS_SIZE; ++i)
+        RANDS[i] = (uint64_t)random() * random() * random() + random();
 
-    for (size_t i = 0; i != RAND_SIZE; ++i) RANDS[i] = random();
+    rc = KDirectoryNativeDir(&DIR);
+    if (rc) return rc;
+
+    const char* fname = tmpnam(NULL);
+    rc = KDirectoryCreateFile(DIR, &BACKING, true, 0600, kcmInit, fname);
+    if (rc) return rc;
 
     KConfigDisableUserSettings();
-    rc_t rc = KHashFileTestSuite(argc, argv);
 
-    free(RANDS);
-    return rc;
+    rc = KHashFileTestSuite(argc, argv);
+    if (rc) return rc;
+
+    rc = KDirectoryRemove(DIR, true, "%s", fname);
+    if (rc) return rc;
+
+    rc = KFileRelease(BACKING);
+    if (rc) return rc;
+    rc = KDirectoryRelease(DIR);
+    if (rc) return rc;
+
+    return 0;
 }
 }

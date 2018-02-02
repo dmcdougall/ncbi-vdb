@@ -69,9 +69,8 @@ typedef struct Segment
 {
     Hashtable* hashtable; /* Will be switched atomically so readers can be
                              lock-free */
-    Hashtable* new_hashtable;
-    size_t load;    /* Including invisible entries */
-    KLock* seglock; /* TODO, use adaptive spinlocks for linux */
+    size_t load;          /* Including invisible entries */
+    KLock* seglock;       /* TODO, use adaptive spinlocks for linux */
     u8* alloc_base;
     size_t alloc_remain;
 } Segment;
@@ -103,6 +102,14 @@ typedef struct HKV
     const void* key;
     const void* value;
 } HKV;
+
+static size_t which_segment(uint64_t hash)
+{
+    hash = hash >> 8;
+    hash *= 11812119942205477693ULL; /* Random prime */
+    hash = hash >> 50;
+    return hash % NUM_SEGMENTS;
+}
 
 static size_t hkv_space(const HKV* in)
 {
@@ -168,12 +175,24 @@ static void hkv_encode(const HKV* in, u8* out)
         memcpy(p, &in->value_size, sizeof(in->value_size));
         p += sizeof(in->value_size);
     }
-    memcpy(p, in->key, in->key_size);
+
+    switch (in->key_size) /* Optimize common sizes */
+    {
+        case 4:
+            memcpy(p, in->key, 4);
+            break;
+        case 8:
+            memcpy(p, in->key, 8);
+            break;
+        default:
+            memcpy(p, in->key, in->key_size);
+    }
+
     p += in->key_size;
 
     memcpy(p, in->value, in->value_size);
     p += in->value_size;
-
+#if _DEBUGGING
     HKV test;
     hkv_decode(out, &test);
     if (test.hash != in->hash) {
@@ -197,6 +216,7 @@ static void hkv_encode(const HKV* in, u8* out)
         fprintf(stderr, "value mismatch\n");
         abort();
     }
+#endif
 }
 
 #if 0
@@ -231,9 +251,9 @@ static void* map_calloc(KHashFile* self, size_t size, size_t nmemb)
     if (rc) return NULL;
 
     size *= nmemb;
+    /* Round up to 4K page size */
+    size = ((size + 4095) / 4096) * 4096;
     if (self->file != NULL) {
-        /* Round up to 4K page size */
-        size = ((size + 4095) / 4096) * 4096;
 
         KMMap* mm = NULL;
 
@@ -291,7 +311,7 @@ static void* seg_alloc(KHashFile* self, size_t segment, size_t size)
     return r;
 }
 
-static rc_t rehash(KHashFile* self, size_t segment, size_t capacity)
+static rc_t rehash_segment(KHashFile* self, size_t segment, size_t capacity)
 {
     assert(self != NULL);
     assert(segment < NUM_SEGMENTS);
@@ -310,35 +330,49 @@ static rc_t rehash(KHashFile* self, size_t segment, size_t capacity)
     uint64_t lg2 = (uint64_t)uint64_msbit(capacity | 1);
     capacity = 1ULL << lg2;
 
-    Hashtable* hashtable
+    Hashtable* new_hashtable
         = (Hashtable*)seg_alloc(self, segment, sizeof(Hashtable));
-    if (!hashtable)
+    if (!new_hashtable)
         return RC(rcCont, rcHashtable, rcInserting, rcMemory, rcExhausted);
 
-    hashtable->table_sz = capacity;
-    hashtable->table = seg_alloc(self, segment, (capacity + 1) * sizeof(u8*));
-    if (!hashtable->table) {
+    new_hashtable->table_sz = capacity;
+    new_hashtable->table
+        = seg_alloc(self, segment, (capacity + 1) * sizeof(u8*));
+    if (!new_hashtable->table) {
         return RC(rcCont, rcHashtable, rcInserting, rcMemory, rcExhausted);
     }
 
     if (old_hashtable) {
         seg->load = 0;
-        seg->new_hashtable = hashtable;
         u8** old_table = old_hashtable->table;
+        u8** new_table = new_hashtable->table;
         size_t old_table_sz = old_hashtable->table_sz;
-        for (size_t bucket = 0; bucket != old_table_sz; ++bucket) {
-            u8* kv = old_table[bucket];
-            if (kv != BUCKET_INVALID && kv != BUCKET_INVISIBLE) {
-                HKV bkv;
-                hkv_decode(kv, &bkv);
-                KHashFileAdd(self, bkv.key, bkv.key_size, bkv.hash, bkv.value,
-                             bkv.value_size);
+        size_t new_table_sz = new_hashtable->table_sz;
+        const uint64_t new_mask = new_table_sz - 1;
+        for (size_t old_bucket = 0; old_bucket != old_table_sz;
+             ++old_bucket) {
+            u8* okv = old_table[old_bucket];
+            if (okv != BUCKET_INVALID && okv != BUCKET_INVISIBLE) {
+                size_t triangle = 0;
+                HKV obkv;
+                hkv_decode(okv, &obkv);
+                uint64_t new_bucket = obkv.hash;
+                while (1) {
+                    new_bucket &= new_mask;
+                    u8* nkv = new_table[new_bucket];
+                    if (nkv == BUCKET_INVALID) {
+                        new_table[new_bucket] = okv;
+                        ++seg->load;
+                        break;
+                    }
+                    ++triangle;
+                    new_bucket += (triangle * (triangle + 1) / 2);
+                }
             }
         }
-        seg->new_hashtable = NULL;
     }
     COMPILER_BARRIER;
-    seg->hashtable = hashtable;
+    seg->hashtable = new_hashtable;
 
     return 0;
 }
@@ -362,13 +396,12 @@ LIB_EXPORT rc_t KHashFileMake(KHashFile** self, KFile* hashfile)
     if (rc) return rc;
     for (size_t i = 0; i != NUM_SEGMENTS; ++i) {
         kht->segments[i].hashtable = NULL;
-        kht->segments[i].new_hashtable = NULL;
         kht->segments[i].load = 0;
         rc = KLockMake(&kht->segments[i].seglock);
         if (rc) return rc;
         kht->segments[i].alloc_base = NULL;
         kht->segments[i].alloc_remain = 0;
-        rc = rehash(kht, i, 4);
+        rc = rehash_segment(kht, i, 64);
 
         if (rc) {
             free(kht);
@@ -390,7 +423,6 @@ LIB_EXPORT void KHashFileDispose(KHashFile* self)
     /* TODO: Stop the world? */
     for (size_t i = 0; i != NUM_SEGMENTS; ++i) {
         self->segments[i].hashtable = NULL;
-        self->segments[i].new_hashtable = NULL;
         KLockRelease(self->segments[i].seglock);
         self->segments[i].seglock = NULL;
         self->segments[i].alloc_base = NULL;
@@ -429,7 +461,7 @@ LIB_EXPORT bool KHashFileFind(const KHashFile* self, const void* key,
 
     size_t triangle = 0;
     uint64_t bucket = keyhash;
-    uint64_t segment = bucket & (NUM_SEGMENTS - 1);
+    size_t segment = which_segment(bucket);
     const Segment* seg = &self->segments[segment];
     const Hashtable* hashtable = seg->hashtable;
     /* Not sure barrier required, clang 3.8/gcc 4.9 don't resolve
@@ -449,20 +481,35 @@ LIB_EXPORT bool KHashFileFind(const KHashFile* self, const void* key,
         if (kv != BUCKET_INVISIBLE) {
             HKV bkv;
             hkv_decode(kv, &bkv);
-            if (bkv.hash == keyhash && /* hash hit */
-                bkv.key_size == key_size
-                && (memcmp(key, bkv.key, key_size) == 0)) {
+            bool found = false;
+            if (bkv.hash == keyhash) /* hash hit */
+                if (bkv.key_size == key_size)
+                    switch (key_size) /* Optimize common sizes */
+                    {
+                        case 4:
+                            found = (memcmp(key, bkv.key, 4) == 0);
+                            break;
+                        case 8:
+                            found = (memcmp(key, bkv.key, 8) == 0);
+                            break;
+                        default:
+                            found = (memcmp(key, bkv.key, key_size) == 0);
+                    }
+
+            if (found) {
                 if (value) memcpy(value, bkv.value, bkv.value_size);
                 if (value_size) *value_size = bkv.value_size;
                 return true;
             }
         }
 
-        /* To improve lookups when hash function has poor distribution, we use
+        /* To improve lookups when hash function has poor
+         * distribution, we use
          * quadratic probing with a triangle sequence: 0,1,3,6,10...
          * This will allow complete coverage on a % 2^N hash table.
          */
         ++triangle;
+        if (triangle == 50) fprintf(stderr, "big find\n");
         bucket += (triangle * (triangle + 1) / 2);
     }
 }
@@ -476,22 +523,16 @@ LIB_EXPORT rc_t KHashFileAdd(KHashFile* self, const void* key,
 
     if (key == NULL || key_size == 0)
         return RC(rcCont, rcHashtable, rcInserting, rcParam, rcInvalid);
-
     size_t triangle = 0;
     uint64_t bucket = keyhash;
-    uint64_t segment = bucket & (NUM_SEGMENTS - 1);
+    size_t segment = which_segment(bucket);
     Segment* seg = &self->segments[segment];
     rc_t rc;
 
     Hashtable* hashtable;
-    if (!seg->new_hashtable) {
-        /* Lock segment, TODO:adaptive spin lock best */
-        rc = KLockAcquire(seg->seglock);
-        if (rc) return rc;
-        hashtable = seg->hashtable;
-    } else {
-        hashtable = seg->new_hashtable;
-    }
+    rc = KLockAcquire(seg->seglock);
+    if (rc) return rc;
+    hashtable = seg->hashtable;
 
     u8** table = hashtable->table;
     const uint64_t mask = hashtable->table_sz - 1;
@@ -510,29 +551,31 @@ LIB_EXPORT rc_t KHashFileAdd(KHashFile* self, const void* key,
             void* buf = seg_alloc(self, segment, kvsize);
             hkv_encode(&hkv, buf);
 
-            /* Intel 64 and IA-32 Architectures Software Developers Manual
+            /* Intel 64 and IA-32 Architectures Software Developers
+             * Manual
              * Volume 3 (System Programming Guide)
-             * 8.2.2 Memory Ordering in P6 and More Recent Processor Families:
-             *  * Writes to memory are not reordered with other writes, ...
+             * 8.2.2 Memory Ordering in P6 and More Recent Processor
+             * Families:
+             *  * Writes to memory are not reordered with other
+             * writes, ...
              *
              * So as long as we update buckets last, lock-free readers
-             * (aka the HashFileFinds will never see a partial key/value.
+             * (aka the HashFileFinds will never see a partial
+             * key/value.
              *
-             * We do need to ensure the _compiler_ doesn't reorder the stores
+             * We do need to ensure the _compiler_ doesn't reorder the
+             * stores
              * however, which is what the compiler barrier is for.
              */
             COMPILER_BARRIER;
             table[bucket] = buf;
             ++seg->load;
             rc = 0;
-            if (!seg->new_hashtable) {
-                if (((double)seg->load / (double)hashtable->table_sz) > 0.6) {
-                    rc = rehash(self, segment, hashtable->table_sz * 2);
-                }
+            if (((double)seg->load / (double)hashtable->table_sz) > 0.6)
+                rc = rehash_segment(self, segment, hashtable->table_sz * 2);
 
-                atomic64_inc(&self->count);
-                KLockUnlock(seg->seglock);
-            }
+            atomic64_inc(&self->count);
+            KLockUnlock(seg->seglock);
 
             return rc;
         }
@@ -540,10 +583,22 @@ LIB_EXPORT rc_t KHashFileAdd(KHashFile* self, const void* key,
         if (kv != BUCKET_INVISIBLE) {
             HKV bkv;
             hkv_decode(kv, &bkv);
+            bool found = false;
 
-            if (bkv.hash == keyhash && /* hash hit */
-                bkv.key_size == key_size
-                && (memcmp(key, bkv.key, key_size) == 0)) {
+            if (bkv.hash == keyhash) /* hash hit */
+                if (bkv.key_size == key_size)
+                    switch (key_size) /* Optimize common sizes */
+                    {
+                        case 4:
+                            found = (memcmp(key, bkv.key, 4) == 0);
+                            break;
+                        case 8:
+                            found = (memcmp(key, bkv.key, 8) == 0);
+                            break;
+                        default:
+                            found = (memcmp(key, bkv.key, key_size) == 0);
+                    }
+            if (found) {
                 /* replacement */
                 if (value_size) {
                     void* buf = seg_alloc(self, segment, kvsize);
@@ -558,7 +613,7 @@ LIB_EXPORT rc_t KHashFileAdd(KHashFile* self, const void* key,
         }
 
         ++triangle;
-        if (triangle > 500) fprintf(stderr, "big\n");
+        if (triangle == 50) fprintf(stderr, "big add\n");
         bucket += (triangle * (triangle + 1) / 2);
     }
 }
@@ -570,9 +625,8 @@ LIB_EXPORT bool KHashFileDelete(KHashFile* self, const void* key,
         return RC(rcCont, rcHashtable, rcInserting, rcParam, rcInvalid);
 
     size_t triangle = 0;
-    /* Lock segment, TODO:adaptive spin lock best */
     uint64_t bucket = keyhash;
-    uint64_t segment = bucket & (NUM_SEGMENTS - 1);
+    size_t segment = which_segment(bucket);
     Segment* seg = &self->segments[segment];
 
     rc_t rc = KLockAcquire(seg->seglock);
@@ -607,6 +661,7 @@ LIB_EXPORT bool KHashFileDelete(KHashFile* self, const void* key,
         }
 
         ++triangle;
+        if (triangle == 50) fprintf(stderr, "big delete\n");
         bucket += (triangle * (triangle + 1) / 2);
     }
 }
@@ -639,7 +694,8 @@ LIB_EXPORT bool KHashFileIteratorNext(KHashFile* self, void* key,
                 return false;
             }
 
-            char* bucketptr = buckets + (self->iterator * sizeof(uint64_t *));
+            char* bucketptr = buckets + (self->iterator *
+       sizeof(uint64_t *));
             char* hashptr = bucketptr;
             const char* keyptr = bucketptr + 8;
             const char* valueptr = bucketptr + 8 + self->key_size;
@@ -648,10 +704,12 @@ LIB_EXPORT bool KHashFileIteratorNext(KHashFile* self, void* key,
 
             ++self->iterator;
 
-            if ((buckethash & BUCKET_VALID) && (buckethash & BUCKET_VISIBLE))
+            if ((buckethash & BUCKET_VALID) && (buckethash &
+       BUCKET_VISIBLE))
        {
                 memcpy(key, keyptr, key_size);
-                if (value && value_size) memcpy(value, valueptr, value_size);
+                if (value && value_size) memcpy(value, valueptr,
+       value_size);
                 return true;
             }
         }
