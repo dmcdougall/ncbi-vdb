@@ -45,7 +45,7 @@ extern "C" {
 typedef unsigned char u8;
 static u8* BUCKET_INVALID = (u8*)0; /* Must be 0, calloc fills */
 static u8* BUCKET_INVISIBLE = (u8*)1;
-#define NUM_SEGMENTS 64
+#define NUM_SEGMENTS 2048
 
 /*#define MIN(a, b) ((a) > (b) ? (b) : (a)) */
 #define MAX(a, b) ((a) < (b) ? (b) : (a))
@@ -70,7 +70,7 @@ typedef struct Segment
     Hashtable* hashtable; /* Will be switched atomically so readers can be
                              lock-free */
     size_t load;          /* Including invisible entries */
-    KLock* seglock;       /* TODO, use adaptive spinlocks for linux */
+    KLock* seglock;
     u8* alloc_base;
     size_t alloc_remain;
 } Segment;
@@ -82,6 +82,9 @@ struct KHashFile
     int64_t iterator;
     Segment segments[NUM_SEGMENTS];
     KLock* alloc_lock; /* protects below */
+    u8* alloc_base;
+    size_t alloc_remain;
+    size_t alloc_chunk;
     Vector allocs;
 };
 
@@ -93,6 +96,9 @@ struct KHashFile
  * [ 8 bytes ] if value length >255, store length here
  * key
  * value
+ *
+ * So storage overhead of keys/values is usually 10 (for small hkv) +
+ * ~4.5*8 (current and previous bucket pointers)=46 bytes per entry.
  */
 typedef struct HKV
 {
@@ -107,7 +113,7 @@ static size_t which_segment(uint64_t hash)
 {
     hash = hash >> 8;
     hash *= 11812119942205477693ULL; /* Random prime */
-    hash = hash >> 50;
+    hash = uint64_ror(hash, 53);
     return hash % NUM_SEGMENTS;
 }
 
@@ -190,7 +196,17 @@ static void hkv_encode(const HKV* in, u8* out)
 
     p += in->key_size;
 
-    memcpy(p, in->value, in->value_size);
+    switch (in->value_size) {
+        case 4:
+            memcpy(p, in->value, 4);
+            break;
+        case 8:
+            memcpy(p, in->value, 8);
+            break;
+        default:
+            memcpy(p, in->value, in->value_size);
+    }
+
     p += in->value_size;
 #if _DEBUGGING
     HKV test;
@@ -239,53 +255,83 @@ static void dump(const KHashFile * self)
 }
 #endif
 
-/* Single, locked allocator shared between all segments */
-static void* map_calloc(KHashFile* self, size_t size, size_t nmemb)
+/* Single, locked allocator shared between all segments. */
+static void* map_calloc(KHashFile* self, size_t size)
 {
     rc_t rc;
     void* block = NULL;
 
-    if (self == NULL || size == 0) return NULL;
-
-    rc = KLockAcquire(self->alloc_lock);
-    if (rc) return NULL;
-
-    size *= nmemb;
-    /* Round up to 4K page size */
-    size = ((size + 4095) / 4096) * 4096;
-    if (self->file != NULL) {
-
-        KMMap* mm = NULL;
-
-        uint64_t filesize;
-        rc = KFileSize(self->file, &filesize);
-        if (rc) {
-            KLockUnlock(self->alloc_lock);
-            return NULL;
-        }
-        rc = KFileSetSize(self->file, filesize + size);
-        if (rc) {
-            KLockUnlock(self->alloc_lock);
-            return NULL;
-        }
-        rc = KMMapMakeRgnUpdate(&mm, self->file, filesize, size);
-        if (rc) {
-            KLockUnlock(self->alloc_lock);
-            return NULL;
-        }
-        rc = KMMapAddrUpdate(mm, &block);
-        if (rc) {
-            KLockUnlock(self->alloc_lock);
-            return NULL;
-        }
-        VectorAppend(&self->allocs, NULL, (void*)mm);
-    } else {
-        block = calloc(1, size);
-        VectorAppend(&self->allocs, NULL, block);
+    if (self == NULL || size == 0) {
+        return NULL;
     }
 
-    rc = KLockUnlock(self->alloc_lock);
-    if (rc) return NULL;
+    rc = KLockAcquire(self->alloc_lock);
+    if (rc) {
+        return NULL;
+    }
+
+    if (size > self->alloc_remain) {
+        size_t req = size;
+
+        /* /proc/sys/vm/max_map_count limits us to about 64K mmaps per
+         * process.
+         * Since we don't know how large output file is going to be, we need
+         * to
+         * get creative. 1MB * 1.25^N will allow 1TB when N=62, 1PB at N=93.
+         */
+        if (self->alloc_chunk == 0)
+            self->alloc_chunk = 1048576;
+        else {
+            self->alloc_chunk *= 5;
+            self->alloc_chunk /= 4;
+        }
+
+        req = MAX(req, self->alloc_chunk);
+        /* Round up to 4K page size */
+        req = ((req + 4095) / 4096) * 4096;
+
+        if (self->file != NULL) {
+            uint64_t filesize;
+            rc = KFileSize(self->file, &filesize);
+            if (rc) {
+                KLockUnlock(self->alloc_lock);
+                return NULL;
+            }
+
+            rc = KFileSetSize(self->file, filesize + req);
+            if (rc) {
+                KLockUnlock(self->alloc_lock);
+                return NULL;
+            }
+
+            KMMap* mm = NULL;
+            rc = KMMapMakeRgnUpdate(&mm, self->file, filesize, req);
+            if (rc) {
+                KLockUnlock(self->alloc_lock);
+                return NULL;
+            }
+
+            rc = KMMapAddrUpdate(mm, (void*)&self->alloc_base);
+            if (rc) {
+                KLockUnlock(self->alloc_lock);
+                return NULL;
+            }
+
+            self->alloc_remain = req;
+            VectorAppend(&self->allocs, NULL, (void*)mm);
+        } else {
+            req = MAX(size, 1048576);
+            self->alloc_base = calloc(1, req);
+            self->alloc_remain = req;
+            VectorAppend(&self->allocs, NULL, self->alloc_base);
+        }
+    }
+
+    block = self->alloc_base;
+    self->alloc_base += size;
+    self->alloc_remain -= size;
+
+    KLockUnlock(self->alloc_lock);
 
     return block;
 }
@@ -297,10 +343,15 @@ static void* seg_alloc(KHashFile* self, size_t segment, size_t size)
     assert(segment < NUM_SEGMENTS);
     assert(size > 0);
 
+    if (size % 8 != 0) size += 8 - (size % 8); /* Round up for alignment */
+
     Segment* seg = &self->segments[segment];
     if (size > seg->alloc_remain) {
-        size_t req = MAX(size, 65536);
-        seg->alloc_base = map_calloc(self, req, 1);
+        size_t req = MAX(size, 4096);
+        seg->alloc_base = map_calloc(self, req);
+        if (!seg->alloc_base) {
+            return NULL;
+        }
         seg->alloc_remain = req;
     }
 
@@ -316,7 +367,7 @@ static rc_t rehash_segment(KHashFile* self, size_t segment, size_t capacity)
     assert(self != NULL);
     assert(segment < NUM_SEGMENTS);
 
-    /* Assume segment is locked by caller */
+    /* Requires segment locked by caller */
 
     self->iterator = -1; /* Invalidate any current iterators */
 
@@ -329,15 +380,15 @@ static rc_t rehash_segment(KHashFile* self, size_t segment, size_t capacity)
 
     uint64_t lg2 = (uint64_t)uint64_msbit(capacity | 1);
     capacity = 1ULL << lg2;
-
+    /* Table must be 64-bit aligned for atomic updates, seg_alloc does */
     Hashtable* new_hashtable
         = (Hashtable*)seg_alloc(self, segment, sizeof(Hashtable));
-    if (!new_hashtable)
+    if (!new_hashtable) {
         return RC(rcCont, rcHashtable, rcInserting, rcMemory, rcExhausted);
+    }
 
     new_hashtable->table_sz = capacity;
-    new_hashtable->table
-        = seg_alloc(self, segment, (capacity + 1) * sizeof(u8*));
+    new_hashtable->table = seg_alloc(self, segment, capacity * sizeof(u8*));
     if (!new_hashtable->table) {
         return RC(rcCont, rcHashtable, rcInserting, rcMemory, rcExhausted);
     }
@@ -392,12 +443,15 @@ LIB_EXPORT rc_t KHashFileMake(KHashFile** self, KFile* hashfile)
     kht->file = hashfile;
     atomic64_set(&kht->count, 0);
     VectorInit(&kht->allocs, 0, 0);
+    kht->alloc_base = NULL;
+    kht->alloc_remain = 0;
+    kht->alloc_chunk = 0;
     rc = KLockMake(&kht->alloc_lock);
     if (rc) return rc;
     for (size_t i = 0; i != NUM_SEGMENTS; ++i) {
         kht->segments[i].hashtable = NULL;
         kht->segments[i].load = 0;
-        rc = KLockMake(&kht->segments[i].seglock);
+        KLockMake(&kht->segments[i].seglock);
         if (rc) return rc;
         kht->segments[i].alloc_base = NULL;
         kht->segments[i].alloc_remain = 0;
@@ -424,7 +478,6 @@ LIB_EXPORT void KHashFileDispose(KHashFile* self)
     for (size_t i = 0; i != NUM_SEGMENTS; ++i) {
         self->segments[i].hashtable = NULL;
         KLockRelease(self->segments[i].seglock);
-        self->segments[i].seglock = NULL;
         self->segments[i].alloc_base = NULL;
         self->segments[i].alloc_remain = 0;
     }
@@ -437,6 +490,9 @@ LIB_EXPORT void KHashFileDispose(KHashFile* self)
             KMMapRelease((KMMap*)alloc);
         }
     }
+    self->alloc_base = NULL;
+    self->alloc_remain = 0;
+    self->alloc_chunk = 0;
     VectorWhack(&self->allocs, NULL, NULL);
     KLockRelease(self->alloc_lock);
 
@@ -509,7 +565,6 @@ LIB_EXPORT bool KHashFileFind(const KHashFile* self, const void* key,
          * This will allow complete coverage on a % 2^N hash table.
          */
         ++triangle;
-        if (triangle == 50) fprintf(stderr, "big find\n");
         bucket += (triangle * (triangle + 1) / 2);
     }
 }
@@ -527,11 +582,12 @@ LIB_EXPORT rc_t KHashFileAdd(KHashFile* self, const void* key,
     uint64_t bucket = keyhash;
     size_t segment = which_segment(bucket);
     Segment* seg = &self->segments[segment];
-    rc_t rc;
+    rc_t rc = 0;
+
+    KLockAcquire(seg->seglock);
 
     Hashtable* hashtable;
-    rc = KLockAcquire(seg->seglock);
-    if (rc) return rc;
+
     hashtable = seg->hashtable;
 
     u8** table = hashtable->table;
@@ -564,8 +620,7 @@ LIB_EXPORT rc_t KHashFileAdd(KHashFile* self, const void* key,
              * key/value.
              *
              * We do need to ensure the _compiler_ doesn't reorder the
-             * stores
-             * however, which is what the compiler barrier is for.
+             * stores however, which is what the compiler barrier is for.
              */
             COMPILER_BARRIER;
             table[bucket] = buf;
@@ -575,6 +630,7 @@ LIB_EXPORT rc_t KHashFileAdd(KHashFile* self, const void* key,
                 rc = rehash_segment(self, segment, hashtable->table_sz * 2);
 
             atomic64_inc(&self->count);
+
             KLockUnlock(seg->seglock);
 
             return rc;
@@ -601,6 +657,14 @@ LIB_EXPORT rc_t KHashFileAdd(KHashFile* self, const void* key,
             if (found) {
                 /* replacement */
                 if (value_size) {
+                    if (bkv.value_size == value_size
+                        && (memcmp(bkv.value, value, value_size) == 0)) {
+                        /* Identical */
+
+                        KLockUnlock(seg->seglock);
+                        return 0;
+                    }
+
                     void* buf = seg_alloc(self, segment, kvsize);
                     hkv_encode(&hkv, buf);
 
@@ -613,7 +677,6 @@ LIB_EXPORT rc_t KHashFileAdd(KHashFile* self, const void* key,
         }
 
         ++triangle;
-        if (triangle == 50) fprintf(stderr, "big add\n");
         bucket += (triangle * (triangle + 1) / 2);
     }
 }
@@ -629,8 +692,7 @@ LIB_EXPORT bool KHashFileDelete(KHashFile* self, const void* key,
     size_t segment = which_segment(bucket);
     Segment* seg = &self->segments[segment];
 
-    rc_t rc = KLockAcquire(seg->seglock);
-    if (rc) return false;
+    KLockAcquire(seg->seglock);
 
     Hashtable* hashtable = seg->hashtable;
     COMPILER_BARRIER;
@@ -661,14 +723,25 @@ LIB_EXPORT bool KHashFileDelete(KHashFile* self, const void* key,
         }
 
         ++triangle;
-        if (triangle == 50) fprintf(stderr, "big delete\n");
         bucket += (triangle * (triangle + 1) / 2);
     }
 }
 
 LIB_EXPORT rc_t KHashFileReserve(KHashFile* self, size_t capacity)
 {
-    /*return rehash(self, capacity); TODO*/
+    uint64_t lg2 = (uint64_t)uint64_msbit(capacity | 1);
+    capacity = 1ULL << (lg2 + 1);
+    size_t per_segment = 2 * capacity / NUM_SEGMENTS;
+
+    rc_t rc;
+    for (size_t i = 0; i != NUM_SEGMENTS; ++i) {
+        Segment* seg = &self->segments[i];
+        KLockAcquire(seg->seglock);
+        rc = rehash_segment(self, i, per_segment);
+        KLockUnlock(seg->seglock);
+        if (rc) return rc;
+    }
+
     return 0;
 }
 

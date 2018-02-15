@@ -29,6 +29,10 @@
 
 #include <ktst/unit_test.hpp>
 
+#include <arch-impl.h>
+#include <atomic.h>
+#include <cstdlib>
+#include <cstring>
 #include <kfs/defs.h>
 #include <kfs/directory.h>
 #include <kfs/file.h>
@@ -45,9 +49,6 @@
 #include <klib/vector.h>
 #include <kproc/lock.h>
 #include <kproc/thread.h>
-
-#include <cstdlib>
-#include <cstring>
 #include <stdexcept>
 #include <stdint.h>
 #include <stdio.h>
@@ -63,10 +64,26 @@ using namespace std;
 
 #define RANDS_SIZE 2000000
 static uint64_t RANDS[RANDS_SIZE];
+
 static volatile bool KEEPRUNNING = true;
+static atomic64_t FINDCOUNT;
 static KHashFile* HMAP = NULL;
+static KHashTable* HTABLE = NULL;
+static KLock* KLOCK = NULL;
 static KDirectory* DIR = NULL;
 static KFile* BACKING = NULL;
+
+/* Very fast RNG */
+static __inline uint64_t fastrng(uint64_t* state0)
+{
+    *state0 += 3800322248010097311ULL;
+    const uint64_t s0 = *state0;
+    const uint64_t rot = s0 >> 60;
+    *state0 *= 12898287266413564321ULL;
+    uint64_t xs = uint64_ror(s0, 18) + s0;
+    xs = uint64_ror(xs, rot);
+    return xs;
+}
 
 #define BENCHMARK
 
@@ -103,6 +120,8 @@ TEST_CASE(Klib_KHashFileSet)
     REQUIRE_RC(rc);
     REQUIRE_NE((void*)hset, (void*)NULL);
 
+    rc = KHashFileReserve(hset, 100);
+    REQUIRE_RC(rc);
     size_t sz = KHashFileCount(hset);
     REQUIRE_EQ(sz, (size_t)0);
 
@@ -203,7 +222,9 @@ TEST_CASE(Klib_hashfileMapDeletes)
 {
     rc_t rc;
 
-    KHashFile* hmap = NULL;
+    uint64_t state = random();
+
+    KHashFile* hmap;
     rc = KHashFileMake(&hmap, BACKING);
     REQUIRE_RC(rc);
 
@@ -213,10 +234,10 @@ TEST_CASE(Klib_hashfileMapDeletes)
     std::vector<std::string> strs, vals;
     const size_t loops = 10000;
     for (size_t i = 0; i != loops; ++i) {
-        strs.push_back(
-            string(1 + (random() % 500), char(32 + random() % 90)));
-        vals.push_back(
-            string(1 + (random() % 500), char(32 + random() % 90)));
+        strs.push_back(string(1 + (fastrng(&state) % 500),
+                              char(32 + fastrng(&state) % 90)));
+        vals.push_back(string(1 + (fastrng(&state) % 500),
+                              char(32 + fastrng(&state) % 90)));
     }
 
     std::unordered_map<std::string, std::string> map;
@@ -233,7 +254,7 @@ TEST_CASE(Klib_hashfileMapDeletes)
                           val.size());
         REQUIRE_RC(rc);
 
-        if (random() % 2) {
+        if (fastrng(&state) % 2) {
             map.erase(key);
             bool found = KHashFileDelete(hmap, key.data(), key.size(), hash);
             REQUIRE_EQ(found, true);
@@ -263,8 +284,9 @@ TEST_CASE(Klib_hashfileMapDeletes)
 static rc_t inserter(const KThread* thread, void* data)
 {
     rc_t rc;
+    uint64_t state = random();
     while (KEEPRUNNING) {
-        size_t idx = random() % RANDS_SIZE;
+        size_t idx = fastrng(&state) % RANDS_SIZE;
         uint64_t key = RANDS[idx];
         uint64_t val = key + 1;
         uint64_t hash = KHash((const char*)&key, 8);
@@ -283,8 +305,9 @@ static rc_t inserter(const KThread* thread, void* data)
 
 static rc_t deleter(const KThread* thread, void* data)
 {
+    uint64_t state = random();
     while (KEEPRUNNING) {
-        size_t idx = random() % RANDS_SIZE;
+        size_t idx = fastrng(&state) % RANDS_SIZE;
         uint64_t key = RANDS[idx];
         uint64_t hash = KHash((const char*)&key, 8);
         KHashFileDelete(HMAP, &key, sizeof(key), hash);
@@ -295,12 +318,14 @@ static rc_t deleter(const KThread* thread, void* data)
 
 static rc_t finder(const KThread* thread, void* data)
 {
+    uint64_t state = random();
     while (KEEPRUNNING) {
-        size_t idx = random() % RANDS_SIZE;
+        size_t idx = fastrng(&state) % RANDS_SIZE;
         uint64_t key = RANDS[idx];
         uint64_t val = 0;
         size_t val_size = 9;
         uint64_t hash = KHash((const char*)&key, 8);
+        atomic64_inc(&FINDCOUNT);
         bool found
             = KHashFileFind(HMAP, &key, sizeof(key), hash, &val, &val_size);
         if (found) {
@@ -323,8 +348,9 @@ static rc_t finder(const KThread* thread, void* data)
 
 static rc_t notfinder(const KThread* thread, void* data)
 {
+    uint64_t state = random();
     while (KEEPRUNNING) {
-        uint64_t key = random() * random() + random();
+        uint64_t key = fastrng(&state);
         uint64_t val = 9;
         size_t val_size = 9;
         uint64_t hash = KHash((const char*)&key, 8);
@@ -345,11 +371,10 @@ static rc_t notfinder(const KThread* thread, void* data)
 #ifdef BENCHMARK
 static rc_t bench_inserter(const KThread* thread, void* data)
 {
+    uint64_t state = random();
     rc_t rc;
-    uint64_t rnd = random() * random() + random();
     while (KEEPRUNNING) {
-        rnd *= 38259023411ULL;
-        rnd += 413234128309ULL;
+        uint64_t rnd = fastrng(&state);
         uint64_t key = rnd;
         uint64_t val = key + 1;
         uint64_t hash = KHash((const char*)&key, 8);
@@ -374,30 +399,172 @@ TEST_CASE(Klib_Bench_hashfilethreads)
         KThreadMake(&thrd, bench_inserter, (void*)i);
     }
 
-    while (KHashFileCount(HMAP) < 1000000) {
-        fprintf(stderr, "warming %lu\n", KHashFileCount(HMAP));
-        KSleepMs(100);
+    size_t oldcnt = KHashFileCount(HMAP);
+    stopwatch();
+    while (KHashFileCount(HMAP) < 100000000) {
+        size_t cnt = KHashFileCount(HMAP);
+        unsigned long us = stopwatch();
+        double ips = (double)(cnt - oldcnt) / us;
+        oldcnt = cnt;
+        fprintf(
+            stderr,
+            "%lu threads required %lu ms to insert %lu (%.1f Minserts/sec)\n",
+            NUM_THREADS, us / 1000, cnt, ips);
+        KSleepMs(1000);
+    }
+    KEEPRUNNING = false;
+    KSleepMs(1000);
+    KHashFileDispose(HMAP);
+}
+
+TEST_CASE(Klib_Bench_hashfiletune)
+{
+    rc_t rc;
+    uint8_t numts[] = {1, 5, 10, 20, 50, 100};
+    for (size_t nt = 0; nt != 6; ++nt) {
+        const size_t NUM_THREADS = numts[nt];
+        time_t starttime = time(NULL);
+
+        KEEPRUNNING = true;
+        rc = KHashFileMake(&HMAP, BACKING);
+        REQUIRE_RC(rc);
+        KHashFileReserve(HMAP, 100000000);
+        REQUIRE_RC(rc);
+
+        for (size_t i = 0; i != NUM_THREADS; ++i) {
+            KThread* thrd;
+            KThreadMake(&thrd, bench_inserter, (void*)i);
+        }
+
+        size_t oldcnt = KHashFileCount(HMAP);
+        stopwatch();
+        while (KHashFileCount(HMAP) < 100000000) {
+            size_t cnt = KHashFileCount(HMAP);
+            unsigned long us = stopwatch();
+            double ips = (double)(cnt - oldcnt) / us;
+            oldcnt = cnt;
+            fprintf(stderr,
+                    "%lu threads required %lu ms to insert %lu (%.1f "
+                    "Minserts/sec)\n",
+                    NUM_THREADS, us / 1000, cnt, ips);
+            KSleepMs(1000);
+        }
+
+        atomic64_set(&FINDCOUNT, 0);
+        KEEPRUNNING = false;
+        KSleepMs(1000);
+
+        KEEPRUNNING = true;
+        for (size_t i = 0; i != NUM_THREADS; ++i) {
+            KThread* thrd;
+            KThreadMake(&thrd, finder, (void*)i);
+        }
+
+        for (size_t loops = 0; loops != 10; ++loops) {
+            KSleepMs(1000);
+            fprintf(stderr, "FINDCOUNT is %lu\n", atomic64_read(&FINDCOUNT));
+        }
+        KEEPRUNNING = false;
+        KSleepMs(1000);
+
+        KHashFileDispose(HMAP);
+        time_t endtime = time(NULL);
+        fprintf(stderr, "time required %lu\n", endtime - starttime);
+    }
+}
+
+static rc_t table_bench_inserter(const KThread* thread, void* data)
+{
+    uint64_t state = random();
+    rc_t rc;
+    while (KEEPRUNNING) {
+        uint64_t rnd = fastrng(&state);
+        uint64_t key = rnd;
+        uint64_t val = key + 1;
+        uint64_t hash = KHash((const char*)&key, 8);
+        KLockAcquire(KLOCK);
+        rc = KHashTableAdd(HTABLE, &key, hash, &val);
+        if (rc != 0) {
+            fprintf(stderr, "Add failed\n");
+        }
+        KLockUnlock(KLOCK);
     }
 
-    stopwatch();
-    while (KHashFileCount(HMAP) < 10000000) {
-        fprintf(stderr, "warmed %lu\n", KHashFileCount(HMAP));
-        KSleepMs(100);
+    return 0;
+}
+
+static rc_t table_bench_finder(const KThread* thread, void* data)
+{
+    uint64_t state = random();
+    while (KEEPRUNNING) {
+        uint64_t rnd = fastrng(&state);
+        uint64_t key = rnd;
+        uint64_t val = 0;
+        uint64_t hash = KHash((const char*)&key, 8);
+        KLockAcquire(KLOCK);
+        KHashTableFind(HTABLE, &key, hash, &val);
+        KLockUnlock(KLOCK);
+        atomic64_inc(&FINDCOUNT);
     }
-    size_t cnt = KHashFileCount(HMAP);
-    unsigned long us = stopwatch();
-    double lps = (double)cnt / us;
-    fprintf(stderr,
-            "%lu threads required %lu ms to insert %lu (%.1f Minserts/sec)\n",
-            NUM_THREADS, us / 1000, cnt, lps);
-    KEEPRUNNING = false;
-    KSleepMs(100);
-    KHashFileDispose(HMAP);
+
+    return 0;
+}
+
+TEST_CASE(Klib_Bench_hashtableetune)
+{
+    rc_t rc;
+    KLockMake(&KLOCK);
+    uint8_t numts[] = {1, 5, 10, 20, 50, 100};
+    for (size_t nt = 0; nt != 6; ++nt) {
+        const size_t NUM_THREADS = numts[nt];
+        time_t starttime = time(NULL);
+
+        KEEPRUNNING = true;
+        rc = KHashTableMake(&HTABLE, 8, 8, 100 * 1000 * 1000, 0, raw);
+        REQUIRE_RC(rc);
+
+        for (size_t i = 0; i != NUM_THREADS; ++i) {
+            KThread* thrd;
+            KThreadMake(&thrd, table_bench_inserter, (void*)i);
+        }
+
+        size_t oldcnt = KHashTableCount(HTABLE);
+        stopwatch();
+        while (KHashTableCount(HTABLE) < 100000000) {
+            size_t cnt = KHashTableCount(HTABLE);
+            unsigned long us = stopwatch();
+            double ips = (double)(cnt - oldcnt) / us;
+            oldcnt = cnt;
+            fprintf(stderr,
+                    "table %lu threads required %lu ms to insert %lu (%.1f "
+                    "Minserts/sec)\n",
+                    NUM_THREADS, us / 1000, cnt, ips);
+            KSleepMs(1000);
+        }
+        KEEPRUNNING = false;
+        KSleepMs(1000);
+        time_t endtime = time(NULL);
+        fprintf(stderr, "time required %lu\n", endtime - starttime);
+
+        atomic64_set(&FINDCOUNT, 0);
+        KEEPRUNNING = true;
+        for (size_t i = 0; i != NUM_THREADS; ++i) {
+            KThread* thrd;
+            KThreadMake(&thrd, table_bench_finder, (void*)i);
+        }
+        KSleepMs(10000);
+        fprintf(stderr, "FINDCOUNT =%lu\n", atomic64_read(&FINDCOUNT));
+        KEEPRUNNING = false;
+        KSleepMs(1000);
+        KHashTableDispose(HTABLE, NULL, NULL, NULL);
+    }
+    KLockRelease(KLOCK);
 }
 #endif // BENCHMARK
 
 TEST_CASE(Klib_hashfilethreads)
 {
+    atomic64_set(&FINDCOUNT, 0);
     KEEPRUNNING = true;
     KHashFileMake(&HMAP, BACKING);
 
@@ -416,18 +583,13 @@ TEST_CASE(Klib_hashfilethreads)
         VectorAppend(&threads, NULL, thrd);
     }
 
-    while (KHashFileCount(HMAP) < 100000) {
-        fprintf(stderr, "%lu\n", KHashFileCount(HMAP));
-        KSleepMs(100);
-    }
-    fprintf(stderr, "warmed up\n");
-
     for (size_t loops = 0; loops != 10; ++loops) {
-        fprintf(stderr, "%lu\n", KHashFileCount(HMAP));
+        fprintf(stderr, "Count is %lu\n", KHashFileCount(HMAP));
         KSleepMs(1000);
+        fprintf(stderr, "FINDCOUNT =%lu\n", atomic64_read(&FINDCOUNT));
     }
     KEEPRUNNING = false;
-    KSleepMs(100);
+    KSleepMs(1000);
 
     for (long i = 0; i != VectorLength(&threads); ++i) {
         KThread* thrd = (KThread*)VectorGet(&threads, i);
@@ -453,9 +615,11 @@ rc_t CC KMain(int argc, char* argv[])
 {
     rc_t rc;
     srandom(time(NULL));
+    uint64_t state = random();
 
-    for (size_t i = 0; i != RANDS_SIZE; ++i)
-        RANDS[i] = (uint64_t)random() * random() * random() + random();
+    for (size_t i = 0; i != RANDS_SIZE; ++i) {
+        RANDS[i] = fastrng(&state);
+    }
 
     rc = KDirectoryNativeDir(&DIR);
     if (rc) return rc;
