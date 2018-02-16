@@ -35,6 +35,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#if LINUX
+#include <sys/mman.h>
+#endif
 
 #undef memcpy
 
@@ -79,7 +82,8 @@ struct KHashFile
 {
     KFile* file;
     atomic64_t count;
-    int64_t iterator;
+    size_t iter_seg;
+    size_t iter_ent;
     Segment segments[NUM_SEGMENTS];
     KLock* alloc_lock; /* protects below */
     u8* alloc_base;
@@ -289,7 +293,6 @@ static void* map_calloc(KHashFile* self, size_t size)
         req = MAX(req, self->alloc_chunk);
         /* Round up to 4K page size */
         req = ((req + 4095) / 4096) * 4096;
-
         if (self->file != NULL) {
             uint64_t filesize;
             rc = KFileSize(self->file, &filesize);
@@ -316,6 +319,10 @@ static void* map_calloc(KHashFile* self, size_t size)
                 KLockUnlock(self->alloc_lock);
                 return NULL;
             }
+#if LINUX
+            /* Not sure this helps */
+            madvise((void*)self->alloc_base, req, MADV_RANDOM);
+#endif
 
             self->alloc_remain = req;
             VectorAppend(&self->allocs, NULL, (void*)mm);
@@ -368,8 +375,6 @@ static rc_t rehash_segment(KHashFile* self, size_t segment, size_t capacity)
     assert(segment < NUM_SEGMENTS);
 
     /* Requires segment locked by caller */
-
-    self->iterator = -1; /* Invalidate any current iterators */
 
     Segment* seg = &self->segments[segment];
 
@@ -443,6 +448,7 @@ LIB_EXPORT rc_t KHashFileMake(KHashFile** self, KFile* hashfile)
     kht->file = hashfile;
     atomic64_set(&kht->count, 0);
     VectorInit(&kht->allocs, 0, 0);
+    self->iter_seg = NUM_SEGMENTS;
     kht->alloc_base = NULL;
     kht->alloc_remain = 0;
     kht->alloc_chunk = 0;
@@ -472,7 +478,6 @@ LIB_EXPORT void KHashFileDispose(KHashFile* self)
 {
     if (self == NULL) return;
 
-    self->iterator = -1;
     atomic64_set(&self->count, 0);
     /* TODO: Stop the world? */
     for (size_t i = 0; i != NUM_SEGMENTS; ++i) {
@@ -490,6 +495,7 @@ LIB_EXPORT void KHashFileDispose(KHashFile* self)
             KMMapRelease((KMMap*)alloc);
         }
     }
+    self->iter_seg = NUM_SEGMENTS;
     self->alloc_base = NULL;
     self->alloc_remain = 0;
     self->alloc_chunk = 0;
@@ -586,9 +592,7 @@ LIB_EXPORT rc_t KHashFileAdd(KHashFile* self, const void* key,
 
     KLockAcquire(seg->seglock);
 
-    Hashtable* hashtable;
-
-    hashtable = seg->hashtable;
+    Hashtable* hashtable = seg->hashtable;
 
     u8** table = hashtable->table;
     const uint64_t mask = hashtable->table_sz - 1;
@@ -747,47 +751,42 @@ LIB_EXPORT rc_t KHashFileReserve(KHashFile* self, size_t capacity)
 
 LIB_EXPORT void KHashFileIteratorMake(KHashFile* self)
 {
-    if (self != NULL) self->iterator = 0;
+    if (self == NULL) return;
+
+    self->iter_seg = 0;
+    self->iter_ent = 0;
 }
 
 LIB_EXPORT bool KHashFileIteratorNext(KHashFile* self, void* key,
                                       size_t* key_size, void* value,
                                       size_t* value_size)
 {
-    if (self == NULL || self->iterator == -1) return false;
-    /*
-        char* buckets = (char*)self->buckets;
+    if (self == NULL) return false;
 
-        const size_t key_size = self->key_size;
-        const size_t value_size = self->value_size;
+    while (1) {
+        if (self->iter_seg >= NUM_SEGMENTS) return false;
 
-        while (1) {
-            if ((size_t)self->iterator >= self->num_buckets) {
-                self->iterator = -1;
-                return false;
-            }
+        const Segment* seg = &self->segments[self->iter_seg];
+        const Hashtable* hashtable = seg->hashtable;
+        u8** table = hashtable->table;
+        const u8* kv = table[self->iter_ent];
 
-            char* bucketptr = buckets + (self->iterator *
-       sizeof(uint64_t *));
-            char* hashptr = bucketptr;
-            const char* keyptr = bucketptr + 8;
-            const char* valueptr = bucketptr + 8 + self->key_size;
-            uint64_t buckethash;
-            memcpy(&buckethash, hashptr, 8);
-
-            ++self->iterator;
-
-            if ((buckethash & BUCKET_VALID) && (buckethash &
-       BUCKET_VISIBLE))
-       {
-                memcpy(key, keyptr, key_size);
-                if (value && value_size) memcpy(value, valueptr,
-       value_size);
-                return true;
-            }
+        ++self->iter_ent;
+        if (self->iter_ent >= hashtable->table_sz) {
+            self->iter_ent = 0;
+            ++self->iter_seg;
         }
-        */
-    return false;
+
+        if (kv != BUCKET_INVALID && kv != BUCKET_INVISIBLE) {
+            HKV bkv;
+            hkv_decode(kv, &bkv);
+            if (key) memcpy(key, bkv.key, sizeof(void*));
+            if (key_size) *key_size = bkv.key_size;
+            if (value) memcpy(value, bkv.value, sizeof(void*));
+            if (value_size) *value_size = bkv.value_size;
+            return true;
+        }
+    }
 }
 
 #ifdef __cplusplus

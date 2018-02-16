@@ -67,11 +67,9 @@ static uint64_t RANDS[RANDS_SIZE];
 
 static volatile bool KEEPRUNNING = true;
 static atomic64_t FINDCOUNT;
-static KHashFile* HMAP = NULL;
-static KHashTable* HTABLE = NULL;
-static KLock* KLOCK = NULL;
 static KDirectory* DIR = NULL;
 static KFile* BACKING = NULL;
+static KHashFile* HMAP = NULL;
 
 /* Very fast RNG */
 static __inline uint64_t fastrng(uint64_t* state0)
@@ -85,9 +83,11 @@ static __inline uint64_t fastrng(uint64_t* state0)
     return xs;
 }
 
-#define BENCHMARK
+//#define BENCHMARK
 
 #ifdef BENCHMARK
+static KLock* KLOCK = NULL;
+static KHashTable* HTABLE = NULL;
 // Number of microseconds since last called
 static unsigned long stopwatch(void)
 {
@@ -401,17 +401,19 @@ TEST_CASE(Klib_Bench_hashfilethreads)
 
     size_t oldcnt = KHashFileCount(HMAP);
     stopwatch();
-    while (KHashFileCount(HMAP) < 100000000) {
+    fprintf(stderr, "10B\n");
+    while (KHashFileCount(HMAP) < 10 * 1000 * 1000 * 1000ULL) {
         size_t cnt = KHashFileCount(HMAP);
         unsigned long us = stopwatch();
         double ips = (double)(cnt - oldcnt) / us;
         oldcnt = cnt;
-        fprintf(
-            stderr,
-            "%lu threads required %lu ms to insert %lu (%.1f Minserts/sec)\n",
-            NUM_THREADS, us / 1000, cnt, ips);
+        fprintf(stderr,
+                " %lu threads required %lu ms to insert %lu (%.1f "
+                "Minserts/sec)\n",
+                NUM_THREADS, us / 1000, cnt, ips);
         KSleepMs(1000);
     }
+    fprintf(stderr, "Done\n");
     KEEPRUNNING = false;
     KSleepMs(1000);
     KHashFileDispose(HMAP);
@@ -553,7 +555,6 @@ TEST_CASE(Klib_Bench_hashtableetune)
             KThreadMake(&thrd, table_bench_finder, (void*)i);
         }
         KSleepMs(10000);
-        fprintf(stderr, "FINDCOUNT =%lu\n", atomic64_read(&FINDCOUNT));
         KEEPRUNNING = false;
         KSleepMs(1000);
         KHashTableDispose(HTABLE, NULL, NULL, NULL);
@@ -586,7 +587,6 @@ TEST_CASE(Klib_hashfilethreads)
     for (size_t loops = 0; loops != 10; ++loops) {
         fprintf(stderr, "Count is %lu\n", KHashFileCount(HMAP));
         KSleepMs(1000);
-        fprintf(stderr, "FINDCOUNT =%lu\n", atomic64_read(&FINDCOUNT));
     }
     KEEPRUNNING = false;
     KSleepMs(1000);
@@ -597,6 +597,105 @@ TEST_CASE(Klib_hashfilethreads)
     }
     VectorWhack(&threads, NULL, NULL);
     KHashFileDispose(HMAP);
+}
+
+TEST_CASE(Klib_HashFileIterator)
+{
+    const int loops = 10000;
+    rc_t rc;
+
+    KHashFile* hmap;
+    rc = KHashFileMake(&hmap, NULL);
+    REQUIRE_RC(rc);
+    uint32_t key;
+    uint32_t value;
+
+    std::unordered_map<uint32_t, uint32_t> map;
+    for (int iter = 0; iter != 2; ++iter) {
+        for (int i = 0; i != loops; ++i) {
+            key = random() % loops;
+            value = i;
+            uint64_t hash = KHash((char*)&key, 4);
+
+            auto pair = std::make_pair(key, value);
+            map.erase(key);
+            map.insert(pair);
+            rc = KHashFileAdd(hmap, (void*)&key, 4, hash, (void*)&value, 4);
+
+            size_t mapcount = map.size();
+            size_t hmapcount = KHashFileCount(hmap);
+            REQUIRE_EQ(mapcount, hmapcount);
+        }
+
+        for (int i = 0; i != loops; ++i) {
+            key = random() % loops;
+            uint64_t hash = KHash((char*)&key, 4);
+
+            map.erase(key);
+            KHashFileDelete(hmap, (void*)&key, 4, hash);
+            bool found
+                = KHashFileFind(hmap, (void*)&key, 4, hash, NULL, NULL);
+            REQUIRE_EQ(found, false);
+
+            size_t mapcount = map.size();
+            size_t hmapcount = KHashFileCount(hmap);
+            REQUIRE_EQ(mapcount, hmapcount);
+        }
+
+        for (int i = 0; i != loops; ++i) {
+            key = random() % loops;
+            value = random();
+            uint64_t hash = KHash((char*)&key, 4);
+
+            auto pair = std::make_pair(key, value);
+            map.erase(key);
+            map.insert(pair);
+            rc = KHashFileAdd(hmap, (void*)&key, 4, hash, (void*)&value, 4);
+
+            size_t mapcount = map.size();
+            size_t hmapcount = KHashFileCount(hmap);
+            REQUIRE_EQ(mapcount, hmapcount);
+        }
+
+        size_t founds = 0;
+        key = loops + 1;
+        KHashFileIteratorMake(hmap);
+        size_t key_size = 0;
+        size_t value_size = 0;
+        while (KHashFileIteratorNext(hmap, &key, &key_size, &value,
+                                     &value_size)) {
+            auto mapfound = map.find(key);
+            if (mapfound == map.end()) {
+                fprintf(stderr, "no key=%d\n", key);
+                REQUIRE_EQ(true, false);
+                REQUIRE_EQ(key_size, (size_t)0);
+                REQUIRE_EQ(value_size, (size_t)0);
+            } else {
+                uint32_t mvalue = mapfound->second;
+                REQUIRE_EQ(value, mvalue);
+                REQUIRE_EQ(key_size, (size_t)4);
+                REQUIRE_EQ(value_size, (size_t)4);
+                ++founds;
+            }
+            key_size = 0;
+            value_size = 0;
+        }
+        size_t mapcount = map.size();
+        size_t hmapcount = KHashFileCount(hmap);
+        REQUIRE_EQ(founds, hmapcount);
+
+        KHashFileIteratorMake(hmap);
+        while (KHashFileIteratorNext(hmap, &key, NULL, NULL, NULL)) {
+            map.erase(key);
+            uint64_t hash = KHash((char*)&key, 4);
+            KHashFileDelete(hmap, (void*)&key, 4, hash);
+        }
+        mapcount = map.size();
+        hmapcount = KHashFileCount(hmap);
+        REQUIRE_EQ(mapcount, hmapcount);
+        REQUIRE_EQ(mapcount, (size_t)0);
+    }
+    KHashFileDispose(hmap);
 }
 
 extern "C" {

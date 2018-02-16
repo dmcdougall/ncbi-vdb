@@ -93,8 +93,8 @@ KLIB_EXTERN bool KHashFileDelete(KHashFile* self, const void* key,
                                  const size_t key_size, uint64_t keyhash);
 
 /* Make Iterator.
- * Will become invalid after any insertions. Only one valid iterator per
- * KHashFile at a time.
+ * Keys added after IteratorMake may not appear.
+ * Only one valid iterator per KHashFile at a time.
  */
 KLIB_EXTERN void KHashFileIteratorMake(KHashFile* self);
 
