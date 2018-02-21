@@ -614,12 +614,14 @@ TEST_CASE(Klib_HashFileIterator)
     for (int iter = 0; iter != 2; ++iter) {
         for (int i = 0; i != loops; ++i) {
             key = random() % loops;
-            value = i;
-            uint64_t hash = KHash((char*)&key, 4);
+            value = key + 1;
 
             auto pair = std::make_pair(key, value);
             map.erase(key);
             map.insert(pair);
+
+            uint64_t hash = KHash((char*)&key, 4);
+            KHashFileDelete(hmap, (void*)&key, 4, hash);
             rc = KHashFileAdd(hmap, (void*)&key, 4, hash, (void*)&value, 4);
 
             size_t mapcount = map.size();
@@ -629,9 +631,10 @@ TEST_CASE(Klib_HashFileIterator)
 
         for (int i = 0; i != loops; ++i) {
             key = random() % loops;
-            uint64_t hash = KHash((char*)&key, 4);
 
             map.erase(key);
+
+            uint64_t hash = KHash((char*)&key, 4);
             KHashFileDelete(hmap, (void*)&key, 4, hash);
             bool found
                 = KHashFileFind(hmap, (void*)&key, 4, hash, NULL, NULL);
@@ -644,12 +647,14 @@ TEST_CASE(Klib_HashFileIterator)
 
         for (int i = 0; i != loops; ++i) {
             key = random() % loops;
-            value = random();
-            uint64_t hash = KHash((char*)&key, 4);
+            value = (uint32_t)random();
 
             auto pair = std::make_pair(key, value);
             map.erase(key);
             map.insert(pair);
+
+            uint64_t hash = KHash((char*)&key, 4);
+            KHashFileDelete(hmap, (void*)&key, 4, hash);
             rc = KHashFileAdd(hmap, (void*)&key, 4, hash, (void*)&value, 4);
 
             size_t mapcount = map.size();
@@ -657,31 +662,35 @@ TEST_CASE(Klib_HashFileIterator)
             REQUIRE_EQ(mapcount, hmapcount);
         }
 
+        size_t mapcount = map.size();
+        size_t hmapcount = KHashFileCount(hmap);
+        REQUIRE_EQ(mapcount, hmapcount);
+
         size_t founds = 0;
         key = loops + 1;
-        KHashFileIteratorMake(hmap);
         size_t key_size = 0;
         size_t value_size = 0;
+        KHashFileIteratorMake(hmap);
         while (KHashFileIteratorNext(hmap, &key, &key_size, &value,
                                      &value_size)) {
             auto mapfound = map.find(key);
             if (mapfound == map.end()) {
                 fprintf(stderr, "no key=%d\n", key);
-                REQUIRE_EQ(true, false);
                 REQUIRE_EQ(key_size, (size_t)0);
                 REQUIRE_EQ(value_size, (size_t)0);
+                REQUIRE_EQ(true, false);
             } else {
-                uint32_t mvalue = mapfound->second;
-                REQUIRE_EQ(value, mvalue);
                 REQUIRE_EQ(key_size, (size_t)4);
                 REQUIRE_EQ(value_size, (size_t)4);
+                uint32_t mvalue = mapfound->second;
+                REQUIRE_EQ(value, mvalue);
                 ++founds;
             }
             key_size = 0;
             value_size = 0;
         }
-        size_t mapcount = map.size();
-        size_t hmapcount = KHashFileCount(hmap);
+        mapcount = map.size();
+        hmapcount = KHashFileCount(hmap);
         REQUIRE_EQ(founds, hmapcount);
 
         KHashFileIteratorMake(hmap);

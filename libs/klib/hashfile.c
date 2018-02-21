@@ -448,7 +448,7 @@ LIB_EXPORT rc_t KHashFileMake(KHashFile** self, KFile* hashfile)
     kht->file = hashfile;
     atomic64_set(&kht->count, 0);
     VectorInit(&kht->allocs, 0, 0);
-    self->iter_seg = NUM_SEGMENTS;
+    kht->iter_seg = NUM_SEGMENTS;
     kht->alloc_base = NULL;
     kht->alloc_remain = 0;
     kht->alloc_chunk = 0;
@@ -479,7 +479,7 @@ LIB_EXPORT void KHashFileDispose(KHashFile* self)
     if (self == NULL) return;
 
     atomic64_set(&self->count, 0);
-    /* TODO: Stop the world? */
+
     for (size_t i = 0; i != NUM_SEGMENTS; ++i) {
         self->segments[i].hashtable = NULL;
         KLockRelease(self->segments[i].seglock);
@@ -780,9 +780,9 @@ LIB_EXPORT bool KHashFileIteratorNext(KHashFile* self, void* key,
         if (kv != BUCKET_INVALID && kv != BUCKET_INVISIBLE) {
             HKV bkv;
             hkv_decode(kv, &bkv);
-            if (key) memcpy(key, bkv.key, sizeof(void*));
+            if (key) memcpy(key, bkv.key, bkv.key_size);
             if (key_size) *key_size = bkv.key_size;
-            if (value) memcpy(value, bkv.value, sizeof(void*));
+            if (value) memcpy(value, bkv.value, bkv.value_size);
             if (value_size) *value_size = bkv.value_size;
             return true;
         }
